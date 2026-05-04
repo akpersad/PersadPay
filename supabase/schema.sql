@@ -40,7 +40,6 @@ create table public.settings (
   employer_ein                    text,
   employer_address                text,
   employee_name                   text,
-  employee_id_display             text,
   employee_email                  text,
   employee_hourly_rate            numeric(10,2),
   federal_withholding_per_period  numeric(10,2) default 0,

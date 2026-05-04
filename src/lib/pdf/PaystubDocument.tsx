@@ -69,10 +69,6 @@ export function PaystubDocument({ stub, settings, variant }: Props) {
             <Text style={styles.infoValue}>{settings.employee_name ?? '—'}</Text>
           </View>
           <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Employee ID</Text>
-            <Text style={styles.infoValue}>{settings.employee_id_display ?? '—'}</Text>
-          </View>
-          <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>Pay Schedule</Text>
             <Text style={styles.infoValue}>Weekly</Text>
           </View>

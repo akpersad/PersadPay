@@ -14,7 +14,6 @@ export interface Settings {
   employer_ein: string | null
   employer_address: string | null
   employee_name: string | null
-  employee_id_display: string | null
   employee_email: string | null
   employee_hourly_rate: number | null
   federal_withholding_per_period: number
@@ -109,7 +108,6 @@ export interface PaystubWithYTD extends Paystub {
 
 export interface W2Data {
   employee_name: string
-  employee_id_display: string
   employer_name: string
   employer_ein: string
   employer_address: string

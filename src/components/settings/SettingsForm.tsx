@@ -28,7 +28,6 @@ export function SettingsForm({ settings: initial }: Props) {
   const [employerEin, setEmployerEin] = useState(s.employer_ein ?? '')
   const [employerAddress, setEmployerAddress] = useState(s.employer_address ?? '')
   const [employeeName, setEmployeeName] = useState(s.employee_name ?? '')
-  const [employeeIdDisplay, setEmployeeIdDisplay] = useState(s.employee_id_display ?? '')
   const [employeeEmail, setEmployeeEmail] = useState(s.employee_email ?? '')
   const [hourlyRate, setHourlyRate] = useState(s.employee_hourly_rate?.toString() ?? '')
   const [federalWithholding, setFederalWithholding] = useState(s.federal_withholding_per_period?.toString() ?? '0')
@@ -50,7 +49,6 @@ export function SettingsForm({ settings: initial }: Props) {
       employer_ein: employerEin || null,
       employer_address: employerAddress || null,
       employee_name: employeeName || null,
-      employee_id_display: employeeIdDisplay || null,
       employee_email: employeeEmail || null,
       employee_hourly_rate: hourlyRate ? parseFloat(hourlyRate) : null,
       federal_withholding_per_period: parseFloat(federalWithholding || '0'),
@@ -89,7 +87,6 @@ export function SettingsForm({ settings: initial }: Props) {
 
       <Section title="Employee">
         <Field label="Full Name" value={employeeName} onChange={setEmployeeName} />
-        <Field label="Employee ID" value={employeeIdDisplay} onChange={setEmployeeIdDisplay} placeholder="EMP-001" />
         <Field label="Email" value={employeeEmail} onChange={setEmployeeEmail} type="email" />
         <Field label="Hourly Rate ($)" value={hourlyRate} onChange={setHourlyRate} type="number" placeholder="20.00" />
       </Section>
