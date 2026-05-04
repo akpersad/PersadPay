@@ -1,6 +1,6 @@
 import { Resend } from 'resend'
-import type { Settings, PaystubWithYTD, W2 } from './types'
-import { formatDateRange } from './dates'
+import type { Settings, PaystubWithYTD, W2, Reminder } from './types'
+import { formatDate, formatDateRange } from './dates'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -36,6 +36,33 @@ export async function sendStubEmail(
               content: pdfBuffer,
             },
           ],
+        })
+      )
+    )
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: String(err) }
+  }
+}
+
+export async function sendReminderEmail(
+  settings: Settings,
+  reminder: Reminder,
+): Promise<{ success: boolean; error?: string }> {
+  const recipients = (settings.reminder_emails ?? []).filter(Boolean)
+  if (!recipients.length) return { success: true }
+
+  const subject = `Reminder: ${reminder.title} due ${formatDate(reminder.due_date)}`
+  const body = `This is a reminder that ${reminder.title} is due on ${formatDate(reminder.due_date)}.\n\n${reminder.description}\n\nPersad Pay`
+
+  try {
+    await Promise.all(
+      recipients.map(to =>
+        resend.emails.send({
+          from: FROM,
+          to,
+          subject,
+          text: body,
         })
       )
     )
