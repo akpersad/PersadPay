@@ -31,8 +31,8 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
-  // Unauthenticated users can only access /
-  if (!user && pathname !== '/') {
+  const PUBLIC_PATHS = ['/', '/manifest.webmanifest', '/sw.js']
+  if (!user && !PUBLIC_PATHS.includes(pathname)) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
