@@ -1,16 +1,18 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { X, Plus, LogOut } from 'lucide-react'
+import { X, Plus, LogOut, History } from 'lucide-react'
 import type { Settings } from '@/lib/types'
 
 interface Props {
@@ -145,6 +147,11 @@ export function SettingsForm({ settings: initial }: Props) {
       <Button className="w-full" disabled={saving} onClick={save}>
         {saving ? 'Saving…' : 'Save Settings'}
       </Button>
+
+      <Link href="/settings/history" className={cn(buttonVariants({ variant: 'outline' }), 'w-full')}>
+        <History className="h-4 w-4 mr-2" />
+        View change history
+      </Link>
 
       <Separator />
 

@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,16 +16,28 @@ import {
 } from '@/components/ui/dialog'
 import { formatDate, formatDateRange, formatCurrency } from '@/lib/dates'
 import { toast } from 'sonner'
-import { Download, Mail, Trash2, CheckCircle2 } from 'lucide-react'
-import type { PaystubWithYTD, Settings, Role } from '@/lib/types'
+import { Download, Mail, Trash2, CheckCircle2, Pencil } from 'lucide-react'
+import type { PaystubWithYTD, Settings, Role, PaystubLineItem } from '@/lib/types'
 
 interface Props {
   stub: PaystubWithYTD
   role: Role
   settings: Settings | null
+  lineItems?: PaystubLineItem[]
+  ytdByLineType?: Record<string, number>
 }
 
-export function StubDetail({ stub, role, settings }: Props) {
+export function StubDetail({ stub, role, settings, lineItems = [], ytdByLineType = {} }: Props) {
+  const taxableLineItems = lineItems.filter(i =>
+    !i.informational_only && (i.taxable_fed || i.taxable_fica || i.taxable_ny || i.w2_box1)
+  )
+  const reimbursementLineItems = lineItems.filter(i =>
+    !i.informational_only && !i.taxable_fed && !i.taxable_fica && !i.taxable_ny && !i.w2_box1
+  )
+  const informationalLineItems = lineItems.filter(i => i.informational_only)
+  const givenSeparatelyItems = lineItems.filter(i => !i.informational_only && i.given_separately)
+  const givenSeparatelyTotal = givenSeparatelyItems.reduce((sum, i) => sum + Number(i.amount), 0)
+  const cashToZelle = Math.round((Number(stub.net_pay) - givenSeparatelyTotal) * 100) / 100
   const router = useRouter()
   const [, startTransition] = useTransition()
 
@@ -63,7 +77,12 @@ export function StubDetail({ stub, role, settings }: Props) {
       body: JSON.stringify({ stubId: stub.id }),
     })
     if (!res.ok) {
-      toast.error('Failed to send email. Please try again.')
+      let detail = ''
+      try {
+        const json = await res.json()
+        detail = json?.error ? `: ${json.error}` : ''
+      } catch { /* ignore */ }
+      toast.error(`Failed to send email${detail}`)
     } else {
       toast.success('Pay stub emailed successfully.')
       startTransition(() => router.refresh())
@@ -121,11 +140,37 @@ export function StubDetail({ stub, role, settings }: Props) {
           <div className="grid grid-cols-3 text-xs text-muted-foreground pb-1">
             <span>Description</span><span className="text-right">Current</span><span className="text-right">YTD</span>
           </div>
-          <div className="grid grid-cols-3 text-sm">
-            <span>{stub.hours_worked === 0 ? 'No Hours — Week Off' : `Regular (${stub.hours_worked}h @ ${formatCurrency(Number(stub.hourly_rate))})`}</span>
-            <span className="text-right">{formatCurrency(Number(stub.gross_pay))}</span>
-            <span className="text-right">{formatCurrency(stub.ytd_gross)}</span>
-          </div>
+          {stub.hours_worked === 0 && taxableLineItems.length === 0 ? (
+            <div className="grid grid-cols-3 text-sm">
+              <span>No Hours — Week Off</span>
+              <span className="text-right">{formatCurrency(0)}</span>
+              <span className="text-right">{formatCurrency(stub.ytd_gross)}</span>
+            </div>
+          ) : (
+            <>
+              {stub.hours_worked > 0 && (
+                <div className="grid grid-cols-3 text-sm">
+                  <span>Regular ({stub.hours_worked}h @ {formatCurrency(Number(stub.hourly_rate))})</span>
+                  <span className="text-right">{formatCurrency(Number(stub.hours_worked) * Number(stub.hourly_rate))}</span>
+                  <span className="text-right">{formatCurrency(stub.ytd_regular_wages)}</span>
+                </div>
+              )}
+              {taxableLineItems.map(item => (
+                <div key={item.id} className="grid grid-cols-3 text-sm">
+                  <span>{item.label}</span>
+                  <span className="text-right">{formatCurrency(Number(item.amount))}</span>
+                  <span className="text-right">{formatCurrency(ytdByLineType[item.line_type] ?? Number(item.amount))}</span>
+                </div>
+              ))}
+              {taxableLineItems.length > 0 && (
+                <div className="grid grid-cols-3 text-sm font-medium border-t pt-1">
+                  <span>Gross taxable wages</span>
+                  <span className="text-right">{formatCurrency(Number(stub.gross_pay))}</span>
+                  <span className="text-right">{formatCurrency(stub.ytd_gross)}</span>
+                </div>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -152,6 +197,75 @@ export function StubDetail({ stub, role, settings }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Cash to Zelle — only when something was given outside the regular payment */}
+      {givenSeparatelyItems.length > 0 && (
+        <Card>
+          <CardHeader className="pb-1 pt-4">
+            <CardTitle className="text-xs text-muted-foreground uppercase tracking-wide">Payment</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 pb-4">
+            <div className="flex justify-between text-sm">
+              <span>Net Pay (total compensation)</span>
+              <span>{formatCurrency(Number(stub.net_pay))}</span>
+            </div>
+            <p className="text-xs text-muted-foreground pt-1">Already given (not in Zelle)</p>
+            {givenSeparatelyItems.map(item => (
+              <div key={item.id} className="flex justify-between text-sm text-muted-foreground">
+                <span>{item.label}</span>
+                <span>−{formatCurrency(Number(item.amount))}</span>
+              </div>
+            ))}
+            <Separator />
+            <div className="flex justify-between text-sm font-semibold">
+              <span>Cash to Zelle</span>
+              <span>{formatCurrency(cashToZelle)}</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Non-taxable reimbursements */}
+      {reimbursementLineItems.length > 0 && (
+        <Card>
+          <CardHeader className="pb-1 pt-4">
+            <CardTitle className="text-xs text-muted-foreground uppercase tracking-wide">Non-taxable Reimbursements</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 pb-4">
+            <div className="grid grid-cols-3 text-xs text-muted-foreground pb-1">
+              <span>Description</span><span className="text-right">Current</span><span className="text-right">YTD</span>
+            </div>
+            {reimbursementLineItems.map(item => (
+              <div key={item.id} className="grid grid-cols-3 text-sm">
+                <span>{item.label}</span>
+                <span className="text-right">{formatCurrency(Number(item.amount))}</span>
+                <span className="text-right">{formatCurrency(ytdByLineType[item.line_type] ?? Number(item.amount))}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Informational only — admin only */}
+      {isAdmin && informationalLineItems.length > 0 && (
+        <Card>
+          <CardHeader className="pb-1 pt-4">
+            <CardTitle className="text-xs text-muted-foreground uppercase tracking-wide">Informational (not paid)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 pb-4">
+            <div className="grid grid-cols-3 text-xs text-muted-foreground pb-1">
+              <span>Description</span><span className="text-right">Current</span><span className="text-right">YTD</span>
+            </div>
+            {informationalLineItems.map(item => (
+              <div key={item.id} className="grid grid-cols-3 text-xs text-muted-foreground">
+                <span>{item.label}</span>
+                <span className="text-right">{formatCurrency(Number(item.amount))}</span>
+                <span className="text-right">{formatCurrency(ytdByLineType[item.line_type] ?? Number(item.amount))}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Employer taxes — admin only */}
       {isAdmin && (
@@ -186,10 +300,19 @@ export function StubDetail({ stub, role, settings }: Props) {
         {isAdmin && (
           <>
             {!stub.payment_sent && (
-              <Button className="w-full" onClick={() => setPaymentDialog(true)}>
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Mark Payment Sent
-              </Button>
+              <>
+                <Link
+                  href={`/stubs/${stub.id}/edit`}
+                  className={cn(buttonVariants({ variant: 'outline' }), 'w-full')}
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit Stub
+                </Link>
+                <Button className="w-full" onClick={() => setPaymentDialog(true)}>
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Mark Payment Sent
+                </Button>
+              </>
             )}
 
             {stub.payment_sent && !stub.stub_sent && (

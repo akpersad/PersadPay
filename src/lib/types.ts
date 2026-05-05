@@ -92,6 +92,10 @@ export interface W2 {
 // Paystub with pre-calculated YTD values — passed to PDF renderer
 export interface PaystubWithYTD extends Paystub {
   ytd_gross: number
+  // Regular wages YTD = sum(hours_worked × hourly_rate) across the year. Distinct
+  // from ytd_gross (which includes taxable additional pay like bonuses + gift cards)
+  // so the "Regular" row on the stub shows the right per-line YTD.
+  ytd_regular_wages: number
   ytd_federal_withholding: number
   ytd_fica_social_security: number
   ytd_fica_medicare: number
@@ -105,6 +109,33 @@ export interface PaystubWithYTD extends Paystub {
   ytd_net_pay: number
   ytd_total_employee_taxes: number
   total_employee_taxes: number
+}
+
+export interface PaystubLineItem {
+  id: string
+  paystub_id: string
+  line_type: string
+  label: string
+  amount: number
+  taxable_fed: boolean
+  taxable_fica: boolean
+  taxable_ny: boolean
+  w2_box1: boolean
+  informational_only: boolean
+  given_separately: boolean
+  sort_order: number
+  created_at: string
+}
+
+export interface AuditLogEntry {
+  id: string
+  table_name: string
+  record_id: string | null
+  action: 'INSERT' | 'UPDATE' | 'DELETE'
+  actor_id: string | null
+  before_data: Record<string, unknown> | null
+  after_data: Record<string, unknown> | null
+  created_at: string
 }
 
 export interface Filing {

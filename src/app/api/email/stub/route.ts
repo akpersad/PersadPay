@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendStubEmail } from '@/lib/email'
 import { generateStubPDF } from '@/lib/pdf'
-import type { Paystub, Settings, PaystubWithYTD } from '@/lib/types'
+import type { Paystub, Settings, PaystubWithYTD, PaystubLineItem } from '@/lib/types'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -34,9 +34,16 @@ export async function POST(request: Request) {
   const sum = (key: keyof Paystub) => prior.reduce((acc, s) => acc + Number(s[key] ?? 0), 0)
   const totalEmpTaxes = Number(stub.federal_withholding) + Number(stub.fica_social_security) + Number(stub.fica_medicare) + Number(stub.state_withholding) + Number(stub.sdi) + Number(stub.pfl)
 
+  const regularWagesPrior = prior.reduce(
+    (acc, s) => acc + Number(s.hours_worked) * Number(s.hourly_rate),
+    0,
+  )
+  const regularWagesThisStub = Number(stub.hours_worked) * Number(stub.hourly_rate)
+
   const stubWithYTD: PaystubWithYTD = {
     ...stub,
     ytd_gross: sum('gross_pay') + Number(stub.gross_pay),
+    ytd_regular_wages: regularWagesPrior + regularWagesThisStub,
     ytd_federal_withholding: sum('federal_withholding') + Number(stub.federal_withholding),
     ytd_fica_social_security: sum('fica_social_security') + Number(stub.fica_social_security),
     ytd_fica_medicare: sum('fica_medicare') + Number(stub.fica_medicare),
@@ -52,7 +59,34 @@ export async function POST(request: Request) {
     total_employee_taxes: totalEmpTaxes,
   }
 
-  const pdfBuffer = await generateStubPDF(stubWithYTD, settings, 'employee')
+  const stubIdsInYear = ((ytdStubs ?? []) as Paystub[]).map(s => s.id)
+
+  const [{ data: lineItems }, { data: ytdLineItemRows }] = await Promise.all([
+    supabase
+      .from('paystub_line_items')
+      .select('*')
+      .eq('paystub_id', stubId)
+      .order('sort_order', { ascending: true }),
+    stubIdsInYear.length > 0
+      ? supabase
+          .from('paystub_line_items')
+          .select('line_type, amount')
+          .in('paystub_id', stubIdsInYear)
+      : Promise.resolve({ data: [] }),
+  ])
+
+  const ytdByLineType: Record<string, number> = {}
+  for (const row of (ytdLineItemRows ?? []) as { line_type: string; amount: number }[]) {
+    ytdByLineType[row.line_type] = (ytdByLineType[row.line_type] ?? 0) + Number(row.amount)
+  }
+
+  const pdfBuffer = await generateStubPDF(
+    stubWithYTD,
+    settings,
+    'employee',
+    (lineItems ?? []) as PaystubLineItem[],
+    ytdByLineType,
+  )
   const result = await sendStubEmail(stubWithYTD, settings, pdfBuffer)
 
   if (!result.success) {

@@ -4,7 +4,43 @@ import { formatDate, formatDateRange } from './dates'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-const FROM = 'Persad Pay <payroll@persadpay.com>'
+// TODO: switch to 'Persad Pay <payroll@persadpay.com>' once the persadpay.com
+// domain is purchased and verified in Resend (DNS SPF/DKIM records added).
+// Using Resend's sandbox sender as a temporary stand-in. The sandbox sender
+// only delivers to email addresses verified on the Resend account, which is
+// fine for dev/testing but won't reach the babysitter's real address.
+// Tracked in: onboarding checklist + /docs/ROADMAP.md User TODOs.
+const FROM = 'Persad Pay <onboarding@resend.dev>'
+
+// Resend's SDK returns { data, error } and does NOT throw on API errors
+// (unverified domain, invalid recipient, rate limits, etc.). If we don't
+// inspect `error` we get false positives — the email looks like it sent
+// when Resend actually rejected it.
+async function sendOne(payload: Parameters<typeof resend.emails.send>[0]): Promise<string | null> {
+  try {
+    const { error } = await resend.emails.send(payload)
+    if (error) {
+      console.error('[resend] send failed:', error)
+      return error.message ?? JSON.stringify(error)
+    }
+    return null
+  } catch (err) {
+    console.error('[resend] threw:', err)
+    return err instanceof Error ? err.message : String(err)
+  }
+}
+
+async function sendAll(payloads: Parameters<typeof resend.emails.send>[0][]): Promise<{ success: boolean; error?: string }> {
+  if (!process.env.RESEND_API_KEY) {
+    console.error('[resend] RESEND_API_KEY is not set')
+    return { success: false, error: 'RESEND_API_KEY is not configured' }
+  }
+  const errors = (await Promise.all(payloads.map(sendOne))).filter((e): e is string => !!e)
+  if (errors.length) {
+    return { success: false, error: errors.join('; ') }
+  }
+  return { success: true }
+}
 
 export async function sendStubEmail(
   stub: PaystubWithYTD,
@@ -21,28 +57,19 @@ export async function sendStubEmail(
 
   const replyTo = settings.reply_to_emails?.length ? settings.reply_to_emails : undefined
 
-  try {
-    await Promise.all(
-      recipients.map(to =>
-        resend.emails.send({
-          from: FROM,
-          to,
-          ...(replyTo ? { replyTo } : {}),
-          subject,
-          text: body,
-          attachments: [
-            {
-              filename: `paystub-${stub.stub_number}.pdf`,
-              content: pdfBuffer,
-            },
-          ],
-        })
-      )
-    )
-    return { success: true }
-  } catch (err) {
-    return { success: false, error: String(err) }
-  }
+  return sendAll(recipients.map(to => ({
+    from: FROM,
+    to,
+    ...(replyTo ? { replyTo } : {}),
+    subject,
+    text: body,
+    attachments: [
+      {
+        filename: `paystub-${stub.stub_number}.pdf`,
+        content: pdfBuffer,
+      },
+    ],
+  })))
 }
 
 export async function sendReminderEmail(
@@ -55,21 +82,12 @@ export async function sendReminderEmail(
   const subject = `Reminder: ${reminder.title} due ${formatDate(reminder.due_date)}`
   const body = `This is a reminder that ${reminder.title} is due on ${formatDate(reminder.due_date)}.\n\n${reminder.description}\n\nPersad Pay`
 
-  try {
-    await Promise.all(
-      recipients.map(to =>
-        resend.emails.send({
-          from: FROM,
-          to,
-          subject,
-          text: body,
-        })
-      )
-    )
-    return { success: true }
-  } catch (err) {
-    return { success: false, error: String(err) }
-  }
+  return sendAll(recipients.map(to => ({
+    from: FROM,
+    to,
+    subject,
+    text: body,
+  })))
 }
 
 export async function sendW2Email(
@@ -87,26 +105,17 @@ export async function sendW2Email(
 
   const replyTo = settings.reply_to_emails?.length ? settings.reply_to_emails : undefined
 
-  try {
-    await Promise.all(
-      recipients.map(to =>
-        resend.emails.send({
-          from: FROM,
-          to,
-          ...(replyTo ? { replyTo } : {}),
-          subject,
-          text: body,
-          attachments: [
-            {
-              filename: `w2-${w2.tax_year}.pdf`,
-              content: pdfBuffer,
-            },
-          ],
-        })
-      )
-    )
-    return { success: true }
-  } catch (err) {
-    return { success: false, error: String(err) }
-  }
+  return sendAll(recipients.map(to => ({
+    from: FROM,
+    to,
+    ...(replyTo ? { replyTo } : {}),
+    subject,
+    text: body,
+    attachments: [
+      {
+        filename: `w2-${w2.tax_year}.pdf`,
+        content: pdfBuffer,
+      },
+    ],
+  })))
 }
