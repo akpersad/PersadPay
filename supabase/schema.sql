@@ -39,6 +39,7 @@ create table public.settings (
   employer_name                   text,
   employer_ein                    text,
   employer_address                text,
+  employer_phone                  text,
   employee_name                   text,
   employee_email                  text,
   employee_hourly_rate            numeric(10,2),
@@ -186,15 +187,17 @@ insert into public.onboarding_checklist (label, detail, sort_order) values
   ('Apply for Federal EIN at irs.gov', 'File IRS Form SS-4 online at irs.gov/businesses/small-businesses-self-employed/apply-for-an-employer-identification-number-ein-online', 1),
   ('Register with New York State', 'File Form NYS-100 at labor.ny.gov to register as a household employer', 2),
   ('File new hire report with NY', 'Report within 20 days of hire at labor.ny.gov/newhire — required by law', 3),
-  ('Have employee complete Federal W-4', 'Withholding certificate required before first paycheck', 4),
-  ('Have employee complete NY IT-2104', 'NY State equivalent of the W-4', 5),
-  ('Determine PFL waiver eligibility', 'Employees working <20 hrs/week may waive PFL. Obtain signed waiver if applicable.', 6),
-  ('Purchase persadpay.com domain', 'Purchase at GoDaddy or your preferred registrar', 7),
-  ('Add Vercel DNS records to domain registrar', 'Point your domain to Vercel after deploying', 8),
-  ('Sign up for Resend and verify persadpay.com', 'Verify the domain for outbound email at resend.com', 9),
-  ('Fill out all fields in Persad Pay Settings', 'Navigate to Settings and complete all employer/employee fields', 10),
-  ('Create Supabase user accounts for all three users', 'Create accounts in Supabase Auth dashboard with role metadata', 11),
-  ('Confirm quarterly reminders are seeded in Reminders tab', 'Check that all NYS-45 and Schedule H reminders appear', 12);
+  ('Provide signed LS-59 Wage Notice to employee', 'NY Labor Law § 195(1) requires a Wage Theft Prevention Act notice at hire (Form LS-59 for hourly employees) in English plus the employee''s primary language. Employee signs; retain copy for 6 years. Form: https://dol.ny.gov/system/files/documents/2022/02/ls59.pdf', 4),
+  ('Have employee complete Federal W-4', 'Withholding certificate required before first paycheck', 5),
+  ('Have employee complete NY IT-2104', 'NY State equivalent of the W-4', 6),
+  ('Obtain signed PFL-Waiver form (employee <20 hrs/week)', 'Employees working a regular schedule of <20 hrs/week AND fewer than 175 days in a 52-week period may waive PFL contributions. Use the official PFL-Waiver form at https://paidfamilyleave.ny.gov/pfl-waiver-form. Retain signed waiver for the entire duration of employment. Waiver auto-revokes if schedule changes — back contributions may be owed retroactively.', 7),
+  ('Purchase persadpay.com domain', 'Purchase at GoDaddy or your preferred registrar', 8),
+  ('Add Vercel DNS records to domain registrar', 'Point your domain to Vercel after deploying', 9),
+  ('Sign up for Resend and verify persadpay.com', 'Verify the domain for outbound email at resend.com', 10),
+  ('Fill out all fields in Persad Pay Settings', 'Navigate to Settings and complete all employer/employee fields', 11),
+  ('Create Supabase user accounts for all three users', 'Create accounts in Supabase Auth dashboard with role metadata', 12),
+  ('Confirm quarterly reminders are seeded in Reminders tab', 'Check that all NYS-45 and Schedule H reminders appear', 13),
+  ('Print, sign, and file the Sick Leave Policy', 'Open Documents → Sick Leave Policy in the app, print it, have both employer and employee sign, and store the signed copy. Recommended: commit a scanned PDF to /docs/signed/sick-leave-policy.pdf in the repo so it''s preserved alongside the source code.', 14);
 
 -- ── Seed: Reminders (2026) ───────────────────────────────────────────────────
 insert into public.reminders (title, due_date, description) values
