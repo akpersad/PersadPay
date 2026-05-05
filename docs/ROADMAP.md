@@ -117,19 +117,26 @@ These have been confirmed in conversation and should not be re-litigated unless 
 
 ### Phase 1 — Tax-year versioning + Quarterly filing data
 
+**Status: COMPLETE on 2026-05-05.** Migration `0002_phase1_tax_versioning_and_filings.sql` written; user to apply via MCP. Build green.
+
 **Goal:** make tax constants year-aware so the app stays correct across calendar boundaries, and surface the exact numbers needed to file NYS-45 each quarter.
 
-- [ ] `tax_rates` table keyed on `effective_year`; columns mirror current `lib/tax.ts` constants plus `irs_mileage_rate` and `pfl_annual_cap`
-- [ ] Seed with 2026 row + leave 2027 empty
-- [ ] Refactor `calculateTaxes` to look up rates by `pay_date` year — falls back to most-recent populated year with a console warning
-- [ ] Settings UI: read-only "Tax Rates for [year]" panel showing what's in the DB
-- [ ] December 1 reminder: "Verify and seed next year's tax rates" (auto-creates)
-- [ ] `/filings/nys-45/[year]/[quarter]` view (admin only) with copy-to-clipboard for each NYS-45 box value, plus a "Mark filed on YYYY-MM-DD" toggle and free-text confirmation field
-- [ ] Historical view: dropdown of past quarters, all calculated from stored stubs
-- [ ] `/filings/schedule-h/[year]` view: year-end Schedule H worksheet (boxes 1–18)
-- [ ] Dashboard card: "Q[X] filing window opens in Y days" / "Q[X] data ready to file"
+- [x] `tax_rates` table keyed on `effective_year`; columns mirror current `lib/tax.ts` constants plus `irs_mileage_rate` and `pfl_annual_cap`
+- [x] Seed with 2026 row + leave 2027 empty
+- [x] Refactor `calculateTaxes` to look up rates by `pay_date` year — falls back to most-recent populated year with a console warning (`getTaxRatesForYear` in `lib/tax.ts`)
+- [x] Settings UI: read-only "Tax Rates for [year]" panel showing what's in the DB
+- [x] December 1 reminder: "Verify 2027 tax rates" — auto-rolls forward each year via existing reminder dismiss logic
+- [x] `/filings/nys-45/[year]/[quarter]` view (admin only) with copy-to-clipboard for each NYS-45 box value, plus a "Mark filed on YYYY-MM-DD" toggle and free-text confirmation field
+- [x] Historical view via `/filings` landing page — lists every quarter back to first stub year
+- [x] `/filings/schedule-h/[year]` view: year-end Schedule H worksheet (Lines 1a/1b, 2a/2b, 5, 6, 7, 8, 9 — single-state Section A)
+- [x] Dashboard card: "Q[X] filing window opens in Y days" / "Q[X] data ready to file" (`NextFilingCard` on admin dashboard)
+- [x] Bonus: Reminders page deep-links each NYS-45 / Schedule H reminder to its corresponding `/filings` detail view (replaces the old external links)
+- [x] Bonus: `filings` table tracks `filed_on`, `confirmation`, `notes` per filing — permanent audit record separate from the reminders system
 
 NY State tax quarters align with federal: Q1 Jan–Mar (due Apr 30), Q2 Apr–Jun (due Jul 31), Q3 Jul–Sep (due Oct 31), Q4 Oct–Dec (due Jan 31). Persad family's Q2 2026 will be the first filing.
+
+**User TODO from Phase 1:**
+- Apply migration `0002_phase1_tax_versioning_and_filings.sql` to the remote Supabase project (or ask Claude to apply it via MCP).
 
 ---
 
