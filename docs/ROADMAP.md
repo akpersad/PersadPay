@@ -142,14 +142,16 @@ NY State tax quarters align with federal: Q1 Jan–Mar (due Apr 30), Q2 Apr–Ju
 
 ### Phase 2 — Additional pay + edits + audit log
 
+**Status: COMPLETE on 2026-05-05.** Migration `0003_phase2_line_items_and_audit.sql` written; user to apply via MCP. Build green.
+
 **Goal:** support real-world payment scenarios beyond `hours × rate` and make the app forensically defensible.
 
-- [ ] `paystub_line_items` table: `paystub_id, type, label, amount, taxable_fed, taxable_fica, taxable_ny, w2_box1`
-- [ ] Add Additional Pay UI section to `NewStubForm` with dropdown options (verdicts and source citations are in the codebase comment block in `lib/tax.ts` after Phase 2 lands):
+- [x] `paystub_line_items` table: `paystub_id, line_type, label, amount, taxable_fed, taxable_fica, taxable_ny, w2_box1, informational_only, sort_order`
+- [x] Add Additional Pay UI section to `NewStubForm` with 11 dropdown options (registry in `lib/line-items.ts`, sources cited inline):
   - Bonus (taxable)
   - Holiday pay (taxable, regular wages)
   - Sick / PTO pay (taxable, regular wages)
-  - Mileage reimbursement at IRS standard rate (non-taxable, accountable plan)
+  - Mileage reimbursement at IRS standard rate (non-taxable, accountable plan, miles × auto-calculated rate)
   - Mileage reimbursement above IRS standard rate (excess only, taxable)
   - Receipted expense reimbursement, accountable plan (non-taxable)
   - Flat expense allowance, non-accountable plan (taxable)
@@ -157,13 +159,16 @@ NY State tax quarters align with federal: Q1 Jan–Mar (due Apr 30), Q2 Apr–Ju
   - Gift card, any amount (taxable — gift cards are cash-equivalent)
   - Occasional overtime meal money (non-taxable, only when triggered by OT)
   - Third-party tip (informational only, not employer wages, not on W-2)
-- [ ] Default new line items to a taxable type; non-taxable selections show a confirmation modal explaining the substantiation requirement
-- [ ] Tax calculation pulls `taxable_*` flags per line item — only adds taxable line items to the FICA/fed/state base
-- [ ] Display line items on PaystubDocument PDF
-- [ ] Allow editing stubs while `payment_sent = false`; lock once paid
-- [ ] `audit_log` table + Postgres triggers on paystubs, settings, paystub_line_items, w2s — captures actor, action, before/after JSON
-- [ ] Settings Change History UI subview (filtered audit_log on settings table)
-- [ ] Wage-base cap warning banners on stub generation for FUTA, SUTA, SS
+- [x] Default new line items to a taxable type; non-taxable selections show a confirmation modal explaining the substantiation requirement
+- [x] Tax calculation pulls `taxable_*` flags per line item — taxable additions roll into `gross_pay`; non-taxable reimbursements add to net pay only; informational items don't move money
+- [x] Display line items on PaystubDocument PDF + StubDetail page (Earnings, Reimbursements, and admin-only Informational sections)
+- [x] Allow editing stubs while `payment_sent = false`; lock once paid (`/stubs/[id]/edit` route + Edit button on detail)
+- [x] `audit_log` table + Postgres `audit_trigger` function attached to paystubs, paystub_line_items, settings, w2s — captures actor, action, before/after JSON
+- [x] Settings Change History UI at `/settings/history` — field-level diff, actor name, timestamp
+- [x] Wage-base cap progress card on stub generation showing FUTA / NY SUTA / SS YTD progress with color-coded "approaching" and "reached" states
+
+**User TODO from Phase 2:**
+- Apply migration `0003_phase2_line_items_and_audit.sql` to the remote Supabase project.
 
 ---
 
