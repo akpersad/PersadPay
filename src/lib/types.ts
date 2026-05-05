@@ -13,6 +13,7 @@ export interface Settings {
   employer_name: string | null
   employer_ein: string | null
   employer_address: string | null
+  employer_phone: string | null
   employee_name: string | null
   employee_email: string | null
   employee_hourly_rate: number | null

@@ -27,6 +27,7 @@ export function SettingsForm({ settings: initial }: Props) {
   const [employerName, setEmployerName] = useState(s.employer_name ?? '')
   const [employerEin, setEmployerEin] = useState(s.employer_ein ?? '')
   const [employerAddress, setEmployerAddress] = useState(s.employer_address ?? '')
+  const [employerPhone, setEmployerPhone] = useState(s.employer_phone ?? '')
   const [employeeName, setEmployeeName] = useState(s.employee_name ?? '')
   const [employeeEmail, setEmployeeEmail] = useState(s.employee_email ?? '')
   const [hourlyRate, setHourlyRate] = useState(s.employee_hourly_rate?.toString() ?? '')
@@ -48,6 +49,7 @@ export function SettingsForm({ settings: initial }: Props) {
       employer_name: employerName || null,
       employer_ein: employerEin || null,
       employer_address: employerAddress || null,
+      employer_phone: employerPhone || null,
       employee_name: employeeName || null,
       employee_email: employeeEmail || null,
       employee_hourly_rate: hourlyRate ? parseFloat(hourlyRate) : null,
@@ -82,7 +84,8 @@ export function SettingsForm({ settings: initial }: Props) {
       <Section title="Employer">
         <Field label="Name" value={employerName} onChange={setEmployerName} placeholder="Persad Family" />
         <Field label="EIN" value={employerEin} onChange={setEmployerEin} placeholder="12-3456789" />
-        <Field label="Address" value={employerAddress} onChange={setEmployerAddress} placeholder="123 Main St, Nassau County, NY 11001" />
+        <Field label="Address" value={employerAddress} onChange={setEmployerAddress} placeholder="123 Main St, Franklin Square, NY 11010" />
+        <Field label="Phone" value={employerPhone} onChange={setEmployerPhone} type="tel" placeholder="(516) 555-0100" />
       </Section>
 
       <Section title="Employee">
