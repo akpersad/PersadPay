@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Persad Pay
 
-## Getting Started
+Private household payroll web app for the Persad family. Manages weekly pay stub generation, tax calculations, payment tracking, quarterly filing reminders, and W-2 generation. Includes a read-only portal for the employee.
 
-First, run the development server:
+Installable as a PWA on iOS and Android.
+
+## Stack
+
+- **Framework:** Next.js 16 (App Router)
+- **Database + Auth:** Supabase (Postgres + RLS)
+- **Email:** Resend
+- **PDF:** `@react-pdf/renderer` (server-side only)
+- **UI:** Tailwind CSS + shadcn/ui
+- **Deployment:** Vercel
+
+## Local Development
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+App runs at [http://localhost:3000](http://localhost:3000). Requires `.env.local` with:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SECRET_KEY=
+RESEND_API_KEY=
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Users & Roles
 
-## Learn More
+Three accounts, created manually in Supabase — no public sign-up.
 
-To learn more about Next.js, take a look at the following resources:
+| Role | Access |
+|---|---|
+| Admin (×2) | Full access — generate stubs, mark payment, email stubs, manage settings, generate W-2s |
+| Employee (×1) | Read-only — view and download her own stubs and W-2s |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Key Workflows
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Pay stub:** Generate → mark payment sent (enter Zelle ID) → email to employee. Email is never sent automatically.
 
-## Deploy on Vercel
+**W-2:** Select tax year → preview calculated values → download or email. Upserts on `(employee_id, tax_year)`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+**Reminders:** Quarterly NYS-45 and Schedule H filing reminders. Cron job at `/api/reminders/send-emails` fires email notices 20 and 10 days before each due date (configured in `vercel.json`).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project Structure
+
+```
+src/
+  app/                  # Next.js App Router pages and API routes
+  components/           # UI components by feature
+  lib/
+    tax.ts              # Tax constants and calculation functions
+    email.ts            # All Resend calls
+    dates.ts            # Timezone-aware date formatting (America/New_York)
+    pdf/                # PDF generation (pay stub + W-2)
+  lib/supabase/         # Server and browser Supabase clients
+```
+
+All dates display in `America/New_York`. All `timestamptz` stored in UTC.
