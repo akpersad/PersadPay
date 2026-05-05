@@ -136,6 +136,7 @@ Single-row table. Only one record ever exists.
 | employer_name | text | e.g. "Persad Family" |
 | employer_ein | text | e.g. "12-3456789" — shown on pay stub header |
 | employer_address | text | Shown on pay stub header |
+| employer_phone | text | Required by NY § 195(3) — appears on pay stub header |
 | employee_name | text | Babysitter's full name |
 | employee_id_display | text | Human-readable ID shown on stub e.g. "EMP-001" |
 | employee_email | text | Primary stub delivery address |
@@ -192,17 +193,23 @@ Single-row table. Only one record ever exists.
 
 All tax rate constants must be defined as named exports at the top of `lib/tax.ts`. Never use inline magic numbers. Comment each with the year and a note to verify annually.
 
-```ts
-// Tax constants — verify all values at the start of each calendar year
-export const FICA_SS_RATE = 0.062;         // 6.2% — employee + employer each (2026)
-export const FICA_MEDICARE_RATE = 0.0145;  // 1.45% — employee + employer each (2026)
-export const FUTA_RATE = 0.006;            // 0.6% after NY state credit (2026)
-export const FUTA_WAGE_BASE = 7000;        // Resets January 1 each year (2026)
-export const SUTA_WAGE_BASE = 17600;       // NY 2026 — resets January 1
-export const SDI_RATE = 0.005;             // 0.5% (2026)
-export const SDI_WEEKLY_CAP = 0.60;        // Hard weekly cap (2026)
-export const PFL_RATE = 0.00432;           // 0.432% (2026)
-```
+Constants live in `src/lib/tax.ts`. They are the literal source of truth — `CLAUDE.md` reflects the values but the code is canonical. Each constant has the year it applies to and a source URL in inline comments. Verify every constant in January.
+
+Current 2026 values (verified 2026-05-05 — see `/docs/ROADMAP.md` for source URLs):
+
+| Constant | Value | Notes |
+|---|---|---|
+| `FICA_SS_RATE` | 0.062 | 6.2% employee + 6.2% employer |
+| `FICA_MEDICARE_RATE` | 0.0145 | 1.45% employee + 1.45% employer |
+| `SS_WAGE_BASE` | 184500 | 2026 SS wage base — caps both sides of FICA SS |
+| `FUTA_RATE` | 0.006 | 0.6% net of full NY state credit (no 2026 NY credit reduction) |
+| `FUTA_WAGE_BASE` | 7000 | Unchanged since 1983 |
+| `SUTA_WAGE_BASE` | **13000** | NY 2026 (corrected from prior $17,600 spec value) |
+| `SDI_RATE` | 0.005 | 0.5% NY State Disability employee withholding |
+| `SDI_WEEKLY_CAP` | 0.60 | $0.60/week hard cap (annual max $31.20) |
+| `PFL_RATE` | 0.00432 | 0.432% NY Paid Family Leave employee contribution |
+| `PFL_ANNUAL_CAP` | 411.91 | NY 2026 max annual PFL employee contribution |
+| `IRS_MILEAGE_RATE` | 0.725 | 72.5¢/mi business use (used for non-taxable mileage reimbursement) |
 
 ### Employee-Side Deductions (withheld from gross, shown on stub)
 
@@ -338,7 +345,7 @@ All email triggered by explicit admin action. Nothing sends automatically.
 
 Bottom tab bar for all authenticated users. Mobile-first, touch-friendly, no hover dependencies.
 
-**Admin tabs:** Dashboard | Pay Stubs | Reminders | W-2 | Settings
+**Admin tabs:** Dashboard | Pay Stubs | Reminders | W-2 | Documents | Settings
 
 **Employee tabs:** Dashboard | Pay Stubs | W-2
 
@@ -389,15 +396,16 @@ Pre-seeded items (in order):
 1. Apply for Federal EIN at irs.gov (IRS Form SS-4)
 2. Register with New York State at labor.ny.gov (Form NYS-100)
 3. File new hire report with NY Directory of New Hires (within 20 days of hire)
-4. Have employee complete Federal W-4
-5. Have employee complete NY IT-2104
-6. Determine PFL waiver eligibility — obtain signed waiver if applicable
-7. Purchase persadpay.com domain
-8. Add Vercel DNS records to domain registrar
-9. Sign up for Resend and verify persadpay.com for email sending
-10. Fill out all fields in Persad Pay Settings
-11. Create Supabase user accounts for all three users
-12. Confirm quarterly reminders are seeded in Reminders tab
+4. Provide signed LS-59 Wage Notice to employee (NY § 195(1) WTPA — retain 6 yrs)
+5. Have employee complete Federal W-4
+6. Have employee complete NY IT-2104
+7. Obtain signed PFL-Waiver form (employee <20 hrs/week, retain duration of employment)
+8. Purchase persadpay.com domain
+9. Add Vercel DNS records to domain registrar
+10. Sign up for Resend and verify persadpay.com for email sending
+11. Fill out all fields in Persad Pay Settings
+12. Create Supabase user accounts for all three users
+13. Confirm quarterly reminders are seeded in Reminders tab
 
 Once all items checked, checklist collapses or hides from dashboard.
 
