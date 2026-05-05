@@ -4,7 +4,7 @@ import {
 } from '@react-pdf/renderer'
 import { BRAND_COLOR, BRAND_COLOR_LIGHT } from './constants'
 import { formatDate, formatDateRange, formatCurrency } from '@/lib/dates'
-import type { PaystubWithYTD, Settings } from '@/lib/types'
+import type { PaystubWithYTD, Settings, PaystubLineItem } from '@/lib/types'
 
 const styles = StyleSheet.create({
   page: { fontFamily: 'Helvetica', fontSize: 9, padding: 36, color: '#1a1a1a' },
@@ -38,13 +38,27 @@ interface Props {
   stub: PaystubWithYTD
   settings: Settings
   variant: 'admin' | 'employee'
+  lineItems?: PaystubLineItem[]
+  ytdByLineType?: Record<string, number>
 }
 
-export function PaystubDocument({ stub, settings, variant }: Props) {
+export function PaystubDocument({ stub, settings, variant, lineItems = [], ytdByLineType = {} }: Props) {
   const isAdmin = variant === 'admin'
   const pflWaived = settings.pfl_waived
 
   const ytdTaxes = stub.ytd_total_employee_taxes
+
+  const taxableLineItems = lineItems.filter(i =>
+    !i.informational_only && (i.taxable_fed || i.taxable_fica || i.taxable_ny || i.w2_box1)
+  )
+  const reimbursementLineItems = lineItems.filter(i =>
+    !i.informational_only && !i.taxable_fed && !i.taxable_fica && !i.taxable_ny && !i.w2_box1
+  )
+  const informationalLineItems = lineItems.filter(i => i.informational_only)
+  const reimbursementsTotal = reimbursementLineItems.reduce((sum, i) => sum + Number(i.amount), 0)
+  const givenSeparatelyItems = lineItems.filter(i => !i.informational_only && i.given_separately)
+  const givenSeparatelyTotal = givenSeparatelyItems.reduce((sum, i) => sum + Number(i.amount), 0)
+  const cashToZelle = Math.round((Number(stub.net_pay) - givenSeparatelyTotal) * 100) / 100
 
   return (
     <Document>
@@ -96,7 +110,7 @@ export function PaystubDocument({ stub, settings, variant }: Props) {
             <Text style={[styles.col2, styles.colHdr]}>Current</Text>
             <Text style={[styles.col3, styles.colHdr]}>YTD</Text>
           </View>
-          {stub.hours_worked === 0 ? (
+          {stub.hours_worked === 0 && taxableLineItems.length === 0 ? (
             <View style={styles.tableRow}>
               <Text style={styles.col1}>No Hours — Week Off</Text>
               <Text style={styles.col2}>—</Text>
@@ -106,20 +120,37 @@ export function PaystubDocument({ stub, settings, variant }: Props) {
             </View>
           ) : (
             <>
-              <View style={styles.tableRow}>
-                <Text style={styles.col1}>Regular Earnings</Text>
-                <Text style={styles.col2}>{formatCurrency(Number(stub.hourly_rate))}</Text>
-                <Text style={styles.col2}>{stub.hours_worked}</Text>
-                <Text style={styles.col2}>{formatCurrency(Number(stub.gross_pay))}</Text>
-                <Text style={styles.col3}>{formatCurrency(stub.ytd_gross)}</Text>
-              </View>
-              <View style={styles.tableRowAlt}>
-                <Text style={styles.col1}>Overtime (1.5×)</Text>
-                <Text style={styles.col2}>{formatCurrency(Number(stub.hourly_rate) * 1.5)}</Text>
-                <Text style={styles.col2}>0</Text>
-                <Text style={styles.col2}>{formatCurrency(0)}</Text>
-                <Text style={styles.col3}>{formatCurrency(0)}</Text>
-              </View>
+              {stub.hours_worked > 0 && (
+                <View style={styles.tableRow}>
+                  <Text style={styles.col1}>Regular Earnings</Text>
+                  <Text style={styles.col2}>{formatCurrency(Number(stub.hourly_rate))}</Text>
+                  <Text style={styles.col2}>{stub.hours_worked}</Text>
+                  <Text style={styles.col2}>{formatCurrency(Number(stub.hours_worked) * Number(stub.hourly_rate))}</Text>
+                  <Text style={styles.col3}>{formatCurrency(stub.ytd_regular_wages)}</Text>
+                </View>
+              )}
+              {/* OT row intentionally omitted until Phase 3 adds overtime_hours.
+                  NY § 195(3) lists OT rate/hours for non-exempt employees; once
+                  the field exists, render the row conditionally on
+                  overtime_hours > 0. */}
+              {taxableLineItems.map((item, idx) => (
+                <View key={item.id} style={(idx + (stub.hours_worked > 0 ? 2 : 0)) % 2 === 0 ? styles.tableRow : styles.tableRowAlt}>
+                  <Text style={styles.col1}>{item.label}</Text>
+                  <Text style={styles.col2}>—</Text>
+                  <Text style={styles.col2}>—</Text>
+                  <Text style={styles.col2}>{formatCurrency(Number(item.amount))}</Text>
+                  <Text style={styles.col3}>{formatCurrency(ytdByLineType[item.line_type] ?? Number(item.amount))}</Text>
+                </View>
+              ))}
+              {taxableLineItems.length > 0 && (
+                <View style={styles.tableRowAlt}>
+                  <Text style={[styles.col1, { fontFamily: 'Helvetica-Bold' }]}>Total taxable wages</Text>
+                  <Text style={styles.col2}>—</Text>
+                  <Text style={styles.col2}>—</Text>
+                  <Text style={[styles.col2, { fontFamily: 'Helvetica-Bold' }]}>{formatCurrency(Number(stub.gross_pay))}</Text>
+                  <Text style={styles.col3}>{formatCurrency(stub.ytd_gross)}</Text>
+                </View>
+              )}
             </>
           )}
         </View>
@@ -139,6 +170,79 @@ export function PaystubDocument({ stub, settings, variant }: Props) {
           <TaxRow label="NY SDI" current={stub.sdi} ytd={stub.ytd_sdi} alt />
           {!pflWaived && <TaxRow label="NY PFL" current={stub.pfl} ytd={stub.ytd_pfl} />}
         </View>
+
+        {/* Payment summary — only when something was given outside the Zelle payment */}
+        {givenSeparatelyItems.length > 0 && (
+          <>
+            <Text style={styles.sectionLabel}>Payment</Text>
+            <View style={styles.table}>
+              <View style={styles.tableRow}>
+                <Text style={styles.col1}>Net Pay (total compensation)</Text>
+                <Text style={styles.col2}>{formatCurrency(Number(stub.net_pay))}</Text>
+                <Text style={styles.col3}></Text>
+              </View>
+              {givenSeparatelyItems.map((item, idx) => (
+                <View key={item.id} style={idx % 2 === 0 ? styles.tableRowAlt : styles.tableRow}>
+                  <Text style={styles.col1}>Already given: {item.label}</Text>
+                  <Text style={styles.col2}>−{formatCurrency(Number(item.amount))}</Text>
+                  <Text style={styles.col3}></Text>
+                </View>
+              ))}
+              <View style={styles.tableRowAlt}>
+                <Text style={[styles.col1, { fontFamily: 'Helvetica-Bold' }]}>Cash to Zelle</Text>
+                <Text style={[styles.col2, { fontFamily: 'Helvetica-Bold' }]}>{formatCurrency(cashToZelle)}</Text>
+                <Text style={styles.col3}></Text>
+              </View>
+            </View>
+          </>
+        )}
+
+        {/* Non-taxable reimbursements */}
+        {reimbursementLineItems.length > 0 && (
+          <>
+            <Text style={styles.sectionLabel}>Non-taxable Reimbursements</Text>
+            <View style={styles.table}>
+              <View style={styles.tableHeader}>
+                <Text style={[styles.col1, styles.colHdr]}>Description</Text>
+                <Text style={[styles.col2, styles.colHdr]}>Current</Text>
+                <Text style={[styles.col3, styles.colHdr]}>YTD</Text>
+              </View>
+              {reimbursementLineItems.map((item, idx) => (
+                <View key={item.id} style={idx % 2 === 0 ? styles.tableRow : styles.tableRowAlt}>
+                  <Text style={styles.col1}>{item.label}</Text>
+                  <Text style={styles.col2}>{formatCurrency(Number(item.amount))}</Text>
+                  <Text style={styles.col3}>{formatCurrency(ytdByLineType[item.line_type] ?? Number(item.amount))}</Text>
+                </View>
+              ))}
+              <View style={styles.tableRowAlt}>
+                <Text style={[styles.col1, { fontFamily: 'Helvetica-Bold' }]}>Total reimbursements</Text>
+                <Text style={[styles.col2, { fontFamily: 'Helvetica-Bold' }]}>{formatCurrency(reimbursementsTotal)}</Text>
+                <Text style={styles.col3}></Text>
+              </View>
+            </View>
+          </>
+        )}
+
+        {/* Informational only — admin only, never on employee variant */}
+        {isAdmin && informationalLineItems.length > 0 && (
+          <>
+            <Text style={styles.sectionLabel}>Informational (not paid)</Text>
+            <View style={styles.table}>
+              <View style={styles.tableHeader}>
+                <Text style={[styles.col1, styles.colHdr]}>Description</Text>
+                <Text style={[styles.col2, styles.colHdr]}>Current</Text>
+                <Text style={[styles.col3, styles.colHdr]}>YTD</Text>
+              </View>
+              {informationalLineItems.map((item, idx) => (
+                <View key={item.id} style={idx % 2 === 0 ? styles.tableRow : styles.tableRowAlt}>
+                  <Text style={styles.col1}>{item.label}</Text>
+                  <Text style={styles.col2}>{formatCurrency(Number(item.amount))}</Text>
+                  <Text style={styles.col3}>{formatCurrency(ytdByLineType[item.line_type] ?? Number(item.amount))}</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
 
         {/* Employer taxes — admin only */}
         {isAdmin && (

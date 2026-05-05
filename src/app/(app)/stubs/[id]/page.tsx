@@ -1,7 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { StubDetail } from '@/components/stubs/StubDetail'
-import type { Paystub, Profile, PaystubWithYTD, Settings } from '@/lib/types'
+import type { Paystub, Profile, PaystubWithYTD, Settings, PaystubLineItem } from '@/lib/types'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -51,9 +51,16 @@ export default async function StubDetailPage({ params }: Props) {
     sum('federal_withholding') + sum('fica_social_security') + sum('fica_medicare') +
     sum('state_withholding') + sum('sdi') + sum('pfl')
 
+  const regularWagesThisStub = Number(stub.hours_worked) * Number(stub.hourly_rate)
+  const regularWagesPrior = prior.reduce(
+    (acc, s) => acc + Number(s.hours_worked) * Number(s.hourly_rate),
+    0,
+  )
+
   const stubWithYTD: PaystubWithYTD = {
     ...stub,
     ytd_gross: sum('gross_pay') + Number(stub.gross_pay),
+    ytd_regular_wages: regularWagesPrior + regularWagesThisStub,
     ytd_federal_withholding: sum('federal_withholding') + Number(stub.federal_withholding),
     ytd_fica_social_security: sum('fica_social_security') + Number(stub.fica_social_security),
     ytd_fica_medicare: sum('fica_medicare') + Number(stub.fica_medicare),
@@ -69,13 +76,36 @@ export default async function StubDetailPage({ params }: Props) {
     total_employee_taxes: totalEmployeeTaxes,
   }
 
-  const { data: settings } = await supabase.from('settings').select('*').single<Settings>()
+  const stubIdsInYear = (ytdStubs ?? []).map(s => s.id)
+
+  const [{ data: settings }, { data: lineItems }, { data: ytdLineItemRows }] = await Promise.all([
+    supabase.from('settings').select('*').single<Settings>(),
+    supabase
+      .from('paystub_line_items')
+      .select('*')
+      .eq('paystub_id', id)
+      .order('sort_order', { ascending: true }),
+    stubIdsInYear.length > 0
+      ? supabase
+          .from('paystub_line_items')
+          .select('line_type, amount')
+          .in('paystub_id', stubIdsInYear)
+      : Promise.resolve({ data: [] }),
+  ])
+
+  // Aggregate YTD per line_type so each row on the stub can render its own YTD.
+  const ytdByLineType: Record<string, number> = {}
+  for (const row of (ytdLineItemRows ?? []) as { line_type: string; amount: number }[]) {
+    ytdByLineType[row.line_type] = (ytdByLineType[row.line_type] ?? 0) + Number(row.amount)
+  }
 
   return (
     <StubDetail
       stub={stubWithYTD}
       role={profile?.role ?? 'employee'}
       settings={settings}
+      lineItems={(lineItems ?? []) as PaystubLineItem[]}
+      ytdByLineType={ytdByLineType}
     />
   )
 }
