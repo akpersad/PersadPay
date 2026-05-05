@@ -32,12 +32,13 @@ export default async function NewStubPage() {
       .single<Pick<Paystub, 'stub_number' | 'pay_period_end'>>(),
     supabase
       .from('paystubs')
-      .select('gross_pay')
+      .select('gross_pay, pfl')
       .gte('pay_date', `${new Date().getFullYear()}-01-01`),
   ])
 
   const nextStubNumber = lastStub ? lastStub.stub_number + 1 : 1
   const ytdGrossBefore = (ytdStubs ?? []).reduce((sum, s) => sum + Number(s.gross_pay), 0)
+  const ytdPflBefore = (ytdStubs ?? []).reduce((sum, s) => sum + Number(s.pfl ?? 0), 0)
 
   const settingsIncomplete = !settings?.employee_email || !settings?.employer_name || !employee?.id
 
@@ -55,6 +56,7 @@ export default async function NewStubPage() {
         lastPayPeriodEnd={lastStub?.pay_period_end ?? null}
         nextStubNumber={nextStubNumber}
         ytdGrossBefore={ytdGrossBefore}
+        ytdPflBefore={ytdPflBefore}
         createdBy={user.id}
       />
     </div>

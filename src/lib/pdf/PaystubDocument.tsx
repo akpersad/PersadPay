@@ -54,7 +54,10 @@ export function PaystubDocument({ stub, settings, variant }: Props) {
           <View style={styles.headerLeft}>
             <Text style={styles.companyName}>{settings.employer_name ?? 'Employer'}</Text>
             <Text style={{ fontSize: 8, color: '#555', marginBottom: 1 }}>EIN: {settings.employer_ein ?? '—'}</Text>
-            <Text style={{ fontSize: 8, color: '#555' }}>{settings.employer_address ?? ''}</Text>
+            <Text style={{ fontSize: 8, color: '#555', marginBottom: 1 }}>{settings.employer_address ?? ''}</Text>
+            {settings.employer_phone && (
+              <Text style={{ fontSize: 8, color: '#555' }}>Phone: {settings.employer_phone}</Text>
+            )}
           </View>
           <View style={styles.headerRight}>
             <Text style={styles.stubTitle}>Earnings Statement</Text>
@@ -82,7 +85,8 @@ export function PaystubDocument({ stub, settings, variant }: Props) {
           </View>
         </View>
 
-        {/* Earnings table */}
+        {/* Earnings table — NY § 195(3) requires regular rate, OT rate, regular hours, OT hours
+            for non-exempt employees, even when OT hours = 0. */}
         <Text style={styles.sectionLabel}>Earnings</Text>
         <View style={styles.table}>
           <View style={styles.tableHeader}>
@@ -92,15 +96,32 @@ export function PaystubDocument({ stub, settings, variant }: Props) {
             <Text style={[styles.col2, styles.colHdr]}>Current</Text>
             <Text style={[styles.col3, styles.colHdr]}>YTD</Text>
           </View>
-          <View style={styles.tableRow}>
-            <Text style={styles.col1}>
-              {stub.hours_worked === 0 ? 'No Hours — Week Off' : 'Regular Earnings'}
-            </Text>
-            <Text style={styles.col2}>{stub.hours_worked > 0 ? formatCurrency(Number(stub.hourly_rate)) : '—'}</Text>
-            <Text style={styles.col2}>{stub.hours_worked > 0 ? stub.hours_worked : '—'}</Text>
-            <Text style={styles.col2}>{formatCurrency(Number(stub.gross_pay))}</Text>
-            <Text style={styles.col3}>{formatCurrency(stub.ytd_gross)}</Text>
-          </View>
+          {stub.hours_worked === 0 ? (
+            <View style={styles.tableRow}>
+              <Text style={styles.col1}>No Hours — Week Off</Text>
+              <Text style={styles.col2}>—</Text>
+              <Text style={styles.col2}>—</Text>
+              <Text style={styles.col2}>{formatCurrency(0)}</Text>
+              <Text style={styles.col3}>{formatCurrency(stub.ytd_gross)}</Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.tableRow}>
+                <Text style={styles.col1}>Regular Earnings</Text>
+                <Text style={styles.col2}>{formatCurrency(Number(stub.hourly_rate))}</Text>
+                <Text style={styles.col2}>{stub.hours_worked}</Text>
+                <Text style={styles.col2}>{formatCurrency(Number(stub.gross_pay))}</Text>
+                <Text style={styles.col3}>{formatCurrency(stub.ytd_gross)}</Text>
+              </View>
+              <View style={styles.tableRowAlt}>
+                <Text style={styles.col1}>Overtime (1.5×)</Text>
+                <Text style={styles.col2}>{formatCurrency(Number(stub.hourly_rate) * 1.5)}</Text>
+                <Text style={styles.col2}>0</Text>
+                <Text style={styles.col2}>{formatCurrency(0)}</Text>
+                <Text style={styles.col3}>{formatCurrency(0)}</Text>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Deductions table */}
