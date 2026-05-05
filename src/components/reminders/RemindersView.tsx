@@ -1,6 +1,7 @@
 'use client'
 
 import { useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
@@ -11,15 +12,16 @@ import { formatDate, daysUntil } from '@/lib/dates'
 import { toast } from 'sonner'
 import type { Reminder } from '@/lib/types'
 
-const REMINDER_LINKS: Record<string, string> = {
-  'NYS-45': 'https://www.tax.ny.gov/bus/ads/efile_addnys45.htm',
-  'Schedule H': 'https://www.irs.gov/forms-pubs/about-schedule-h-form-1040',
-}
+// Map a reminder title to an internal filing detail URL when one exists.
+// Falls back to null for reminders that don't have a corresponding filing
+// view (e.g., "Verify 2027 tax rates").
+function getReminderHref(title: string): string | null {
+  const nys45 = title.match(/NYS-45\s+Q([1-4])\s+(\d{4})/i)
+  if (nys45) return `/filings/nys-45/${nys45[2]}/${nys45[1]}`
 
-function getReminderUrl(title: string): string | null {
-  for (const [key, url] of Object.entries(REMINDER_LINKS)) {
-    if (title.includes(key)) return url
-  }
+  const schedH = title.match(/Schedule H\s+(\d{4})/i)
+  if (schedH) return `/filings/schedule-h/${schedH[1]}`
+
   return null
 }
 
@@ -63,7 +65,7 @@ export function RemindersView({ reminders }: { reminders: Reminder[] }) {
       <div className="space-y-3">
         {active.map(r => {
           const days = daysUntil(r.due_date)
-          const url = getReminderUrl(r.title)
+          const href = getReminderHref(r.title)
           return (
             <Card key={r.id}>
               <CardContent className="py-3 px-4 flex items-start gap-3">
@@ -78,15 +80,13 @@ export function RemindersView({ reminders }: { reminders: Reminder[] }) {
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      {url ? (
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                      {href ? (
+                        <Link
+                          href={href}
                           className="text-sm font-medium underline-offset-2 hover:underline"
                         >
                           {r.title}
-                        </a>
+                        </Link>
                       ) : (
                         <p className="text-sm font-medium">{r.title}</p>
                       )}

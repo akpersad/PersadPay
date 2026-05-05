@@ -6,9 +6,11 @@ import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { OnboardingChecklist } from './OnboardingChecklist'
 import { UpcomingDeadlines } from './UpcomingDeadlines'
+import { NextFilingCard } from './NextFilingCard'
 import { formatDateRange, formatCurrency, daysUntil } from '@/lib/dates'
+import { getCurrentQuarter, getQuarterDateRange, getQuarterDueDate } from '@/lib/filings'
 import { PlusCircle, CheckCircle2, AlertCircle } from 'lucide-react'
-import type { Paystub, Reminder, OnboardingItem } from '@/lib/types'
+import type { Paystub, Reminder, OnboardingItem, Filing } from '@/lib/types'
 
 export async function AdminDashboard() {
   const supabase = await createClient()
@@ -20,11 +22,16 @@ export async function AdminDashboard() {
   const sixtyDaysOut = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
     .toLocaleDateString('en-CA')
 
+  const { year: currentYear, quarter: currentQuarter } = getCurrentQuarter(now)
+  const currentQuarterRange = getQuarterDateRange(currentYear, currentQuarter)
+
   const [
     { data: ytdStubs },
     { data: recentStubs },
     { data: reminders },
     { data: checklist },
+    { data: currentQuarterStubs },
+    { data: currentQuarterFiling },
   ] = await Promise.all([
     supabase
       .from('paystubs')
@@ -45,6 +52,18 @@ export async function AdminDashboard() {
       .from('onboarding_checklist')
       .select('*')
       .order('sort_order', { ascending: true }),
+    supabase
+      .from('paystubs')
+      .select('gross_pay')
+      .gte('pay_date', currentQuarterRange.start)
+      .lte('pay_date', currentQuarterRange.end),
+    supabase
+      .from('filings')
+      .select('*')
+      .eq('filing_type', 'NYS-45')
+      .eq('tax_year', currentYear)
+      .eq('quarter', currentQuarter)
+      .maybeSingle<Filing>(),
   ])
 
   const ytdGross = (ytdStubs ?? []).reduce((sum, s) => sum + Number(s.gross_pay), 0)
@@ -52,6 +71,11 @@ export async function AdminDashboard() {
   const nextReminder = (reminders ?? []).find(r => !r.dismissed)
   const checklistItems = (checklist ?? []) as OnboardingItem[]
   const allDone = checklistItems.every(i => i.completed)
+
+  const currentQuarterStubCount = currentQuarterStubs?.length ?? 0
+  const currentQuarterGross = (currentQuarterStubs ?? []).reduce((sum, s) => sum + Number(s.gross_pay), 0)
+  const currentQuarterFiled = !!currentQuarterFiling?.filed_on
+  const showFilingCard = currentQuarterStubCount > 0 || daysUntil(getQuarterDueDate(currentYear, currentQuarter)) <= 20
 
   return (
     <div className="px-4 pt-6 pb-4 space-y-6 max-w-lg mx-auto">
@@ -90,6 +114,18 @@ export async function AdminDashboard() {
         <PlusCircle className="h-5 w-5 mr-2" />
         Generate New Stub
       </Link>
+
+      {/* Next NYS-45 filing card */}
+      {showFilingCard && (
+        <NextFilingCard
+          year={currentYear}
+          quarter={currentQuarter}
+          dueDate={getQuarterDueDate(currentYear, currentQuarter)}
+          stubCount={currentQuarterStubCount}
+          grossPay={currentQuarterGross}
+          filed={currentQuarterFiled}
+        />
+      )}
 
       {/* Onboarding checklist */}
       {!allDone && <OnboardingChecklist items={checklistItems} />}
