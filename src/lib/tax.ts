@@ -1,33 +1,33 @@
-// Tax constants — verified 2026-05-05 against primary sources.
-// Re-verify every January. Source URLs noted per constant.
-//
-// IRS Topic 751 — Social Security and Medicare Withholding Rates
-//   https://www.irs.gov/taxtopics/tc751
-// IRS Pub 926 — Household Employer's Tax Guide
-//   https://www.irs.gov/publications/p926
-// NY DOL UI rate information
-//   https://dol.ny.gov/unemployment-insurance-rate-information
-// NY DFS 2026 PFL rate decision
-//   https://www.dfs.ny.gov/apps-and-licensing/health-insurers/pfl-rate-decision-2026-page
-// IRS Notice 2026-10 — 2026 standard mileage rates
-//   https://www.irs.gov/pub/irs-drop/n-26-10.pdf
+import type { SupabaseClient } from '@supabase/supabase-js'
 
-export const FICA_SS_RATE = 0.062            // 6.2% — employee + employer each (2026, IRS Topic 751)
-export const FICA_MEDICARE_RATE = 0.0145     // 1.45% — employee + employer each (2026, IRS Topic 751)
-export const SS_WAGE_BASE = 184500           // 2026 Social Security wage base (IRS Topic 751)
-export const FUTA_RATE = 0.006               // 0.6% after full NY state credit; no 2026 NY credit reduction (IRS Pub 926)
-export const FUTA_WAGE_BASE = 7000           // unchanged since 1983 (IRS Pub 926)
-export const SUTA_WAGE_BASE = 13000          // NY 2026 — corrected from $17,600. Indexed to 18% of state AWW. (NY DOL)
-export const SDI_RATE = 0.005                // 0.5% (2026, NY DFS / WCB)
-export const SDI_WEEKLY_CAP = 0.60           // hard weekly cap, annual max $31.20 (2026, NY DFS / WCB)
-export const PFL_RATE = 0.00432              // 0.432% (2026, NY DFS rate decision)
-export const PFL_ANNUAL_CAP = 411.91         // 2026 max employee PFL contribution (NY DFS rate decision)
-export const IRS_MILEAGE_RATE = 0.725        // 72.5¢/mi business use (2026, IRS Notice 2026-10)
+// Statutory tax rates are stored in the public.tax_rates table keyed on
+// effective_year. calculateTaxes is pure and takes a TaxRates row as input.
+// Server-side callers load the row via getTaxRatesForYear(); client-side
+// callers receive it as a prop (loaded by the parent server component).
+//
+// New rates are added each December via the "Verify YYYY tax rates" reminder.
+// All values must be verified against primary sources (IRS, NY DOL, NY DFS).
+// See /docs/ROADMAP.md for the audit history and source URLs.
+
+export interface TaxRates {
+  effective_year: number
+  fica_ss_rate: number
+  fica_medicare_rate: number
+  ss_wage_base: number
+  futa_rate: number
+  futa_wage_base: number
+  suta_wage_base: number
+  sdi_rate: number
+  sdi_weekly_cap: number
+  pfl_rate: number
+  pfl_annual_cap: number
+  irs_mileage_rate: number
+}
 
 export interface TaxInputs {
   gross: number
-  ytdGrossBefore: number   // sum of gross for prior stubs in same calendar year
-  ytdPflBefore: number     // sum of PFL withheld YTD before this stub — needed for annual cap
+  ytdGrossBefore: number
+  ytdPflBefore: number
   federalWithholding: number
   stateWithholding: number
   pflWaived: boolean
@@ -58,10 +58,9 @@ function round(n: number): number {
   return Math.round(n * 100) / 100
 }
 
-export function calculateTaxes(inputs: TaxInputs): TaxResult {
+export function calculateTaxes(inputs: TaxInputs, rates: TaxRates): TaxResult {
   const { gross, ytdGrossBefore, ytdPflBefore, federalWithholding, stateWithholding, pflWaived, sutaRate } = inputs
 
-  // Zero-hour stub: all taxes are $0
   if (gross === 0) {
     return {
       gross_pay: 0,
@@ -79,28 +78,23 @@ export function calculateTaxes(inputs: TaxInputs): TaxResult {
     }
   }
 
-  // FICA SS is capped at the SS wage base ($184,500 in 2026). Won't bind at babysitter wages
-  // but kept for parity with FUTA/SUTA cap logic.
-  const ssTaxable = taxableWagePortion(ytdGrossBefore, gross, SS_WAGE_BASE)
-  const fica_ss = round(ssTaxable * FICA_SS_RATE)
+  const ssTaxable = taxableWagePortion(ytdGrossBefore, gross, Number(rates.ss_wage_base))
+  const fica_ss = round(ssTaxable * Number(rates.fica_ss_rate))
+  const fica_med = round(gross * Number(rates.fica_medicare_rate))
 
-  // Medicare has no wage base.
-  const fica_med = round(gross * FICA_MEDICARE_RATE)
+  const sdi = Math.min(round(gross * Number(rates.sdi_rate)), Number(rates.sdi_weekly_cap))
 
-  const sdi = Math.min(round(gross * SDI_RATE), SDI_WEEKLY_CAP)
-
-  // PFL: capped at $411.91/year (2026). Stop withholding once YTD reaches the cap.
   let pfl = 0
   if (!pflWaived) {
-    const remainingCap = Math.max(0, PFL_ANNUAL_CAP - ytdPflBefore)
-    pfl = Math.min(round(gross * PFL_RATE), remainingCap)
+    const remainingCap = Math.max(0, Number(rates.pfl_annual_cap) - ytdPflBefore)
+    pfl = Math.min(round(gross * Number(rates.pfl_rate)), remainingCap)
     pfl = round(pfl)
   }
 
-  const futaTaxable = taxableWagePortion(ytdGrossBefore, gross, FUTA_WAGE_BASE)
-  const sutaTaxable = taxableWagePortion(ytdGrossBefore, gross, SUTA_WAGE_BASE)
+  const futaTaxable = taxableWagePortion(ytdGrossBefore, gross, Number(rates.futa_wage_base))
+  const sutaTaxable = taxableWagePortion(ytdGrossBefore, gross, Number(rates.suta_wage_base))
 
-  const futa = round(futaTaxable * FUTA_RATE)
+  const futa = round(futaTaxable * Number(rates.futa_rate))
   const suta = round(sutaTaxable * sutaRate)
 
   const totalDeductions = federalWithholding + fica_ss + fica_med + stateWithholding + sdi + pfl
@@ -114,10 +108,38 @@ export function calculateTaxes(inputs: TaxInputs): TaxResult {
     state_withholding: stateWithholding,
     sdi,
     pfl,
-    employer_fica_ss: fica_ss,           // employer matches the (capped) employee FICA SS
+    employer_fica_ss: fica_ss,
     employer_fica_medicare: fica_med,
     futa,
     suta,
     net_pay,
   }
+}
+
+// Loads the tax_rates row that applies to a given year. If no exact match
+// exists (e.g., a stub dated in 2027 but only 2026 rates are seeded), falls
+// back to the most recent populated year and logs a warning. Returns null
+// only if the table is empty.
+export async function getTaxRatesForYear(
+  supabase: SupabaseClient,
+  year: number,
+): Promise<TaxRates | null> {
+  const { data } = await supabase
+    .from('tax_rates')
+    .select('*')
+    .lte('effective_year', year)
+    .order('effective_year', { ascending: false })
+    .limit(1)
+    .maybeSingle<TaxRates>()
+
+  if (!data) return null
+
+  if (data.effective_year !== year) {
+    console.warn(
+      `[tax] No tax_rates row for ${year}; using ${data.effective_year} as fallback. ` +
+      `Add the new year via the "Verify ${year} tax rates" reminder workflow.`,
+    )
+  }
+
+  return data
 }

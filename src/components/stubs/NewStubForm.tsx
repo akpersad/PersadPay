@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator'
 import { calculateTaxes } from '@/lib/tax'
 import { addDays, formatCurrency } from '@/lib/dates'
 import type { Settings } from '@/lib/types'
-import type { TaxResult } from '@/lib/tax'
+import type { TaxResult, TaxRates } from '@/lib/tax'
 import { toast } from 'sonner'
 
 interface Props {
@@ -21,6 +21,7 @@ interface Props {
   nextStubNumber: number
   ytdGrossBefore: number
   ytdPflBefore: number
+  taxRates: TaxRates
   createdBy: string
 }
 
@@ -37,7 +38,7 @@ function getDatesInRange(start: string, end: string): string[] {
   return dates
 }
 
-export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNumber, ytdGrossBefore, ytdPflBefore, createdBy }: Props) {
+export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNumber, ytdGrossBefore, ytdPflBefore, taxRates, createdBy }: Props) {
   const router = useRouter()
 
   const suggestedStart = lastPayPeriodEnd ? addDays(lastPayPeriodEnd, 1) : ''
@@ -105,7 +106,7 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
       stateWithholding: Number(settings.state_withholding_per_period),
       pflWaived: settings.pfl_waived,
       sutaRate: Number(settings.suta_rate),
-    })
+    }, taxRates)
     setPreview(calc)
   }
 

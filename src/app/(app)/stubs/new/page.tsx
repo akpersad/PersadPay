@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { NewStubForm } from '@/components/stubs/NewStubForm'
+import { getTaxRatesForYear } from '@/lib/tax'
 import type { Settings, Paystub, Profile } from '@/lib/types'
 
 export default async function NewStubPage() {
@@ -16,11 +17,14 @@ export default async function NewStubPage() {
 
   if (profile?.role !== 'admin') redirect('/dashboard')
 
+  const currentYear = new Date().getFullYear()
+
   const [
     { data: settings },
     { data: employee },
     { data: lastStub },
     { data: ytdStubs },
+    taxRates,
   ] = await Promise.all([
     supabase.from('settings').select('*').single<Settings>(),
     supabase.from('profiles').select('id').eq('role', 'employee').single<Pick<Profile, 'id'>>(),
@@ -33,7 +37,8 @@ export default async function NewStubPage() {
     supabase
       .from('paystubs')
       .select('gross_pay, pfl')
-      .gte('pay_date', `${new Date().getFullYear()}-01-01`),
+      .gte('pay_date', `${currentYear}-01-01`),
+    getTaxRatesForYear(supabase, currentYear),
   ])
 
   const nextStubNumber = lastStub ? lastStub.stub_number + 1 : 1
@@ -41,6 +46,18 @@ export default async function NewStubPage() {
   const ytdPflBefore = (ytdStubs ?? []).reduce((sum, s) => sum + Number(s.pfl ?? 0), 0)
 
   const settingsIncomplete = !settings?.employee_email || !settings?.employer_name || !employee?.id
+
+  if (!taxRates) {
+    return (
+      <div className="px-4 pt-6 pb-4 max-w-lg mx-auto">
+        <h1 className="text-lg font-semibold mb-4">New Pay Stub</h1>
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          No tax rates seeded for {currentYear}. Run the latest migration in Supabase or seed the
+          tax_rates table before generating stubs.
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="px-4 pt-6 pb-4 max-w-lg mx-auto">
@@ -57,6 +74,7 @@ export default async function NewStubPage() {
         nextStubNumber={nextStubNumber}
         ytdGrossBefore={ytdGrossBefore}
         ytdPflBefore={ytdPflBefore}
+        taxRates={taxRates}
         createdBy={user.id}
       />
     </div>
