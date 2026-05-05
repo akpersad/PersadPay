@@ -157,6 +157,50 @@ create table public.tax_rates (
 
 create index tax_rates_year_idx on public.tax_rates (effective_year desc);
 
+-- ── paystub_line_items ──────────────────────────────────────────────────────
+-- Additional pay (bonus, holiday pay, mileage reimbursement, etc.) attached
+-- to a paystub. Tax-flag columns mirror IRS Pub 926 / Pub 15-B classification
+-- so each line item can be FICA / federal / NY state / W-2 Box 1 taxable
+-- independently. Default true for safety (non-taxable items must be picked
+-- deliberately).
+create table public.paystub_line_items (
+  id                  uuid primary key default uuid_generate_v4(),
+  paystub_id          uuid not null references public.paystubs(id) on delete cascade,
+  line_type           text not null,
+  label               text not null,
+  amount              numeric(10,2) not null,
+  taxable_fed         boolean not null default true,
+  taxable_fica        boolean not null default true,
+  taxable_ny          boolean not null default true,
+  w2_box1             boolean not null default true,
+  informational_only  boolean not null default false,
+  -- True when handed to the employee outside the regular Zelle payment
+  -- (gift card given in person, cash bonus paid separately). Subtracted
+  -- from the displayed "Cash to send via Zelle" total.
+  given_separately    boolean not null default false,
+  sort_order          integer not null default 0,
+  created_at          timestamptz not null default now()
+);
+
+create index paystub_line_items_paystub_id_idx on public.paystub_line_items (paystub_id);
+
+-- ── audit_log ───────────────────────────────────────────────────────────────
+-- Forensic record of changes to financially significant tables. Populated by
+-- public.audit_trigger() — never written to directly by the application.
+create table public.audit_log (
+  id          uuid primary key default uuid_generate_v4(),
+  table_name  text not null,
+  record_id   uuid,
+  action      text not null check (action in ('INSERT', 'UPDATE', 'DELETE')),
+  actor_id    uuid references public.profiles(id),
+  before_data jsonb,
+  after_data  jsonb,
+  created_at  timestamptz not null default now()
+);
+
+create index audit_log_table_record_idx on public.audit_log (table_name, record_id);
+create index audit_log_created_at_idx   on public.audit_log (created_at desc);
+
 -- ── filings ─────────────────────────────────────────────────────────────────
 -- Permanent record of NYS-45 quarterly and Schedule H annual submissions.
 -- Created when admin marks a filing as "filed" from the filings detail view.
@@ -190,6 +234,8 @@ alter table public.onboarding_checklist enable row level security;
 alter table public.w2s enable row level security;
 alter table public.tax_rates enable row level security;
 alter table public.filings enable row level security;
+alter table public.paystub_line_items enable row level security;
+alter table public.audit_log enable row level security;
 
 -- Helper: is the current user an admin?
 create or replace function public.is_admin()
@@ -240,6 +286,68 @@ create policy "Admins full access to tax_rates" on public.tax_rates
 create policy "Admins full access to filings" on public.filings
   for all using (public.is_admin());
 
+-- paystub_line_items
+create policy "Admins full access to paystub_line_items"
+  on public.paystub_line_items for all using (public.is_admin());
+create policy "Employees read own stub line items"
+  on public.paystub_line_items for select
+  using (
+    exists (
+      select 1 from public.paystubs p
+      where p.id = paystub_line_items.paystub_id
+        and p.employee_id = auth.uid()
+    )
+  );
+
+-- audit_log (admin read only — writes happen exclusively through triggers)
+create policy "Admins read audit_log" on public.audit_log
+  for select using (public.is_admin());
+
+-- ── Audit trigger function ───────────────────────────────────────────────────
+create or replace function public.audit_trigger() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  uid uuid;
+begin
+  begin
+    uid := auth.uid();
+  exception when others then
+    uid := null;
+  end;
+
+  if (TG_OP = 'DELETE') then
+    insert into public.audit_log (table_name, record_id, action, actor_id, before_data)
+    values (TG_TABLE_NAME, OLD.id, TG_OP, uid, to_jsonb(OLD));
+    return OLD;
+  elsif (TG_OP = 'UPDATE') then
+    insert into public.audit_log (table_name, record_id, action, actor_id, before_data, after_data)
+    values (TG_TABLE_NAME, NEW.id, TG_OP, uid, to_jsonb(OLD), to_jsonb(NEW));
+    return NEW;
+  elsif (TG_OP = 'INSERT') then
+    insert into public.audit_log (table_name, record_id, action, actor_id, after_data)
+    values (TG_TABLE_NAME, NEW.id, TG_OP, uid, to_jsonb(NEW));
+    return NEW;
+  end if;
+  return null;
+end;
+$$;
+
+create trigger paystubs_audit
+  after insert or update or delete on public.paystubs
+  for each row execute procedure public.audit_trigger();
+
+create trigger paystub_line_items_audit
+  after insert or update or delete on public.paystub_line_items
+  for each row execute procedure public.audit_trigger();
+
+create trigger settings_audit
+  after insert or update or delete on public.settings
+  for each row execute procedure public.audit_trigger();
+
+create trigger w2s_audit
+  after insert or update or delete on public.w2s
+  for each row execute procedure public.audit_trigger();
+
 -- ── Seed: Onboarding Checklist ───────────────────────────────────────────────
 insert into public.onboarding_checklist (label, detail, sort_order) values
   ('Apply for Federal EIN at irs.gov', 'File IRS Form SS-4 online at irs.gov/businesses/small-businesses-self-employed/apply-for-an-employer-identification-number-ein-online', 1),
@@ -255,7 +363,8 @@ insert into public.onboarding_checklist (label, detail, sort_order) values
   ('Fill out all fields in Persad Pay Settings', 'Navigate to Settings and complete all employer/employee fields', 11),
   ('Create Supabase user accounts for all three users', 'Create accounts in Supabase Auth dashboard with role metadata', 12),
   ('Confirm quarterly reminders are seeded in Reminders tab', 'Check that all NYS-45 and Schedule H reminders appear', 13),
-  ('Print, sign, and file the Sick Leave Policy', 'Open Documents → Sick Leave Policy in the app, print it, have both employer and employee sign, and store the signed copy. Recommended: commit a scanned PDF to /docs/signed/sick-leave-policy.pdf in the repo so it''s preserved alongside the source code.', 14);
+  ('Print, sign, and file the Sick Leave Policy', 'Open Documents → Sick Leave Policy in the app, print it, have both employer and employee sign, and store the signed copy. Recommended: commit a scanned PDF to /docs/signed/sick-leave-policy.pdf in the repo so it''s preserved alongside the source code.', 14),
+  ('Switch email FROM to payroll@persadpay.com', 'Currently using Resend''s sandbox sender (onboarding@resend.dev) which only delivers to addresses verified on the Resend account. Once persadpay.com is purchased AND verified in Resend (SPF/DKIM DNS records), update the FROM constant in src/lib/email.ts to ''Persad Pay <payroll@persadpay.com>''.', 15);
 
 -- ── Seed: Reminders (2026) ───────────────────────────────────────────────────
 insert into public.reminders (title, due_date, description) values
@@ -296,5 +405,7 @@ grant select, insert, update, delete on public.onboarding_checklist to authentic
 grant select, insert, update, delete on public.w2s to authenticated;
 grant select, insert, update, delete on public.tax_rates to authenticated;
 grant select, insert, update, delete on public.filings to authenticated;
+grant select, insert, update, delete on public.paystub_line_items to authenticated;
+grant select, insert on public.audit_log to authenticated;
 
 -- anon role has no table access — all routes require authentication
