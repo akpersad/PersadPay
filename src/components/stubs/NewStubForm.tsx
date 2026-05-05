@@ -20,6 +20,7 @@ interface Props {
   lastPayPeriodEnd: string | null
   nextStubNumber: number
   ytdGrossBefore: number
+  ytdPflBefore: number
   createdBy: string
 }
 
@@ -36,7 +37,7 @@ function getDatesInRange(start: string, end: string): string[] {
   return dates
 }
 
-export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNumber, ytdGrossBefore, createdBy }: Props) {
+export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNumber, ytdGrossBefore, ytdPflBefore, createdBy }: Props) {
   const router = useRouter()
 
   const suggestedStart = lastPayPeriodEnd ? addDays(lastPayPeriodEnd, 1) : ''
@@ -99,6 +100,7 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
     const calc = calculateTaxes({
       gross,
       ytdGrossBefore,
+      ytdPflBefore,
       federalWithholding: Number(settings.federal_withholding_per_period),
       stateWithholding: Number(settings.state_withholding_per_period),
       pflWaived: settings.pfl_waived,
