@@ -133,6 +133,54 @@ create table public.w2s (
   constraint w2s_unique_year unique (employee_id, tax_year)
 );
 
+-- ── tax_rates ───────────────────────────────────────────────────────────────
+-- Versioned snapshot of statutory rates per calendar year. calculateTaxes
+-- looks up the row matching the stub's pay_date year. New row added each
+-- December via the "Verify YYYY tax rates" reminder.
+create table public.tax_rates (
+  id                  uuid primary key default uuid_generate_v4(),
+  effective_year      integer not null unique,
+  fica_ss_rate        numeric(8,5)  not null,
+  fica_medicare_rate  numeric(8,5)  not null,
+  ss_wage_base        numeric(12,2) not null,
+  futa_rate           numeric(8,5)  not null,
+  futa_wage_base      numeric(12,2) not null,
+  suta_wage_base      numeric(12,2) not null,
+  sdi_rate            numeric(8,5)  not null,
+  sdi_weekly_cap      numeric(8,2)  not null,
+  pfl_rate            numeric(8,5)  not null,
+  pfl_annual_cap      numeric(10,2) not null,
+  irs_mileage_rate    numeric(6,4)  not null,
+  source_notes        text,
+  created_at          timestamptz   not null default now()
+);
+
+create index tax_rates_year_idx on public.tax_rates (effective_year desc);
+
+-- ── filings ─────────────────────────────────────────────────────────────────
+-- Permanent record of NYS-45 quarterly and Schedule H annual submissions.
+-- Created when admin marks a filing as "filed" from the filings detail view.
+create table public.filings (
+  id            uuid primary key default uuid_generate_v4(),
+  filing_type   text not null check (filing_type in ('NYS-45', 'Schedule H')),
+  tax_year      integer not null,
+  quarter       integer check (quarter is null or quarter between 1 and 4),
+  filed_on      date,
+  confirmation  text,
+  notes         text,
+  created_at    timestamptz not null default now(),
+  created_by    uuid references public.profiles(id),
+  constraint filings_quarter_consistency check (
+    (filing_type = 'NYS-45' and quarter is not null) or
+    (filing_type = 'Schedule H' and quarter is null)
+  )
+);
+
+create unique index filings_unique
+  on public.filings (filing_type, tax_year, coalesce(quarter, 0));
+
+create index filings_year_idx on public.filings (tax_year desc);
+
 -- ── Row Level Security ───────────────────────────────────────────────────────
 alter table public.profiles enable row level security;
 alter table public.settings enable row level security;
@@ -140,6 +188,8 @@ alter table public.paystubs enable row level security;
 alter table public.reminders enable row level security;
 alter table public.onboarding_checklist enable row level security;
 alter table public.w2s enable row level security;
+alter table public.tax_rates enable row level security;
+alter table public.filings enable row level security;
 
 -- Helper: is the current user an admin?
 create or replace function public.is_admin()
@@ -182,6 +232,14 @@ create policy "Admins full access to w2s" on public.w2s
 create policy "Employees read own w2s" on public.w2s
   for select using (employee_id = auth.uid());
 
+-- tax_rates (admin only — employees have no need to see statutory rates)
+create policy "Admins full access to tax_rates" on public.tax_rates
+  for all using (public.is_admin());
+
+-- filings (admin only)
+create policy "Admins full access to filings" on public.filings
+  for all using (public.is_admin());
+
 -- ── Seed: Onboarding Checklist ───────────────────────────────────────────────
 insert into public.onboarding_checklist (label, detail, sort_order) values
   ('Apply for Federal EIN at irs.gov', 'File IRS Form SS-4 online at irs.gov/businesses/small-businesses-self-employed/apply-for-an-employer-identification-number-ein-online', 1),
@@ -205,7 +263,22 @@ insert into public.reminders (title, due_date, description) values
   ('Schedule H 2025', '2026-04-15', 'File Schedule H with your federal Form 1040 for household employment taxes paid in 2025. Due with your federal tax return.'),
   ('NYS-45 Q2 2026', '2026-07-31', 'File NYS-45 for Q2 at labor.ny.gov'),
   ('NYS-45 Q3 2026', '2026-10-31', 'File NYS-45 for Q3 at labor.ny.gov'),
-  ('NYS-45 Q4 2026', '2027-01-31', 'File NYS-45 for Q4 at labor.ny.gov');
+  ('NYS-45 Q4 2026', '2027-01-31', 'File NYS-45 for Q4 at labor.ny.gov'),
+  ('Verify 2027 tax rates', '2026-12-01', 'Update the tax_rates table with verified values for the upcoming year: FICA SS wage base, FUTA wage base, NY SUTA wage base, NY SDI rate/cap, NY PFL rate/cap, IRS standard mileage rate. Cite primary sources (IRS, NY DOL, NY DFS) in the migration commit message. See /docs/ROADMAP.md.');
+
+-- ── Seed: Tax Rates (2026) ──────────────────────────────────────────────────
+insert into public.tax_rates (
+  effective_year, fica_ss_rate, fica_medicare_rate, ss_wage_base,
+  futa_rate, futa_wage_base, suta_wage_base,
+  sdi_rate, sdi_weekly_cap, pfl_rate, pfl_annual_cap,
+  irs_mileage_rate, source_notes
+) values (
+  2026, 0.062, 0.0145, 184500,
+  0.006, 7000, 13000,
+  0.005, 0.60, 0.00432, 411.91,
+  0.725,
+  'Verified 2026-05-05. Sources: IRS Topic 751 (FICA, SS wage base); IRS Pub 926 (FUTA); NY DOL UI rate notice (SUTA wage base $13,000 for NY 2026); NY DFS 2026 PFL rate decision (PFL rate 0.432%, cap $411.91); NY DFS / WCB (SDI 0.5% / $0.60 weekly cap); IRS Notice 2026-10 (mileage 72.5¢/mi). See /docs/ROADMAP.md.'
+);
 
 -- ── Grants ────────────────────────────────────────────────────────────────────
 -- Required so the anon/authenticated/service_role Postgres roles can access
@@ -221,5 +294,7 @@ grant select, insert, update, delete on public.settings to authenticated;
 grant select, insert, update, delete on public.reminders to authenticated;
 grant select, insert, update, delete on public.onboarding_checklist to authenticated;
 grant select, insert, update, delete on public.w2s to authenticated;
+grant select, insert, update, delete on public.tax_rates to authenticated;
+grant select, insert, update, delete on public.filings to authenticated;
 
 -- anon role has no table access — all routes require authentication

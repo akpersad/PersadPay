@@ -107,6 +107,18 @@ export interface PaystubWithYTD extends Paystub {
   total_employee_taxes: number
 }
 
+export interface Filing {
+  id: string
+  filing_type: 'NYS-45' | 'Schedule H'
+  tax_year: number
+  quarter: number | null
+  filed_on: string | null
+  confirmation: string | null
+  notes: string | null
+  created_at: string
+  created_by: string | null
+}
+
 export interface W2Data {
   employee_name: string
   employer_name: string
