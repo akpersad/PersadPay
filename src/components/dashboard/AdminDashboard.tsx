@@ -3,10 +3,10 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
 import { OnboardingChecklist } from './OnboardingChecklist'
-import { formatDate, formatDateRange, formatCurrency, daysUntil } from '@/lib/dates'
+import { UpcomingDeadlines } from './UpcomingDeadlines'
+import { formatDateRange, formatCurrency, daysUntil } from '@/lib/dates'
 import { PlusCircle, CheckCircle2, AlertCircle } from 'lucide-react'
 import type { Paystub, Reminder, OnboardingItem } from '@/lib/types'
 
@@ -141,24 +141,7 @@ export async function AdminDashboard() {
               View all
             </Link>
           </div>
-          <div className="space-y-2">
-            {(reminders as Reminder[]).map(r => {
-              const days = daysUntil(r.due_date)
-              return (
-                <Card key={r.id}>
-                  <CardContent className="py-3 px-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">{r.title}</p>
-                      <p className="text-xs text-muted-foreground">Due {formatDate(r.due_date)}</p>
-                    </div>
-                    <Badge variant={days <= 10 ? 'destructive' : days <= 20 ? 'secondary' : 'outline'}>
-                      {days <= 0 ? 'Overdue' : `${days}d`}
-                    </Badge>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
+          <UpcomingDeadlines reminders={reminders as Reminder[]} />
         </section>
       )}
     </div>
