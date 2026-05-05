@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -23,13 +23,28 @@ interface Props {
   createdBy: string
 }
 
+const DAY_ABBRS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+function getDatesInRange(start: string, end: string): string[] {
+  const dates: string[] = []
+  const cur = new Date(start + 'T12:00:00')
+  const last = new Date(end + 'T12:00:00')
+  while (cur <= last) {
+    dates.push(cur.toISOString().slice(0, 10))
+    cur.setDate(cur.getDate() + 1)
+  }
+  return dates
+}
+
 export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNumber, ytdGrossBefore, createdBy }: Props) {
   const router = useRouter()
 
   const suggestedStart = lastPayPeriodEnd ? addDays(lastPayPeriodEnd, 1) : ''
   const suggestedEnd = suggestedStart ? addDays(suggestedStart, 6) : ''
 
+  const [hoursMode, setHoursMode] = useState<'total' | 'daily'>('total')
   const [hours, setHours] = useState('')
+  const [dailyHours, setDailyHours] = useState<Record<string, string>>({})
   const [rate, setRate] = useState(settings?.employee_hourly_rate?.toString() ?? '')
   const [periodStart, setPeriodStart] = useState(suggestedStart)
   const [periodEnd, setPeriodEnd] = useState(suggestedEnd)
@@ -37,7 +52,47 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
   const [preview, setPreview] = useState<TaxResult | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const gross = parseFloat(hours || '0') * parseFloat(rate || '0')
+  const datesInRange = useMemo(
+    () => (periodStart && periodEnd ? getDatesInRange(periodStart, periodEnd) : []),
+    [periodStart, periodEnd],
+  )
+
+  const dailyTotal = useMemo(
+    () => datesInRange.reduce((sum, d) => sum + parseFloat(dailyHours[d] || '0'), 0),
+    [datesInRange, dailyHours],
+  )
+
+  const effectiveHours = hoursMode === 'daily' ? String(dailyTotal) : hours
+  const gross = parseFloat(effectiveHours || '0') * parseFloat(rate || '0')
+
+  function updateDailyHours(date: string, value: string) {
+    setDailyHours(prev => ({ ...prev, [date]: value }))
+    setPreview(null)
+  }
+
+  function handlePeriodStartChange(val: string) {
+    setPeriodStart(val)
+    setDailyHours({})
+    setPreview(null)
+  }
+
+  function handlePeriodEndChange(val: string) {
+    setPeriodEnd(val)
+    setDailyHours({})
+    setPreview(null)
+  }
+
+  function toggleMode() {
+    if (hoursMode === 'total') {
+      setHoursMode('daily')
+      setHours('')
+    } else {
+      setHoursMode('total')
+      setHours(dailyTotal > 0 ? String(dailyTotal) : '')
+      setDailyHours({})
+    }
+    setPreview(null)
+  }
 
   function generatePreview() {
     if (!settings) return
@@ -65,7 +120,7 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
         pay_period_start: periodStart,
         pay_period_end: periodEnd,
         pay_date: payDate,
-        hours_worked: parseFloat(hours || '0'),
+        hours_worked: parseFloat(effectiveHours || '0'),
         hourly_rate: parseFloat(rate),
         gross_pay: preview.gross_pay,
         federal_withholding: preview.federal_withholding,
@@ -95,16 +150,32 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
     router.push(`/stubs/${data.id}`)
   }
 
-  const canPreview = !!hours && !!rate && !!periodStart && !!periodEnd && !!payDate
+  const canSwitchToDailyMode = !!periodStart && !!periodEnd
+  const canPreview = hoursMode === 'daily'
+    ? (!!rate && !!periodStart && !!periodEnd && !!payDate)
+    : (!!hours && !!rate && !!periodStart && !!periodEnd && !!payDate)
   const pflLabel = settings?.pfl_waived ? null : 'NY PFL'
 
   return (
     <div className="space-y-5">
       <Card>
         <CardContent className="pt-4 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
+          {/* Hours Worked */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
               <Label htmlFor="hours">Hours Worked</Label>
+              {canSwitchToDailyMode && (
+                <button
+                  type="button"
+                  onClick={toggleMode}
+                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                >
+                  {hoursMode === 'daily' ? 'Enter total instead' : 'Enter by day'}
+                </button>
+              )}
+            </div>
+
+            {hoursMode === 'total' ? (
               <Input
                 id="hours"
                 type="number"
@@ -114,28 +185,60 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
                 onChange={e => { setHours(e.target.value); setPreview(null) }}
                 placeholder="40"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="rate">Hourly Rate ($)</Label>
-              <Input
-                id="rate"
-                type="number"
-                min="0"
-                step="0.01"
-                value={rate}
-                onChange={e => { setRate(e.target.value); setPreview(null) }}
-                placeholder="20.00"
-              />
-            </div>
+            ) : (
+              <div className="rounded-md border p-3 space-y-2">
+                {datesInRange.map(dateStr => {
+                  const d = new Date(dateStr + 'T12:00:00')
+                  return (
+                    <div key={dateStr} className="flex items-center gap-3">
+                      <span className="text-sm text-muted-foreground w-16 flex-shrink-0">
+                        {DAY_ABBRS[d.getDay()]} {d.getMonth() + 1}/{d.getDate()}
+                      </span>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="24"
+                        step="0.25"
+                        value={dailyHours[dateStr] ?? ''}
+                        onChange={e => updateDailyHours(dateStr, e.target.value)}
+                        placeholder="0"
+                        className="h-8 w-20 text-right"
+                      />
+                      <span className="text-xs text-muted-foreground">hrs</span>
+                    </div>
+                  )
+                })}
+                <Separator />
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium w-16 flex-shrink-0">Total</span>
+                  <span className="text-sm font-medium">{dailyTotal} hrs</span>
+                </div>
+              </div>
+            )}
           </div>
 
+          {/* Hourly Rate */}
+          <div className="space-y-1.5">
+            <Label htmlFor="rate">Hourly Rate ($)</Label>
+            <Input
+              id="rate"
+              type="number"
+              min="0"
+              step="0.01"
+              value={rate}
+              onChange={e => { setRate(e.target.value); setPreview(null) }}
+              placeholder="20.00"
+            />
+          </div>
+
+          {/* Dates */}
           <div className="space-y-1.5">
             <Label htmlFor="period-start">Pay Period Start</Label>
             <Input
               id="period-start"
               type="date"
               value={periodStart}
-              onChange={e => { setPeriodStart(e.target.value); setPreview(null) }}
+              onChange={e => handlePeriodStartChange(e.target.value)}
             />
           </div>
           <div className="space-y-1.5">
@@ -144,7 +247,7 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
               id="period-end"
               type="date"
               value={periodEnd}
-              onChange={e => { setPeriodEnd(e.target.value); setPreview(null) }}
+              onChange={e => handlePeriodEndChange(e.target.value)}
             />
           </div>
           <div className="space-y-1.5">
@@ -176,9 +279,9 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
           <CardContent className="space-y-3 pb-4">
             <div className="flex justify-between text-sm">
               <span>
-                {parseFloat(hours) === 0
+                {parseFloat(effectiveHours) === 0
                   ? 'No Hours — Week Off'
-                  : `${hours} hrs × ${formatCurrency(parseFloat(rate))}`}
+                  : `${effectiveHours} hrs × ${formatCurrency(parseFloat(rate))}`}
               </span>
               <span className="font-medium">{formatCurrency(preview.gross_pay)}</span>
             </div>
