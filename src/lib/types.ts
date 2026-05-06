@@ -56,6 +56,9 @@ export interface Paystub {
   payment_sent: boolean
   zelle_transaction_id: string | null
   stub_sent: boolean
+  hysa_transferred: boolean
+  hysa_transferred_at: string | null
+  hysa_notes: string | null
   created_at: string
   created_by: string
 }
@@ -130,6 +133,40 @@ export interface PaystubLineItem {
   given_separately: boolean
   sort_order: number
   created_at: string
+}
+
+export type SignedDocumentType =
+  | 'sick_leave_policy'
+  | 'sick_leave_summary'
+  | 'ls59'
+  | 'pfl_waiver'
+  | 'w4'
+  | 'it2104'
+
+export interface SignedDocument {
+  id: string
+  document_type: SignedDocumentType
+  file_path: string
+  file_name: string | null
+  file_size_bytes: number | null
+  mime_type: string | null
+  uploaded_at: string
+  uploaded_by: string | null
+  notes: string | null
+}
+
+export type WithholdingFormType = 'W-4' | 'IT-2104'
+
+export interface WithholdingForm {
+  id: string
+  form_type: WithholdingFormType
+  form_values: Record<string, unknown>
+  computed_amount: number
+  computed_against_gross: number | null
+  computed_at: string | null
+  updated_by: string | null
+  updated_at: string
+  notes: string | null
 }
 
 export interface AuditLogEntry {

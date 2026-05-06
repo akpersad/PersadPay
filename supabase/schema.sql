@@ -91,6 +91,13 @@ create table public.paystubs (
   payment_sent          boolean not null default false,
   zelle_transaction_id  text,
   stub_sent             boolean not null default false,
+  -- HYSA transfer: marks when the admin has moved the per-stub
+  -- tax/withholding cash to the high-yield savings account that holds it
+  -- until quarterly/annual filings are paid. Amount is derived from the
+  -- stub's other columns (sum of withholdings + employer taxes).
+  hysa_transferred      boolean not null default false,
+  hysa_transferred_at   timestamptz,
+  hysa_notes            text,
   created_at            timestamptz not null default now(),
   created_by            uuid not null references public.profiles(id),
   constraint stub_number_positive check (stub_number > 0),
@@ -210,6 +217,43 @@ create table public.audit_log (
 create index audit_log_table_record_idx on public.audit_log (table_name, record_id);
 create index audit_log_created_at_idx   on public.audit_log (created_at desc);
 
+-- ── signed_documents ────────────────────────────────────────────────────────
+-- Tracks redundancy copies of signed legal/HR docs uploaded to the
+-- signed-documents Storage bucket. Physical originals live in the user's
+-- home fire-safe; this is a *secondary* backup, not the system of record.
+create table public.signed_documents (
+  id              uuid primary key default uuid_generate_v4(),
+  document_type   text not null unique check (
+    document_type in ('sick_leave_policy', 'sick_leave_summary', 'ls59', 'pfl_waiver', 'w4', 'it2104')
+  ),
+  file_path       text not null,
+  file_name       text,
+  file_size_bytes integer,
+  mime_type       text,
+  uploaded_at     timestamptz not null default now(),
+  uploaded_by     uuid references public.profiles(id),
+  notes           text
+);
+
+-- ── withholding_forms ───────────────────────────────────────────────────────
+-- Captures W-4 and IT-2104 form values + the per-period dollar amount the
+-- admin computed via canonical sources (IRS estimator / Pub NYS-50-T).
+-- settings.federal_withholding_per_period and
+-- settings.state_withholding_per_period stay the source of truth for the
+-- tax engine; this table is the auditable record of how those values were
+-- derived.
+create table public.withholding_forms (
+  id                       uuid primary key default uuid_generate_v4(),
+  form_type                text not null unique check (form_type in ('W-4', 'IT-2104')),
+  form_values              jsonb not null default '{}'::jsonb,
+  computed_amount          numeric(10,2) not null default 0,
+  computed_against_gross   numeric(10,2),
+  computed_at              timestamptz,
+  updated_by               uuid references public.profiles(id),
+  updated_at               timestamptz not null default now(),
+  notes                    text
+);
+
 -- ── filings ─────────────────────────────────────────────────────────────────
 -- Permanent record of NYS-45 quarterly and Schedule H annual submissions.
 -- Created when admin marks a filing as "filed" from the filings detail view.
@@ -245,6 +289,8 @@ alter table public.tax_rates enable row level security;
 alter table public.filings enable row level security;
 alter table public.paystub_line_items enable row level security;
 alter table public.audit_log enable row level security;
+alter table public.signed_documents enable row level security;
+alter table public.withholding_forms enable row level security;
 
 -- Helper: is the current user an admin?
 create or replace function public.is_admin()
@@ -312,6 +358,14 @@ create policy "Employees read own stub line items"
 create policy "Admins read audit_log" on public.audit_log
   for select using (public.is_admin());
 
+-- signed_documents
+create policy "Admins full access to signed_documents"
+  on public.signed_documents for all using (public.is_admin());
+
+-- withholding_forms
+create policy "Admins full access to withholding_forms"
+  on public.withholding_forms for all using (public.is_admin());
+
 -- ── Audit trigger function ───────────────────────────────────────────────────
 create or replace function public.audit_trigger() returns trigger
 language plpgsql security definer set search_path = public as $$
@@ -355,6 +409,14 @@ create trigger settings_audit
 
 create trigger w2s_audit
   after insert or update or delete on public.w2s
+  for each row execute procedure public.audit_trigger();
+
+create trigger signed_documents_audit
+  after insert or update or delete on public.signed_documents
+  for each row execute procedure public.audit_trigger();
+
+create trigger withholding_forms_audit
+  after insert or update or delete on public.withholding_forms
   for each row execute procedure public.audit_trigger();
 
 -- ── Seed: Onboarding Checklist ───────────────────────────────────────────────
@@ -421,5 +483,7 @@ grant select, insert, update, delete on public.tax_rates to authenticated;
 grant select, insert, update, delete on public.filings to authenticated;
 grant select, insert, update, delete on public.paystub_line_items to authenticated;
 grant select, insert on public.audit_log to authenticated;
+grant select, insert, update, delete on public.signed_documents to authenticated;
+grant select, insert, update, delete on public.withholding_forms to authenticated;
 
 -- anon role has no table access — all routes require authentication
