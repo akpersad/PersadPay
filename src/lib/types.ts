@@ -147,6 +147,8 @@ export type SignedDocumentType =
   | 'pfl_waiver'
   | 'w4'
   | 'it2104'
+  | 'ein_confirmation'
+  | 'nys_registration'
 
 export interface SignedDocument {
   id: string

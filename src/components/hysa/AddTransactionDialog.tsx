@@ -10,12 +10,18 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { Plus } from 'lucide-react'
 
 type TxType = 'deposit_manual' | 'withdrawal_manual' | 'balance_correction'
+
+const TX_TYPE_LABELS: Record<TxType, string> = {
+  deposit_manual: 'Deposit',
+  withdrawal_manual: 'Withdrawal',
+  balance_correction: 'Balance correction',
+}
 
 export function AddTransactionDialog({ userId }: { userId: string }) {
   const router = useRouter()
@@ -93,11 +99,11 @@ export function AddTransactionDialog({ userId }: { userId: string }) {
               <Label>Type</Label>
               <Select value={txType} onValueChange={v => setTxType(v as TxType)}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <span className="flex-1 text-left text-sm">{TX_TYPE_LABELS[txType]}</span>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="deposit_manual">Deposit — manual</SelectItem>
-                  <SelectItem value="withdrawal_manual">Withdrawal — manual</SelectItem>
+                  <SelectItem value="deposit_manual">Deposit</SelectItem>
+                  <SelectItem value="withdrawal_manual">Withdrawal</SelectItem>
                   <SelectItem value="balance_correction">Balance correction</SelectItem>
                 </SelectContent>
               </Select>

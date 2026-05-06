@@ -84,21 +84,21 @@ export function SettingsForm({ settings: initial }: Props) {
   return (
     <div className="space-y-5">
       <Section title="Employer">
-        <Field label="Name" value={employerName} onChange={setEmployerName} placeholder="Persad Family" />
-        <Field label="EIN" value={employerEin} onChange={setEmployerEin} placeholder="12-3456789" />
-        <Field label="Address" value={employerAddress} onChange={setEmployerAddress} placeholder="123 Main St, Franklin Square, NY 11010" />
-        <Field label="Phone" value={employerPhone} onChange={setEmployerPhone} type="tel" placeholder="(516) 555-0100" />
+        <Field label="Name" value={employerName} onChange={setEmployerName} onBlur={() => setEmployerName(employerName.trim())} placeholder="Persad Family" />
+        <Field label="EIN" value={employerEin} onChange={setEmployerEin} onBlur={() => setEmployerEin(formatEin(employerEin))} placeholder="12-3456789" />
+        <Field label="Address" value={employerAddress} onChange={setEmployerAddress} onBlur={() => setEmployerAddress(employerAddress.trim())} placeholder="123 Main St, Franklin Square, NY 11010" />
+        <Field label="Phone" value={employerPhone} onChange={setEmployerPhone} onBlur={() => setEmployerPhone(formatPhone(employerPhone))} type="tel" placeholder="(516) 555-0100" />
       </Section>
 
       <Section title="Employee">
-        <Field label="Full Name" value={employeeName} onChange={setEmployeeName} />
-        <Field label="Email" value={employeeEmail} onChange={setEmployeeEmail} type="email" />
-        <Field label="Hourly Rate ($)" value={hourlyRate} onChange={setHourlyRate} type="number" placeholder="20.00" />
+        <Field label="Full Name" value={employeeName} onChange={setEmployeeName} onBlur={() => setEmployeeName(employeeName.trim())} />
+        <Field label="Email" value={employeeEmail} onChange={setEmployeeEmail} onBlur={() => setEmployeeEmail(employeeEmail.trim().toLowerCase())} type="email" />
+        <Field label="Hourly Rate ($)" value={hourlyRate} onChange={setHourlyRate} onBlur={() => setHourlyRate(formatCurrencyInput(hourlyRate))} inputMode="decimal" placeholder="20.00" />
       </Section>
 
       <Section title="Withholding">
-        <Field label="Federal Withholding per Period ($)" value={federalWithholding} onChange={setFederalWithholding} type="number" placeholder="0.00" />
-        <Field label="NY State Withholding per Period ($)" value={stateWithholding} onChange={setStateWithholding} type="number" placeholder="0.00" />
+        <Field label="Federal Withholding per Period ($)" value={federalWithholding} onChange={setFederalWithholding} onBlur={() => setFederalWithholding(formatCurrencyInput(federalWithholding))} inputMode="decimal" placeholder="0.00" />
+        <Field label="NY State Withholding per Period ($)" value={stateWithholding} onChange={setStateWithholding} onBlur={() => setStateWithholding(formatCurrencyInput(stateWithholding))} inputMode="decimal" placeholder="0.00" />
         <div className="flex items-center justify-between py-1">
           <div>
             <Label>PFL Waived</Label>
@@ -108,7 +108,12 @@ export function SettingsForm({ settings: initial }: Props) {
         </div>
         <div className="space-y-1.5">
           <Label>SUTA Rate</Label>
-          <Input value={sutaRate} onChange={e => setSutaRate(e.target.value)} type="number" step="0.0001" />
+          <Input
+            value={sutaRate}
+            onChange={e => setSutaRate(e.target.value)}
+            onBlur={() => setSutaRate(formatRateInput(sutaRate, 4))}
+            inputMode="decimal"
+          />
           <p className="text-xs text-muted-foreground">Update annually from your NY UI rate notice.</p>
         </div>
       </Section>
@@ -179,15 +184,51 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function Field({ label, value, onChange, type = 'text', placeholder }: {
-  label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string
+function Field({ label, value, onChange, onBlur, type = 'text', inputMode, placeholder }: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  onBlur?: () => void
+  type?: string
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']
+  placeholder?: string
 }) {
   return (
     <div className="space-y-1.5">
       <Label>{label}</Label>
-      <Input value={value} onChange={e => onChange(e.target.value)} type={type} placeholder={placeholder} />
+      <Input
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onBlur={onBlur}
+        type={type}
+        inputMode={inputMode}
+        placeholder={placeholder}
+      />
     </div>
   )
+}
+
+function formatCurrencyInput(v: string): string {
+  const n = parseFloat(v)
+  return isNaN(n) ? v : n.toFixed(2)
+}
+
+function formatRateInput(v: string, decimals: number): string {
+  const n = parseFloat(v)
+  return isNaN(n) ? v : n.toFixed(decimals)
+}
+
+function formatEin(v: string): string {
+  const digits = v.replace(/\D/g, '')
+  if (digits.length === 9) return `${digits.slice(0, 2)}-${digits.slice(2)}`
+  return v
+}
+
+function formatPhone(v: string): string {
+  const digits = v.replace(/\D/g, '')
+  if (digits.length === 10) return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+  if (digits.length === 11 && digits[0] === '1') return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`
+  return v
 }
 
 function EmailList({ emails, onRemove }: { emails: string[]; onRemove: (e: string) => void }) {

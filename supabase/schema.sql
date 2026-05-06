@@ -248,7 +248,7 @@ create index push_subscriptions_user_id_idx on public.push_subscriptions (user_i
 create table public.signed_documents (
   id              uuid primary key default uuid_generate_v4(),
   document_type   text not null unique check (
-    document_type in ('sick_leave_policy', 'sick_leave_summary', 'ls59', 'pfl_waiver', 'w4', 'it2104')
+    document_type in ('sick_leave_policy', 'sick_leave_summary', 'ls59', 'pfl_waiver', 'w4', 'it2104', 'ein_confirmation', 'nys_registration')
   ),
   file_path       text not null,
   file_name       text,

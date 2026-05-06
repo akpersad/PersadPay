@@ -327,6 +327,80 @@ NY State tax quarters align with federal: Q1 Jan–Mar (due Apr 30), Q2 Apr–Ju
 
 ---
 
+### Phase 6 — Visual polish + brand identity
+
+**Status: PENDING.**
+
+**Goal:** give the app a real visual identity so it feels like a finished product. Right now the CSS theme is pure grayscale — every `--primary` is near-black. `BRAND_COLOR = '#1a1a2e'` exists but only in the PDFs. Phase 6 wires the palette across the entire UI, audits every colored element for consistency, and locks in the app icon.
+
+---
+
+#### Palette
+
+The brand color is **deep navy** `#1a1a2e` — already established in the PDFs and the PWA `theme_color`. Build the full token set around it:
+
+| Token | Light mode | Dark mode | Role |
+|---|---|---|---|
+| `--primary` | `#1a1a2e` (navy) | `#4f7ec8` (lighter navy-blue) | Buttons, active nav, focus rings |
+| `--primary-foreground` | `#ffffff` | `#ffffff` | Text on primary |
+| `--accent` | `#e8f0fe` (pale blue tint) | `#1e2d4a` (dark tinted navy) | Hover states, subtle highlights |
+| `--accent-foreground` | `#1a1a2e` | `#c5d8f8` | |
+| Success green | `#16a34a` (green-600) | `#22c55e` (green-500) | Paid badge, HYSA funded, Uploaded |
+| Amber warning | `#d97706` (amber-600) | `#f59e0b` (amber-500) | HYSA discrepancy, cap warnings |
+| Destructive | keep existing oklch red | | Delete, error states |
+
+All other tokens (background, card, border, muted, etc.) stay neutral — only `primary` and `accent` get color.
+
+---
+
+#### Deliverables
+
+**Color tokens**
+- [ ] Update `globals.css` `:root` and `.dark` — wire `--primary`, `--primary-foreground`, `--accent`, `--accent-foreground` to the palette above. All in OKLCH.
+- [ ] Update `manifest.ts` `theme_color` to match new primary (currently already `#1a1a2e` — verify still correct after palette decision).
+- [ ] Update `BRAND_COLOR` in `src/lib/pdf/constants.ts` if palette shifts. Keep `BRAND_COLOR_LIGHT` in sync.
+
+**Bottom nav**
+- [ ] Active tab: use `text-primary` (navy) + filled icon weight instead of just opacity difference. Currently active = black, inactive = gray — hard to tell at a glance.
+- [ ] Nav bar itself: white with `border-t border-border`. No color change needed — the active icon color is enough.
+
+**Badges + status chips**
+- [ ] Audit every hardcoded `bg-green-600`, `text-green-600`, `bg-amber-*` etc. across the codebase — convert to semantic Tailwind utilities where possible or extract a `StatusBadge` component with variants (`paid`, `pending`, `warning`, `error`).
+- [ ] "Payment Sent" / "Signed" / "Uploaded" / "HYSA funded" — all should use the same success green token.
+- [ ] HYSA discrepancy / wage-base warning / DBL watch — all should use the same amber token.
+
+**Cards + layout**
+- [ ] Audit card header padding across pages — some pages use `py-3 px-4`, others differ. Pick one standard and apply it everywhere.
+- [ ] Page header area (`<h1>` + subtitle `<p>`) — ensure consistent spacing (`pt-6 pb-4` or similar) and text sizes across all pages. Currently ad hoc.
+- [ ] Stat cards (dashboard, HYSA, filing detail) — unify the structure. Currently three slightly different card layouts do the same job.
+
+**Typography**
+- [ ] Swap the default Geist font for **Inter** (better number rendering for a finance app; slightly warmer than Geist). Or keep Geist but evaluate on device before deciding.
+- [ ] Verify `font-mono` is used consistently for all currency display, stub numbers, EINs, and transaction amounts — numbers in a tabular context should never jump width mid-scroll.
+
+**PWA icon**
+- [ ] Drop `icon-192.png` and `icon-512.png` into `/public` once the icon asset is ready. No code changes needed — `manifest.ts` already references those paths.
+- [ ] Verify on iOS "Add to Home Screen" after adding icons — confirm safe zone / maskable padding looks correct.
+
+**Dark mode**
+- [ ] Decision: support it or drop it. Options:
+  - **Keep + wire toggle** (add a theme toggle to Settings): more work, good for nighttime use.
+  - **Drop dark mode**: remove `.dark` block from `globals.css`, simplify. Fine since this is a 3-person private app.
+  - **Keep but don't surface toggle**: system-preference-only (current implicit behavior). Least work, still benefits OS dark-mode users.
+- [ ] Implement the chosen option. If keeping dark mode, audit every hardcoded hex/color class that doesn't adapt.
+
+**PDF alignment**
+- [ ] After final palette is locked, verify `BRAND_COLOR` in `src/lib/pdf/constants.ts` still matches `--primary`. If primary shifted at all, update constants and spot-check a generated paystub PDF.
+
+---
+
+#### Out of scope for Phase 6
+- Animations / transitions beyond what shadcn provides out of the box.
+- Custom illustrations or decorative graphics.
+- Per-user theme preferences.
+
+---
+
 ## Working norms
 
 - Every tax / labor-law code change must include the source URL in the commit message. See `memory/feedback_tax_accuracy.md`.

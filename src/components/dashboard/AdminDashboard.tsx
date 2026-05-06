@@ -20,7 +20,7 @@ export async function AdminDashboard() {
 
   const now = new Date()
   const yearStart = `${now.getFullYear()}-01-01`
-  const sixtyDaysOut = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
+  const ninetyDaysOut = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000)
     .toLocaleDateString('en-CA')
 
   const { year: currentYear, quarter: currentQuarter } = getCurrentQuarter(now)
@@ -50,7 +50,7 @@ export async function AdminDashboard() {
       .from('reminders')
       .select('*')
       .eq('dismissed', false)
-      .lte('due_date', sixtyDaysOut)
+      .lte('due_date', ninetyDaysOut)
       .order('due_date', { ascending: true }),
     supabase
       .from('onboarding_checklist')
