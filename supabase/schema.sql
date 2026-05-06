@@ -75,6 +75,11 @@ create table public.paystubs (
   -- Optional context for zero-hour weeks: 'week_off' / 'sick_unpaid' /
   -- 'vacation_unpaid' / 'holiday_unpaid' / 'other'.
   reason                text,
+  -- Per-day hours breakdown when admin used daily-entry mode. Keys are
+  -- YYYY-MM-DD; values are hours worked that day. NULL for stubs created
+  -- in total-hours mode. Enables accurate day-count for DBL/PFL threshold
+  -- watch and per-day display in the calendar view.
+  daily_hours           jsonb default null,
   hourly_rate           numeric(10,2) not null,
   gross_pay             numeric(10,2) not null,
   federal_withholding   numeric(10,2) not null default 0,

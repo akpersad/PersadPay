@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { formatDateRange, formatCurrency } from '@/lib/dates'
-import { CheckCircle2, AlertCircle, PlusCircle, PiggyBank } from 'lucide-react'
+import { CheckCircle2, AlertCircle, PlusCircle, PiggyBank, CalendarDays } from 'lucide-react'
 import { ExportCsvButton } from '@/components/stubs/ExportCsvButton'
 import type { Paystub, Profile } from '@/lib/types'
 
@@ -44,10 +44,16 @@ export default async function StubsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Pay Stubs</h1>
         {profile?.role === 'admin' && (
-          <Link href="/stubs/new" className={cn(buttonVariants({ size: 'sm' }))}>
-            <PlusCircle className="h-4 w-4 mr-1" />
-            New
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/calendar" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
+              <CalendarDays className="h-4 w-4 mr-1" />
+              Calendar
+            </Link>
+            <Link href="/stubs/new" className={cn(buttonVariants({ size: 'sm' }))}>
+              <PlusCircle className="h-4 w-4 mr-1" />
+              New
+            </Link>
+          </div>
         )}
       </div>
 

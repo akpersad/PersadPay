@@ -41,15 +41,27 @@ export function computeCoverageWatch(stubs: Paystub[], today: Date = new Date())
   const totalHrs = last26.reduce((sum, s) => sum + Number(s.hours_worked), 0)
   const avgHrs = last26.length > 0 ? totalHrs / 26 : 0
 
-  // Window 2: last 52 weeks for days worked. Each stub with > 0 hours counts
-  // as ≥ 1 day worked — undercounts when the babysitter works multiple days a
-  // week, but errs on the safe side for the threshold check (if proxy reaches
-  // 175 stubs, real days-worked is definitely ≥ 175).
+  // Window 2: last 52 weeks for days worked.
+  // For stubs that have daily_hours data, count actual calendar days with > 0
+  // hours. For legacy stubs (daily_hours = null), fall back to counting the
+  // stub itself as 1 day worked — conservative undercount that errs on the
+  // safe side (if proxy reaches 175 stubs, real days-worked is ≥ 175).
   const week52Cutoff = new Date(today)
   week52Cutoff.setDate(week52Cutoff.getDate() - 52 * 7)
   const cutoff52 = week52Cutoff.toISOString().slice(0, 10)
   const last52WithHours = stubs.filter(s => s.pay_date >= cutoff52 && Number(s.hours_worked) > 0)
-  const approxDays = last52WithHours.length
+  let exactDays = 0
+  let proxyDays = 0
+  for (const stub of last52WithHours) {
+    if (stub.daily_hours && Object.keys(stub.daily_hours).length > 0) {
+      exactDays += Object.entries(stub.daily_hours as Record<string, number>)
+        .filter(([date, hrs]) => date >= cutoff52 && Number(hrs) > 0)
+        .length
+    } else {
+      proxyDays += 1
+    }
+  }
+  const approxDays = exactDays + proxyDays
 
   let status: CoverageStatus = 'ok'
   let message = ''
@@ -59,11 +71,11 @@ export function computeCoverageWatch(stubs: Paystub[], today: Date = new Date())
     if (avgHrs >= HRS_THRESHOLD) {
       message = `She's averaging ${avgHrs.toFixed(1)} hrs/wk over the last 26 weeks (≥ 20 hrs threshold). NY DBL + PFL coverage is now required. Quote a policy through NYSIF or a private carrier and start withholding PFL.`
     } else {
-      message = `She's worked ≥ ${approxDays} days in the last 52 weeks (175-day threshold). NY DBL + PFL coverage is now required. Quote a policy through NYSIF or a private carrier and start withholding PFL.`
+      message = `She's worked ${approxDays} days in the last 52 weeks (175-day threshold). NY DBL + PFL coverage is now required. Quote a policy through NYSIF or a private carrier and start withholding PFL.`
     }
   } else if (avgHrs >= HRS_WARN_THRESHOLD || approxDays >= DAYS_WARN_THRESHOLD) {
     status = 'approaching'
-    message = `Coverage threshold approaching: ${avgHrs.toFixed(1)} hrs/wk avg over 26 weeks (limit 20), ~${approxDays} days/52 weeks (limit 175). If she crosses either, NY DBL + PFL coverage becomes mandatory.`
+    message = `Coverage threshold approaching: ${avgHrs.toFixed(1)} hrs/wk avg over 26 weeks (limit 20), ${approxDays} days/52 weeks (limit 175). If she crosses either, NY DBL + PFL coverage becomes mandatory.`
   }
 
   return {

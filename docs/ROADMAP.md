@@ -242,9 +242,11 @@ NY State tax quarters align with federal: Q1 Jan–Mar (due Apr 30), Q2 Apr–Ju
 
 #### Phase 4d — In-app calendar (deferred from 4b)
 
-- [ ] Daily-hours backfill: persist the per-day breakdown when admin uses daily-entry mode in the stub form (currently summed and discarded). New `daily_hours jsonb` column on paystubs.
-- [ ] Calendar view: month grid showing paystubs (color-coded by status) + per-day worked hours from the new persisted breakdown.
-- [ ] Sharpens the DBL/PFL coverage watch (real days instead of stub-count proxy).
+**Status: COMPLETE on 2026-05-06.** Migration `0012_phase4d_daily_hours.sql` written; user to apply via MCP. Build green.
+
+- [x] Daily-hours backfill: persist the per-day breakdown when admin uses daily-entry mode in the stub form (currently summed and discarded). New `daily_hours jsonb` column on paystubs.
+- [x] Calendar view: month grid at `/calendar` showing paystubs (color-coded by payment/email status) + per-day worked hours from the new persisted breakdown. Linked from the Stubs list page. Admin-only.
+- [x] Sharpens the DBL/PFL coverage watch: uses actual calendar days from `daily_hours` when available; falls back to stub-count proxy for legacy stubs.
 
 #### Phase 4c — PWA push notifications
 
