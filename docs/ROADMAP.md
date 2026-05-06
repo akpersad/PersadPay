@@ -174,20 +174,25 @@ NY State tax quarters align with federal: Q1 Jan–Mar (due Apr 30), Q2 Apr–Ju
 
 ### Phase 3 — Sick leave usage + OT support
 
+**Status: COMPLETE on 2026-05-05.** Migration `0006_phase3_overtime_and_sick_leave.sql` applied via MCP. Build green.
+
 **Goal:** track sick-leave usage for the on-demand summary requirement and add legally-required OT calculation.
 
-- [ ] Add `reason` column to paystubs: enum-like text, nullable, applies primarily to zero-hour weeks (`Week off`, `Sick — unpaid`, `Vacation — unpaid`, `Holiday — unpaid`, `Other`). Non-zero-hour stubs default to null.
-- [ ] On NewStubForm, when `hours_worked = 0`, surface a reason dropdown
-- [ ] Add `sick_hours_taken` calculated column or query helper: SUM zero-hour stubs flagged `Sick — unpaid` per year
-- [ ] Documents page: button "Generate sick-leave summary for [year]" → PDF showing sick-leave hours used and the policy stance (unlimited unpaid)
-- [ ] OT calculation in `calculateTaxes`:
-  - Add `regular_hours` and `overtime_hours` to TaxInputs
-  - OT trigger: `total_hours > 40` → split into 40 regular + remainder OT
-  - OT rate = `hourly_rate × 1.5`
-  - Add `overtime_hours`, `overtime_rate`, `overtime_pay` to `paystubs` and `TaxResult`
-- [ ] NewStubForm: detect when daily total >40, prompt "X hours over 40 — calculate overtime?" and split automatically
-- [ ] PaystubDocument: when `overtime_hours > 0`, show real OT line above regular line
-- [ ] Audit log captures any manual OT override
+- [x] Add `reason` column to paystubs: enum-like text, nullable, applies primarily to zero-hour weeks (`week_off`, `sick_unpaid`, `vacation_unpaid`, `holiday_unpaid`, `other`). DB check constraint enforces the enum.
+- [x] On NewStubForm, when `hours_worked = 0`, surface a reason dropdown
+- [x] Added `sick_hours` numeric column on paystubs — admin enters hours when picking `Sick — unpaid`. Sums per year drive the summary.
+- [x] Documents page: "Sick Leave Summary" entry → `/documents/sick-leave-summary?year=YYYY` rendering a print-friendly summary listing each stub with `sick_hours > 0`, total hours, NY § 196-b(4) statutory note, signature lines.
+- [x] OT support:
+  - Stored as `overtime_hours numeric` on paystubs (default 0); regular hours derived as `hours_worked - overtime_hours`.
+  - Auto-suggest split when total > 40 hrs (NY threshold for non-residential domestic workers per Labor Law Art. 19, § 170). Admin override via input.
+  - OT rate = `hourly_rate × 1.5`. OT pay rolls into `gross_pay` so the existing `calculateTaxes` (which takes total taxable gross) needed no signature change.
+- [x] NewStubForm: amber callout appears when total > 40 with the suggested split + override input
+- [x] PaystubDocument: renders OT row only when `overtime_hours > 0`. Regular row shows derived `regular_hours` (not full `hours_worked`) when OT exists.
+- [x] StubDetail mirrors the same OT treatment, plus surfaces reason and sick hours on zero-hour stubs.
+- [x] Audit log captures every paystubs row change automatically (Phase 2 trigger), so manual OT overrides land in `audit_log` for free.
+
+**User TODO from Phase 3:**
+- Apply migration `0006_phase3_overtime_and_sick_leave.sql` to remote Supabase (already applied via MCP on 2026-05-05).
 
 ---
 
@@ -206,6 +211,20 @@ NY State tax quarters align with federal: Q1 Jan–Mar (due Apr 30), Q2 Apr–Ju
 - [ ] In-app calendar view (admin only initially): month grid showing paystubs and worked hours from the persisted daily breakdown
 - [ ] Quarterly tax payment confirmation tracking: per-quarter "We paid $X on YYYY-MM-DD" record with reference number
 - [ ] iCal feed `/api/calendar/reminders.ics` — optional, deprioritized in favor of in-app calendar
+- [ ] Signed document upload (redundancy copy of physical originals)
+  - **Primary storage of physical originals:** fire-safe lock box at the user's home. The in-app upload is intentionally a *secondary* backup, not the system of record — if Supabase ever goes away, the legal originals are still safe.
+  - Supabase Storage bucket `signed-documents`, admin-only RLS (free tier covers ~5–10 PDFs over the employee's lifetime, well under the 1 GB limit).
+  - New `signed_documents` table tracking one row per document_type (LS-59, PFL-Waiver, Sick Leave Policy, W-4, IT-2104, Sick Leave Summary acknowledgment) with file_path, uploaded_at, uploaded_by, optional notes. Re-upload replaces the current version.
+  - `/documents` index gets an "Upload signed copy" action per document. Each card shows status (Unsigned vs. Signed on YYYY-MM-DD) with a download link.
+- [ ] W-4 / IT-2104 withholding capture (Option A — link to canonical sources)
+  - **Why:** when the babysitter submits or updates her W-4 or IT-2104, capture the form values + the resulting per-period withholding amount so settings.federal_withholding_per_period and settings.state_withholding_per_period stay current and auditable. Paired with the signed-doc upload above so the actual signed PDF lives in Supabase Storage.
+  - **Why Option A** (link out, don't compute): at this income (~$10K/yr) federal will be $0 and NY will be $0–2/wk no matter what. Building Pub 15-T + NYS-50-T table lookups in code adds maintenance burden (annual updates) for a number that's near zero. Delegating to the IRS estimator + the NY DTF publication keeps us out of the math business.
+  - New `withholding_forms` table — one row per form_type ('W-4' | 'IT-2104'), with the captured field values as jsonb, computed per-period dollar amount, computed_at timestamp, computed_against_gross numeric (so we can warn when settings change), uploaded by, notes. Existing audit trigger covers it for free.
+  - New `/settings/withholding-forms` admin page with two cards:
+    - **W-4 card:** filing status, Step 2 multiple-jobs box, Step 3 dependents $, Step 4a/4b/4c amounts. "Compute via IRS estimator" button opens [irs.gov/individuals/tax-withholding-estimator](https://www.irs.gov/individuals/tax-withholding-estimator) in a new tab with an inline note showing her current expected gross/wk so the admin knows what to enter. Field to paste the per-period amount the estimator returns. Save updates `settings.federal_withholding_per_period`.
+    - **IT-2104 card:** total allowances, additional withholding $/period. "Open Pub NYS-50-T (NY tax tables)" button opens the current-year PDF on tax.ny.gov with an inline note showing her gross/wk + filing status so the admin knows which row to look up. Field to paste the looked-up amount. Save updates `settings.state_withholding_per_period`.
+  - Last-computed timestamp on each card; warning banner if `employee_hourly_rate` × expected hours has changed since last computation ("re-run with the new gross to be safe").
+  - No tax-engine refactor — settings stays the source of truth for per-period dollar amounts; this feature is a smart UI for keeping those amounts current.
 
 ---
 
