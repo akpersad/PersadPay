@@ -40,6 +40,9 @@ export interface Paystub {
   overtime_hours: number
   sick_hours: number
   reason: StubReason | null
+  // Per-day hours breakdown keyed by YYYY-MM-DD. Only present on stubs
+  // created with daily-entry mode; null for total-hours stubs.
+  daily_hours: Record<string, number> | null
   hourly_rate: number
   gross_pay: number
   federal_withholding: number

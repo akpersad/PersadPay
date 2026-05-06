@@ -97,9 +97,19 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
       ? String(prefillFromStub.rate)
       : settings?.employee_hourly_rate?.toString() ?? ''
 
-  const [hoursMode, setHoursMode] = useState<'total' | 'daily'>('total')
+  const [hoursMode, setHoursMode] = useState<'total' | 'daily'>(() => {
+    if (initialStub?.daily_hours && Object.keys(initialStub.daily_hours).length > 0) return 'daily'
+    return 'total'
+  })
   const [hours, setHours] = useState(initialHours)
-  const [dailyHours, setDailyHours] = useState<Record<string, string>>({})
+  const [dailyHours, setDailyHours] = useState<Record<string, string>>(() => {
+    if (initialStub?.daily_hours) {
+      return Object.fromEntries(
+        Object.entries(initialStub.daily_hours).map(([k, v]) => [k, String(v)])
+      )
+    }
+    return {}
+  })
   const [rate, setRate] = useState(initialRate)
   const [periodStart, setPeriodStart] = useState(initialStub?.pay_period_start ?? suggestedStart)
   const [periodEnd, setPeriodEnd] = useState(initialStub?.pay_period_end ?? suggestedEnd)
@@ -265,6 +275,11 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
       overtime_hours: overtimeHoursNum,
       sick_hours: parseFloat(sickHours || '0'),
       reason: totalHoursNum === 0 ? (reason || null) : null,
+      // Persist per-day breakdown only when admin used daily-entry mode.
+      // In total-hours mode, set null so legacy stubs remain distinguishable.
+      daily_hours: hoursMode === 'daily'
+        ? Object.fromEntries(datesInRange.map(d => [d, parseFloat(dailyHours[d] || '0')]))
+        : null,
       hourly_rate: parseFloat(rate),
       gross_pay: preview.gross_pay,
       federal_withholding: preview.federal_withholding,
