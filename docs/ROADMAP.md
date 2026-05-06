@@ -246,13 +246,22 @@ NY State tax quarters align with federal: Q1 Jan–Mar (due Apr 30), Q2 Apr–Ju
 - [ ] Calendar view: month grid showing paystubs (color-coded by status) + per-day worked hours from the new persisted breakdown.
 - [ ] Sharpens the DBL/PFL coverage watch (real days instead of stub-count proxy).
 
-#### Phase 4c — PWA push notifications (own branch — substantial infra)
+#### Phase 4c — PWA push notifications
 
-- [ ] Service worker + VAPID keypair + subscription DB + opt-in UI + cron triggers for:
-  - Admin: "It's Friday — generate this week's stub" (configurable day)
-  - Admin: "Stub generated, payment not sent after 24 hrs"
-  - Employee: "New paystub from Persad Pay"
-  - Both: filing reminder fires (replaces some email noise)
+**Status: COMPLETE on 2026-05-06.** Migration `0011_phase4c_push_subscriptions.sql` applied via MCP. Build green.
+
+- [x] VAPID keypair generated; user adds `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` to `.env.local` + Vercel env.
+- [x] Service worker (`public/sw.js`) extended with `push` + `notificationclick` handlers. Reuses existing registration in `ServiceWorkerRegistration.tsx`.
+- [x] `push_subscriptions` table — one row per device per user, unique on endpoint, audit-logged. Users manage own; admins read all.
+- [x] `lib/push-client.ts` — request permission, subscribe via SW, POST to `/api/push/subscribe`. Unsubscribe likewise.
+- [x] `lib/push-server.ts` — `sendPushToUsers(supabase, ids, payload)` and `sendPushToRoles(...)`. Auto-prunes 410/404 subscriptions. No-ops cleanly when VAPID env missing.
+- [x] `/api/push/subscribe` POST + DELETE.
+- [x] Settings page (admin) + employee dashboard get a Push Notifications card with a per-device toggle.
+- [x] Triggers wired into the existing daily Vercel cron (`/api/reminders/send-emails`):
+  - **Friday admin nudge** — fires when no paystub yet covers the current week.
+  - **Payment-not-sent nag** — fires for any stub created >24h ago with `payment_sent = false`.
+  - **Filing reminders** — push mirrors the existing email at the 20-day and 10-day marks.
+- [x] **Employee new paystub** — push fires inside `/api/email/stub` whenever the admin emails a stub.
 
 #### Skipped
 
