@@ -198,25 +198,71 @@ NY State tax quarters align with federal: Q1 Jan–Mar (due Apr 30), Q2 Apr–Ju
 
 ### Phase 4 — Convenience features
 
-**Goal:** quality-of-life improvements once the app is legally airtight.
+**Split into 3 PRs:** 4a (HR setup core), 4b (year-end + reporting), 4c (PWA push). iCal feed deprioritized.
 
-- [ ] "Same as last week" duplicate-stub action on Pay Stubs list
-- [ ] PWA push notifications (web push) for:
+#### Phase 4a — HR setup core
+
+**Status: COMPLETE on 2026-05-05.** Migration `0008_phase4a_signed_documents_and_withholding_forms.sql` applied via MCP.
+
+- [x] "Same as last week" duplicate-stub action — `/stubs/new?duplicate=stub_id` pre-fills hours / rate / line items from the source stub; dates roll forward by one week. Triggered from a "Duplicate as next week" button on the stub detail page.
+- [x] CSV export — `/api/stubs/export?year=YYYY` returns all stub fields. Year picker + button on `/stubs` list (admin only).
+- [x] Signed document upload (Phase 4a delivered)
+- [x] W-4 / IT-2104 withholding capture (Phase 4a delivered)
+- [x] HYSA transfer tracking — per-stub workflow step after Mark Payment Sent → Email Paystub. Admin sees a "HYSA Transfer" card on the stub detail page summing all employee withholdings + employer taxes (= every dollar that should move to the high-yield savings account before the next quarterly filing). Mark button + status badge ("HYSA pending" / "HYSA funded"). Status piggy-bank icon added to Recent Stubs on the dashboard and the `/stubs` list. Migration `0009_phase4a_hysa_transfer.sql` adds `hysa_transferred`, `hysa_transferred_at`, `hysa_notes` to paystubs.
+
+#### Phase 4b — "Everything I need to do is in the app" (next branch)
+
+**Goal:** every payment and every filing the household employer must complete in 2026 is surfaced in the app with the live amount, the agency it pays, the exact due date, and a "mark done" workflow paralleling NYS-45/Schedule H. Driven by an independent 3-source audit (IRS / NY State primary sources + HomePay/GTM/HWS third-party verification) on 2026-05-05 — see `memory/project_dbl_pfl_not_required.md` for the audit takeaways.
+
+**Federal — quarterly + annual**
+- [ ] Federal quarterly estimated tax view: `/filings/federal-estimated-tax/[year]/[quarter]` showing computed cash-flow amount per quarter (≈ ¼ of annual Schedule H liability — combined employee + employer FICA + FUTA + federal income tax withheld YTD-divided-by-quarters). Mark-paid form mirrors the existing `MarkFiledForm` (filed_on, confirmation, notes). Pays via Form 1040-ES through EFTPS or IRS Direct Pay.
+- [ ] Auto-seed federal estimated tax reminders on dates `Apr 15 / Jun 15 / Sep 15 / Jan 15` (note: 1040-ES uses these uneven months, distinct from NYS-45's Apr 30 / Jul 31 / Oct 31 / Jan 31). Use the existing `reminders` table + dismiss-and-roll-forward logic.
+- [ ] W-3 Transmittal generation alongside the existing W-2 (single PDF or paired PDFs). Auto-seed Jan 31 reminder for "Send W-2 to employee + W-2/W-3 Copy A to SSA via BSO."
+- [ ] When statutory deadline falls on a weekend / federal holiday, show the *actual* due date (next business day), not the calendar date.
+
+**NY State — already mostly covered**
+- [x] NYS-45 quarterly (Phase 1 ✅)
+- [x] Schedule H annual (Phase 1 ✅)
+- [ ] DBL/PFL coverage threshold watch — alert when the 6-month rolling average hits 20+ hrs/wk OR 175+ days in 52 weeks. If triggered, both DBL and PFL coverage become mandatory and the app must surface a "coverage now required" notice with a link to NYSIF. Until then, no carrier premium tracking. See `memory/project_dbl_pfl_not_required.md`.
+- [ ] SUTA rate annual update reminder seeded for early February (NY DOL mails the rate notice in Feb-Mar each year).
+
+**Reminders surface live amounts**
+- [ ] Each filing reminder card shows the computed `$X.XX` due alongside the agency name and the deadline. Pull live from the matching `/filings` calculation. Apply to NYS-45 quarters, federal estimated tax quarters, and Schedule H. Reminders without an associated amount (e.g., "Verify 2027 tax rates") render plain, like today.
+
+**Year-end + reporting**
+- [ ] Year-end PDF packet: single PDF with all stubs + W-2 + W-3 + employer-tax summary + Schedule H worksheet — one-click for accountant handoff.
+- [ ] Consolidated `/filings/year-end/[year]` view showing W-2, W-3, Schedule H deadlines with status + computed amounts.
+- [ ] In-app calendar view (admin only initially): month grid showing paystubs and worked hours from a persisted daily breakdown — requires backfilling daily-hours persistence first (we never wired it up despite the user agreeing in Phase 0).
+
+**Onboarding checklist additions**
+- [ ] Workers' Comp note: "Recommended, not required at <40 hrs/wk live-out — NYSIF voluntary coverage available." Distinct from the audit-confirmed "not required" finding.
+
+**Defensive guards**
+- [ ] Stub deletion guard when `stub_sent = true` or `hysa_transferred = true` (audit-trail integrity — SSA records would mismatch employer records).
+
+**Skipped from earlier Phase 4b draft**
+- ~~Quarterly tax payment confirmation tracking~~ — folded into the new Federal estimated-tax view and live-amount reminders above.
+
+#### Phase 4c — PWA push notifications (own branch — substantial infra)
+
+- [ ] Service worker + VAPID keypair + subscription DB + opt-in UI + cron triggers for:
   - Admin: "It's Friday — generate this week's stub" (configurable day)
   - Admin: "Stub generated, payment not sent after 24 hrs"
   - Employee: "New paystub from Persad Pay"
   - Both: filing reminder fires (replaces some email noise)
-- [ ] Year-end PDF packet: single PDF with all stubs + W-2 + employer-tax summary + Schedule H worksheet — one-click for accountant handoff
-- [ ] CSV export: `/stubs/export?year=YYYY` → all stub fields, one row per stub
-- [ ] In-app calendar view (admin only initially): month grid showing paystubs and worked hours from the persisted daily breakdown
-- [ ] Quarterly tax payment confirmation tracking: per-quarter "We paid $X on YYYY-MM-DD" record with reference number
-- [ ] iCal feed `/api/calendar/reminders.ics` — optional, deprioritized in favor of in-app calendar
-- [ ] Signed document upload (redundancy copy of physical originals)
+
+#### Skipped
+
+- iCal feed `/api/calendar/reminders.ics` — explicit deprioritization in spec; in-app calendar (4b) + push (4c) cover the use case.
+
+#### Phase 4a delivery details
+
+##### Signed document upload (redundancy copy of physical originals)
   - **Primary storage of physical originals:** fire-safe lock box at the user's home. The in-app upload is intentionally a *secondary* backup, not the system of record — if Supabase ever goes away, the legal originals are still safe.
   - Supabase Storage bucket `signed-documents`, admin-only RLS (free tier covers ~5–10 PDFs over the employee's lifetime, well under the 1 GB limit).
   - New `signed_documents` table tracking one row per document_type (LS-59, PFL-Waiver, Sick Leave Policy, W-4, IT-2104, Sick Leave Summary acknowledgment) with file_path, uploaded_at, uploaded_by, optional notes. Re-upload replaces the current version.
   - `/documents` index gets an "Upload signed copy" action per document. Each card shows status (Unsigned vs. Signed on YYYY-MM-DD) with a download link.
-- [ ] W-4 / IT-2104 withholding capture (Option A — link to canonical sources)
+##### W-4 / IT-2104 withholding capture (Option A — link to canonical sources)
   - **Why:** when the babysitter submits or updates her W-4 or IT-2104, capture the form values + the resulting per-period withholding amount so settings.federal_withholding_per_period and settings.state_withholding_per_period stay current and auditable. Paired with the signed-doc upload above so the actual signed PDF lives in Supabase Storage.
   - **Why Option A** (link out, don't compute): at this income (~$10K/yr) federal will be $0 and NY will be $0–2/wk no matter what. Building Pub 15-T + NYS-50-T table lookups in code adds maintenance burden (annual updates) for a number that's near zero. Delegating to the IRS estimator + the NY DTF publication keeps us out of the math business.
   - New `withholding_forms` table — one row per form_type ('W-4' | 'IT-2104'), with the captured field values as jsonb, computed per-period dollar amount, computed_at timestamp, computed_against_gross numeric (so we can warn when settings change), uploaded by, notes. Existing audit trigger covers it for free.
