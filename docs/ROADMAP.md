@@ -210,38 +210,41 @@ NY State tax quarters align with federal: Q1 Jan–Mar (due Apr 30), Q2 Apr–Ju
 - [x] W-4 / IT-2104 withholding capture (Phase 4a delivered)
 - [x] HYSA transfer tracking — per-stub workflow step after Mark Payment Sent → Email Paystub. Admin sees a "HYSA Transfer" card on the stub detail page summing all employee withholdings + employer taxes (= every dollar that should move to the high-yield savings account before the next quarterly filing). Mark button + status badge ("HYSA pending" / "HYSA funded"). Status piggy-bank icon added to Recent Stubs on the dashboard and the `/stubs` list. Migration `0009_phase4a_hysa_transfer.sql` adds `hysa_transferred`, `hysa_transferred_at`, `hysa_notes` to paystubs.
 
-#### Phase 4b — "Everything I need to do is in the app" (next branch)
+#### Phase 4b — "Everything I need to do is in the app"
 
-**Goal:** every payment and every filing the household employer must complete in 2026 is surfaced in the app with the live amount, the agency it pays, the exact due date, and a "mark done" workflow paralleling NYS-45/Schedule H. Driven by an independent 3-source audit (IRS / NY State primary sources + HomePay/GTM/HWS third-party verification) on 2026-05-05 — see `memory/project_dbl_pfl_not_required.md` for the audit takeaways.
+**Status: COMPLETE on 2026-05-06.** Migration `0010_phase4b_federal_estimated_tax_and_reminders.sql` applied via MCP. Build green. In-app calendar view deferred to Phase 4d (requires daily-hours persistence backfill — separate concern).
 
 **Federal — quarterly + annual**
-- [ ] Federal quarterly estimated tax view: `/filings/federal-estimated-tax/[year]/[quarter]` showing computed cash-flow amount per quarter (≈ ¼ of annual Schedule H liability — combined employee + employer FICA + FUTA + federal income tax withheld YTD-divided-by-quarters). Mark-paid form mirrors the existing `MarkFiledForm` (filed_on, confirmation, notes). Pays via Form 1040-ES through EFTPS or IRS Direct Pay.
-- [ ] Auto-seed federal estimated tax reminders on dates `Apr 15 / Jun 15 / Sep 15 / Jan 15` (note: 1040-ES uses these uneven months, distinct from NYS-45's Apr 30 / Jul 31 / Oct 31 / Jan 31). Use the existing `reminders` table + dismiss-and-roll-forward logic.
-- [ ] W-3 Transmittal generation alongside the existing W-2 (single PDF or paired PDFs). Auto-seed Jan 31 reminder for "Send W-2 to employee + W-2/W-3 Copy A to SSA via BSO."
-- [ ] When statutory deadline falls on a weekend / federal holiday, show the *actual* due date (next business day), not the calendar date.
+- [x] Federal quarterly estimated tax view at `/filings/federal-estimated-tax/[year]/[quarter]` — per-quarter Schedule H slice with copy chips, Mark-paid form, deep-links to IRS Direct Pay + EFTPS.
+- [x] Auto-seeded federal estimated tax reminders for Apr 15 / Jun 15 / Sep 15 / Jan 15 of next year.
+- [x] W-3 Transmittal PDF (`/api/pdf/w3?id=...`) admin-only, linked from `/w2` and the year-end view. Jan 31 W-2/W-3 reminder seeded.
+- [x] Weekend/holiday deadline shifting (`shiftedDeadline()` in `lib/dates.ts`) applied across filing detail views and reminder cards. Federal holidays for 2025–2027.
 
-**NY State — already mostly covered**
+**NY State**
 - [x] NYS-45 quarterly (Phase 1 ✅)
 - [x] Schedule H annual (Phase 1 ✅)
-- [ ] DBL/PFL coverage threshold watch — alert when the 6-month rolling average hits 20+ hrs/wk OR 175+ days in 52 weeks. If triggered, both DBL and PFL coverage become mandatory and the app must surface a "coverage now required" notice with a link to NYSIF. Until then, no carrier premium tracking. See `memory/project_dbl_pfl_not_required.md`.
-- [ ] SUTA rate annual update reminder seeded for early February (NY DOL mails the rate notice in Feb-Mar each year).
+- [x] DBL/PFL coverage threshold watch — banner on admin dashboard when 6-month rolling avg hits 20 hrs/wk OR last-52-weeks stub count hits 175 (proxy for 175 days; daily-hours backfill in Phase 4d will sharpen this). Silent at 9 hrs/wk per memory.
+- [x] SUTA rate annual update reminder seeded for early February.
 
 **Reminders surface live amounts**
-- [ ] Each filing reminder card shows the computed `$X.XX` due alongside the agency name and the deadline. Pull live from the matching `/filings` calculation. Apply to NYS-45 quarters, federal estimated tax quarters, and Schedule H. Reminders without an associated amount (e.g., "Verify 2027 tax rates") render plain, like today.
+- [x] `/reminders` server-fetches all stubs + tax rates and runs the matching filing math per reminder. NYS-45 / Schedule H / Federal Estimated Tax reminders show `$X.XX · pays <agency>` inline. Plain reminders unaffected. Weekend-shifted dates display the next business day with a "shifted from..." note.
 
 **Year-end + reporting**
-- [ ] Year-end PDF packet: single PDF with all stubs + W-2 + W-3 + employer-tax summary + Schedule H worksheet — one-click for accountant handoff.
-- [ ] Consolidated `/filings/year-end/[year]` view showing W-2, W-3, Schedule H deadlines with status + computed amounts.
-- [ ] In-app calendar view (admin only initially): month grid showing paystubs and worked hours from a persisted daily breakdown — requires backfilling daily-hours persistence first (we never wired it up despite the user agreeing in Phase 0).
+- [x] `/api/pdf/year-end-packet?year=YYYY` — accountant PDF: cover, summary, Schedule H box totals, W-2 box totals, every-paystub table with year totals. Linked from year-end view + `/filings` listing for past years. Note: not a literal merge of every stub PDF (would need pdf-lib); detail PDFs available individually at `/api/pdf/stub`, `/api/pdf/w2`, `/api/pdf/w3`.
+- [x] Consolidated `/filings/year-end/[year]` view showing W-2/W-3/Schedule H deadlines + accountant packet download.
+- [ ] **Deferred to Phase 4d** — In-app calendar view requires daily-hours persistence backfill.
 
-**Onboarding checklist additions**
-- [ ] Workers' Comp note: "Recommended, not required at <40 hrs/wk live-out — NYSIF voluntary coverage available." Distinct from the audit-confirmed "not required" finding.
+**Onboarding additions**
+- [x] Workers' Comp recommended note seeded.
 
 **Defensive guards**
-- [ ] Stub deletion guard when `stub_sent = true` or `hysa_transferred = true` (audit-trail integrity — SSA records would mismatch employer records).
+- [x] Stub deletion guard renders an explanation card (replacing the Delete button) when `stub_sent = true` OR `hysa_transferred = true`.
 
-**Skipped from earlier Phase 4b draft**
-- ~~Quarterly tax payment confirmation tracking~~ — folded into the new Federal estimated-tax view and live-amount reminders above.
+#### Phase 4d — In-app calendar (deferred from 4b)
+
+- [ ] Daily-hours backfill: persist the per-day breakdown when admin uses daily-entry mode in the stub form (currently summed and discarded). New `daily_hours jsonb` column on paystubs.
+- [ ] Calendar view: month grid showing paystubs (color-coded by status) + per-day worked hours from the new persisted breakdown.
+- [ ] Sharpens the DBL/PFL coverage watch (real days instead of stub-count proxy).
 
 #### Phase 4c — PWA push notifications (own branch — substantial infra)
 
@@ -254,6 +257,40 @@ NY State tax quarters align with federal: Q1 Jan–Mar (due Apr 30), Q2 Apr–Ju
 #### Skipped
 
 - iCal feed `/api/calendar/reminders.ics` — explicit deprioritization in spec; in-app calendar (4b) + push (4c) cover the use case.
+
+---
+
+### Phase 5 — HYSA ledger + reconciliation
+
+**Goal:** every dollar in and out of the HYSA is accounted for in the app, so a discrepancy between what the app expects and what the bank actually shows can be flagged and audited at a glance. Closes the loop on the per-stub HYSA workflow that landed in Phase 4a.
+
+**Schema**
+- [ ] `hysa_transactions` table: id, transaction_type, amount, paystub_id (FK, nullable), filing_id (FK, nullable), effective_date, notes, actor_id, created_at. Audit-logged via the existing `audit_trigger` function. Admin-only RLS.
+- [ ] `transaction_type` enum-text: `deposit_paystub` | `deposit_manual` | `withdrawal_filing` | `withdrawal_manual` | `balance_correction`. Constraint: deposit types have positive amount, withdrawal types have negative amount, correction can be either signed.
+- [ ] Settings additions (or new `hysa_state` table): `hysa_actual_balance numeric` + `hysa_actual_balance_at timestamptz` for the most-recent admin-entered actual bank balance.
+
+**Auto-flow (no manual entry needed)**
+- [ ] When admin marks a stub HYSA-funded, insert a `deposit_paystub` row with `amount = hysaAmountForStub(stub).total` and FK to the stub. Reverse if admin un-marks (edit existing toggle behavior).
+- [ ] When admin marks a filing as filed, insert a `withdrawal_filing` row with `amount = -<filing's computed amount>` and FK to the filing. NYS-45 uses Box 5 + Box 15. Federal Estimated Tax uses total_due. Schedule H uses total_household_employment_taxes (only relevant if user pays at year-end rather than via 1040-ES).
+- [ ] When admin un-marks a filing or edits the filed_on/confirmation, reconcile the matching transaction (or insert an offsetting one).
+
+**Manual entry**
+- [ ] `/hysa` admin page with a "Add manual transaction" form: type (deposit / withdrawal / balance correction), amount, effective date, notes. For out-of-band moves (you bumped $50 in to round up, you withdrew $20 by mistake, the bank credited interest, etc.).
+
+**Ledger view**
+- [ ] `/hysa` — running-balance ledger: chronological list of every transaction with type badge, source link (stub or filing if applicable), running total. Filter by year + type.
+- [ ] Stat cards: current balance, YTD deposits, YTD withdrawals, YTD interest (sum of balance_correction with positive amount?).
+
+**Reconciliation**
+- [ ] "Enter actual HYSA balance" form: admin pastes the bank balance + date. App computes expected balance from transactions and shows the delta.
+- [ ] If delta != 0: surface a banner with "Discrepancy of $X.XX as of YYYY-MM-DD — most likely cause: <interest accrual / bank fee / unrecorded transaction>" and a one-click "Record balance correction for $X.XX" action.
+- [ ] Dashboard card showing "HYSA balance: $X · last reconciled YYYY-MM-DD" with a discrepancy warning when applicable.
+
+**Backfill at migration time**
+- [ ] Migration script generates synthetic transactions for every existing `paystubs.hysa_transferred = true` row and every `filings.filed_on != null` row so the ledger reflects historical activity from day one.
+
+**Open question — daily snapshots vs computed**
+- The running balance can either be (a) a computed column that re-derives from the transaction table on each query, or (b) a stored balance_after on each row that's maintained in app code. Option (a) is simpler + always accurate; option (b) is faster at scale but introduces drift risk. Default to (a) given the volume (~52 paystubs/yr + handful of filings + occasional manual = ~100 transactions/year max).
 
 #### Phase 4a delivery details
 

@@ -15,7 +15,7 @@ import type { Filing } from '@/lib/types'
 
 interface Props {
   existing: Filing | null
-  filingType: 'NYS-45' | 'Schedule H'
+  filingType: 'NYS-45' | 'Schedule H' | 'Federal Estimated Tax'
   taxYear: number
   quarter: number | null
   createdBy: string

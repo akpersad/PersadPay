@@ -114,14 +114,28 @@ export function W2View({ w2s, role, userId, settings }: Props) {
         <div className="space-y-2">
           {w2s.map(w2 => (
             <Card key={w2.id}>
-              <CardContent className="py-3 px-4 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">W-2 — Tax Year {w2.tax_year}</p>
-                  <p className="text-xs text-muted-foreground">Wages: {formatCurrency(w2.wages_tips)}</p>
+              <CardContent className="py-3 px-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">W-2 — Tax Year {w2.tax_year}</p>
+                    <p className="text-xs text-muted-foreground">Wages: {formatCurrency(w2.wages_tips)}</p>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => window.open(`/api/pdf/w2?id=${w2.id}`, '_blank')}>
+                    <Download className="h-4 w-4 mr-1" />
+                    W-2
+                  </Button>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => window.open(`/api/pdf/w2?id=${w2.id}`, '_blank')}>
-                  <Download className="h-4 w-4" />
-                </Button>
+                {isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => window.open(`/api/pdf/w3?id=${w2.id}`, '_blank')}
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    W-3 transmittal (file with SSA)
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ))}

@@ -8,9 +8,14 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Square } from 'lucide-react'
-import { formatDate, daysUntil } from '@/lib/dates'
+import { formatDate, daysUntil, formatCurrency, shiftedDeadline, selfImposedDeadline } from '@/lib/dates'
 import { toast } from 'sonner'
 import type { Reminder } from '@/lib/types'
+
+export interface ReminderAmount {
+  amount: number
+  agency: string
+}
 
 // Map a reminder title to an internal filing detail URL when one exists.
 // Falls back to null for reminders that don't have a corresponding filing
@@ -19,13 +24,22 @@ function getReminderHref(title: string): string | null {
   const nys45 = title.match(/NYS-45\s+Q([1-4])\s+(\d{4})/i)
   if (nys45) return `/filings/nys-45/${nys45[2]}/${nys45[1]}`
 
+  const fed1040es = title.match(/Federal Estimated Tax\s+Q([1-4])\s+(\d{4})/i)
+  if (fed1040es) return `/filings/federal-estimated-tax/${fed1040es[2]}/${fed1040es[1]}`
+
   const schedH = title.match(/Schedule H\s+(\d{4})/i)
   if (schedH) return `/filings/schedule-h/${schedH[1]}`
 
   return null
 }
 
-export function RemindersView({ reminders }: { reminders: Reminder[] }) {
+export function RemindersView({
+  reminders,
+  amounts = {},
+}: {
+  reminders: Reminder[]
+  amounts?: Record<string, ReminderAmount>
+}) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
 
@@ -64,7 +78,14 @@ export function RemindersView({ reminders }: { reminders: Reminder[] }) {
     <div className="space-y-4">
       <div className="space-y-3">
         {active.map(r => {
-          const days = daysUntil(r.due_date)
+          const { effective: effectiveDue, shifted } = shiftedDeadline(r.due_date)
+          const fileBy = selfImposedDeadline(effectiveDue)
+          const daysUntilDue = daysUntil(effectiveDue)
+          const daysUntilFileBy = daysUntil(fileBy)
+          // Only show the File By line for reminders that have a live $ amount
+          // (financial filings) — the buffer doesn't really apply to "verify
+          // tax rates" type reminders.
+          const liveAmount = amounts[r.id]
           const href = getReminderHref(r.title)
           return (
             <Card key={r.id}>
@@ -79,7 +100,7 @@ export function RemindersView({ reminders }: { reminders: Reminder[] }) {
                 </button>
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-start justify-between gap-2">
-                    <div>
+                    <div className="flex-1 min-w-0">
                       {href ? (
                         <Link
                           href={href}
@@ -90,12 +111,39 @@ export function RemindersView({ reminders }: { reminders: Reminder[] }) {
                       ) : (
                         <p className="text-sm font-medium">{r.title}</p>
                       )}
-                      <p className="text-xs text-muted-foreground">Due {formatDate(r.due_date)}</p>
+                      {liveAmount ? (
+                        <div className="text-xs space-y-0.5 mt-0.5">
+                          <p>
+                            <span className="font-medium text-foreground">File by</span>{' '}
+                            <span className="text-foreground">{formatDate(fileBy)}</span>
+                            <span className="text-muted-foreground"> · {daysUntilFileBy <= 0 ? 'past your buffer' : `${daysUntilFileBy} days`}</span>
+                          </p>
+                          <p className="text-muted-foreground">
+                            Due {formatDate(effectiveDue)}
+                            {shifted && <span className="text-amber-700"> (shifted from {formatDate(r.due_date)})</span>}
+                            {' · '}
+                            {daysUntilDue <= 0 ? 'overdue' : `${daysUntilDue} days`}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Due {formatDate(effectiveDue)}
+                          {shifted && <span className="text-amber-700"> (shifted from {formatDate(r.due_date)})</span>}
+                          {' · '}
+                          {daysUntilDue <= 0 ? 'overdue' : `${daysUntilDue} days`}
+                        </p>
+                      )}
                     </div>
-                    <Badge variant={days <= 0 ? 'destructive' : days <= 10 ? 'destructive' : days <= 20 ? 'secondary' : 'outline'}>
-                      {days <= 0 ? 'Overdue' : `${days}d`}
+                    <Badge variant={daysUntilDue <= 0 ? 'destructive' : daysUntilDue <= 10 ? 'destructive' : daysUntilDue <= 20 ? 'secondary' : 'outline'}>
+                      {daysUntilDue <= 0 ? 'Overdue' : `${daysUntilDue}d`}
                     </Badge>
                   </div>
+                  {liveAmount && (
+                    <p className="text-sm font-medium">
+                      {formatCurrency(liveAmount.amount)}
+                      <span className="text-xs font-normal text-muted-foreground"> · pays {liveAmount.agency}</span>
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground">{r.description}</p>
                 </div>
               </CardContent>

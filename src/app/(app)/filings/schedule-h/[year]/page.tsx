@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ChevronLeft, ExternalLink } from 'lucide-react'
-import { formatDate, formatCurrency, daysUntil } from '@/lib/dates'
+import { formatDate, formatCurrency, daysUntil, shiftedDeadline, selfImposedDeadline } from '@/lib/dates'
 import { calculateScheduleH } from '@/lib/filings'
 import { getTaxRatesForYear } from '@/lib/tax'
 import { CopyValue } from '@/components/filings/CopyValue'
@@ -60,7 +60,10 @@ export default async function ScheduleHYearPage({ params }: { params: Promise<Pa
   }
 
   const data = calculateScheduleH((yearStubs ?? []) as Paystub[], rates, year)
-  const days = daysUntil(data.due_date)
+  const { effective: dueDateEffective, shifted } = shiftedDeadline(data.due_date)
+  const fileBy = selfImposedDeadline(dueDateEffective)
+  const daysUntilDue = daysUntil(dueDateEffective)
+  const daysUntilFileBy = daysUntil(fileBy)
   const isFiled = !!filing?.filed_on
 
   return (
@@ -70,15 +73,29 @@ export default async function ScheduleHYearPage({ params }: { params: Promise<Pa
         All filings
       </Link>
 
-      <div>
+      <div className="space-y-1">
         <h1 className="text-lg font-semibold flex items-center gap-2">
           Schedule H · {year}
           {isFiled && <Badge className="bg-green-600 hover:bg-green-600">Filed</Badge>}
         </h1>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Files with federal Form 1040 · Due {formatDate(data.due_date)}
-          {!isFiled && (days <= 0 ? ' · Overdue' : days <= 30 ? ` · ${days} days` : '')}
+        <p className="text-xs text-muted-foreground">
+          Files with federal Form 1040
         </p>
+        {!isFiled && (
+          <div className="text-xs space-y-0.5">
+            <p>
+              <span className="font-medium text-foreground">File by</span>{' '}
+              <span className="text-foreground">{formatDate(fileBy)}</span>
+              <span className="text-muted-foreground"> · {daysUntilFileBy <= 0 ? 'past your buffer' : `${daysUntilFileBy} days`}</span>
+            </p>
+            <p className="text-muted-foreground">
+              Due {formatDate(dueDateEffective)}
+              {shifted && <span className="text-amber-700"> (shifted from {formatDate(data.due_date)})</span>}
+              {' · '}
+              {daysUntilDue <= 0 ? 'overdue' : `${daysUntilDue} days`}
+            </p>
+          </div>
+        )}
       </div>
 
       {!data.stub_count ? (
