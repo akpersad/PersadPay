@@ -17,6 +17,11 @@ const docs: DocLink[] = [
     title: 'Sick Leave Policy',
     description: 'Unlimited unpaid sick leave — exceeds NY § 196-b small-employer floor. Print, sign, and retain.',
   },
+  {
+    href: '/documents/sick-leave-summary',
+    title: 'Sick Leave Summary',
+    description: 'On-demand year summary required by NY Labor Law § 196-b(4) within 3 business days of an employee request.',
+  },
 ]
 
 export default async function DocumentsPage() {
