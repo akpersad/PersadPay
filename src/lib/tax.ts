@@ -116,6 +116,52 @@ export function calculateTaxes(inputs: TaxInputs, rates: TaxRates): TaxResult {
   }
 }
 
+// HYSA transfer breakdown — every dollar the admin needs to set aside for
+// taxes per stub. Sum of:
+//   employee-side withholdings (federal, FICA SS, FICA Medicare, NY state,
+//                               NY SDI, NY PFL)
+//   employer-side taxes        (employer FICA SS, employer FICA Medicare,
+//                               FUTA, NY SUTA)
+// All values come straight off the paystub row (computed at generation time
+// and stored). Returning the breakdown alongside the total so the UI can
+// show the split.
+export interface HysaBreakdown {
+  employee_withholdings_total: number
+  employer_taxes_total: number
+  total: number
+}
+
+export function hysaAmountForStub(stub: {
+  federal_withholding: number | string
+  fica_social_security: number | string
+  fica_medicare: number | string
+  state_withholding: number | string
+  sdi: number | string
+  pfl: number | string
+  employer_fica_ss: number | string
+  employer_fica_medicare: number | string
+  futa: number | string
+  suta: number | string
+}): HysaBreakdown {
+  const employee =
+    Number(stub.federal_withholding) +
+    Number(stub.fica_social_security) +
+    Number(stub.fica_medicare) +
+    Number(stub.state_withholding) +
+    Number(stub.sdi) +
+    Number(stub.pfl)
+  const employer =
+    Number(stub.employer_fica_ss) +
+    Number(stub.employer_fica_medicare) +
+    Number(stub.futa) +
+    Number(stub.suta)
+  return {
+    employee_withholdings_total: Math.round(employee * 100) / 100,
+    employer_taxes_total: Math.round(employer * 100) / 100,
+    total: Math.round((employee + employer) * 100) / 100,
+  }
+}
+
 // Loads the tax_rates row that applies to a given year. If no exact match
 // exists (e.g., a stub dated in 2027 but only 2026 rates are seeded), falls
 // back to the most recent populated year and logs a warning. Returns null

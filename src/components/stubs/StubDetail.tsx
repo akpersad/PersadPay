@@ -16,7 +16,9 @@ import {
 } from '@/components/ui/dialog'
 import { formatDate, formatDateRange, formatCurrency } from '@/lib/dates'
 import { toast } from 'sonner'
-import { Download, Mail, Trash2, CheckCircle2, Pencil } from 'lucide-react'
+import { Download, Mail, Trash2, CheckCircle2, Pencil, Copy, PiggyBank } from 'lucide-react'
+import { hysaAmountForStub } from '@/lib/tax'
+import { CopyValue } from '@/components/filings/CopyValue'
 import type { PaystubWithYTD, Settings, Role, PaystubLineItem } from '@/lib/types'
 
 interface Props {
@@ -56,13 +58,17 @@ export function StubDetail({ stub, role, settings, lineItems = [], ytdByLineType
 
   const [paymentDialog, setPaymentDialog] = useState(false)
   const [deleteDialog, setDeleteDialog] = useState(false)
+  const [hysaDialog, setHysaDialog] = useState(false)
   const [zelleId, setZelleId] = useState(stub.zelle_transaction_id ?? '')
+  const [hysaNotes, setHysaNotes] = useState(stub.hysa_notes ?? '')
   const [emailPending, setEmailPending] = useState(false)
   const [paymentPending, setPaymentPending] = useState(false)
   const [deletePending, setDeletePending] = useState(false)
+  const [hysaPending, setHysaPending] = useState(false)
 
   const isAdmin = role === 'admin'
   const pflWaived = settings?.pfl_waived ?? false
+  const hysa = hysaAmountForStub(stub)
 
   async function markPaymentSent() {
     setPaymentPending(true)
@@ -103,6 +109,28 @@ export function StubDetail({ stub, role, settings, lineItems = [], ytdByLineType
     setEmailPending(false)
   }
 
+  async function markHysaTransferred() {
+    setHysaPending(true)
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('paystubs')
+      .update({
+        hysa_transferred: true,
+        hysa_transferred_at: new Date().toISOString(),
+        hysa_notes: hysaNotes || null,
+      })
+      .eq('id', stub.id)
+
+    if (error) {
+      toast.error('Failed to record HYSA transfer.')
+    } else {
+      toast.success('HYSA transfer recorded.')
+      setHysaDialog(false)
+      startTransition(() => router.refresh())
+    }
+    setHysaPending(false)
+  }
+
   async function deleteStub() {
     setDeletePending(true)
     const supabase = createClient()
@@ -139,6 +167,9 @@ export function StubDetail({ stub, role, settings, lineItems = [], ytdByLineType
             </Badge>
             <Badge variant={stub.stub_sent ? 'default' : 'outline'}>
               {stub.stub_sent ? 'Emailed' : 'Not emailed'}
+            </Badge>
+            <Badge variant={stub.hysa_transferred ? 'default' : 'outline'}>
+              {stub.hysa_transferred ? 'HYSA funded' : 'HYSA pending'}
             </Badge>
           </div>
         )}
@@ -312,6 +343,55 @@ export function StubDetail({ stub, role, settings, lineItems = [], ytdByLineType
         </Card>
       )}
 
+      {/* HYSA Transfer — admin only. Shows the per-stub tax-and-withholding cash
+          that should move to the high-yield savings account holding it until
+          the quarterly/annual filings are paid. */}
+      {isAdmin && (
+        <Card>
+          <CardHeader className="pb-1 pt-4">
+            <CardTitle className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+              <PiggyBank className="h-3.5 w-3.5" />
+              HYSA Transfer
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 pb-4">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Withheld from her pay</span>
+              <span>{formatCurrency(hysa.employee_withholdings_total)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Employer taxes set aside</span>
+              <span>{formatCurrency(hysa.employer_taxes_total)}</span>
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between text-sm font-semibold">
+              <span>Move to HYSA</span>
+              <span className="flex items-center gap-2">
+                {formatCurrency(hysa.total)}
+                <CopyValue value={hysa.total} label="HYSA transfer amount" />
+              </span>
+            </div>
+            {stub.hysa_transferred ? (
+              <div className="rounded-md bg-green-50 border border-green-200 px-3 py-2 text-xs text-green-900">
+                <p className="font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Moved {stub.hysa_transferred_at ? `on ${formatDate(stub.hysa_transferred_at.slice(0, 10))}` : ''}
+                </p>
+                {stub.hysa_notes && <p className="mt-1 whitespace-pre-wrap">{stub.hysa_notes}</p>}
+              </div>
+            ) : !stub.stub_sent ? (
+              <p className="text-[11px] text-muted-foreground">
+                Email the stub first — the HYSA transfer step unlocks once the babysitter has the paystub.
+              </p>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                Move <strong>{formatCurrency(hysa.total)}</strong> from your checking account to the HYSA, then mark it complete.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Admin: Zelle transaction ID */}
       {isAdmin && stub.zelle_transaction_id && (
         <p className="text-xs text-muted-foreground">Zelle ID: {stub.zelle_transaction_id}</p>
@@ -323,6 +403,16 @@ export function StubDetail({ stub, role, settings, lineItems = [], ytdByLineType
           <Download className="h-4 w-4 mr-2" />
           Download PDF
         </Button>
+
+        {isAdmin && (
+          <Link
+            href={`/stubs/new?duplicate=${stub.id}`}
+            className={cn(buttonVariants({ variant: 'outline' }), 'w-full')}
+          >
+            <Copy className="h-4 w-4 mr-2" />
+            Duplicate as next week
+          </Link>
+        )}
 
         {isAdmin && (
           <>
@@ -356,6 +446,20 @@ export function StubDetail({ stub, role, settings, lineItems = [], ytdByLineType
               </Button>
             )}
 
+            {stub.payment_sent && stub.stub_sent && !stub.hysa_transferred && (
+              <Button className="w-full" onClick={() => setHysaDialog(true)}>
+                <PiggyBank className="h-4 w-4 mr-2" />
+                Mark money moved to HYSA
+              </Button>
+            )}
+
+            {stub.hysa_transferred && (
+              <Button variant="outline" className="w-full" onClick={() => setHysaDialog(true)}>
+                <PiggyBank className="h-4 w-4 mr-2" />
+                Edit HYSA transfer note
+              </Button>
+            )}
+
             <Button
               variant="destructive"
               size="sm"
@@ -368,6 +472,40 @@ export function StubDetail({ stub, role, settings, lineItems = [], ytdByLineType
           </>
         )}
       </div>
+
+      {/* HYSA transfer dialog */}
+      <Dialog open={hysaDialog} onOpenChange={setHysaDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>HYSA transfer for stub #{stub.stub_number}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="rounded-md bg-muted px-3 py-2 text-sm">
+              <p className="text-xs text-muted-foreground mb-1">Move from checking → HYSA</p>
+              <p className="text-lg font-semibold">{formatCurrency(hysa.total)}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {formatCurrency(hysa.employee_withholdings_total)} withheld from her pay + {formatCurrency(hysa.employer_taxes_total)} employer taxes
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="hysa-notes">Notes (optional)</Label>
+              <textarea
+                id="hysa-notes"
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm min-h-[60px]"
+                value={hysaNotes}
+                onChange={e => setHysaNotes(e.target.value)}
+                placeholder="Transfer reference, account, anything to remember"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHysaDialog(false)}>Cancel</Button>
+            <Button disabled={hysaPending} onClick={markHysaTransferred}>
+              {hysaPending ? 'Saving…' : stub.hysa_transferred ? 'Update' : 'Confirm transfer'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Payment dialog */}
       <Dialog open={paymentDialog} onOpenChange={setPaymentDialog}>

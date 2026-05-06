@@ -53,6 +53,15 @@ interface Props {
   // must be calculated by the parent excluding the stub being edited.
   initialStub?: Paystub
   initialLineItems?: PaystubLineItem[]
+  // Optional — "same as last week" prefill. Form stays in CREATE mode (no
+  // initialStub) but starts with hours / rate / line items copied from the
+  // source stub. Date suggestions come from lastPayPeriodEnd above.
+  prefillFromStub?: {
+    hours: number
+    rate: number
+    lineItems: PaystubLineItem[]
+    suggestedPayDate?: string
+  }
 }
 
 const DAY_ABBRS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -68,22 +77,33 @@ function getDatesInRange(start: string, end: string): string[] {
   return dates
 }
 
-export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNumber, ytdGrossBefore, ytdPflBefore, taxRates, createdBy, initialStub, initialLineItems }: Props) {
+export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNumber, ytdGrossBefore, ytdPflBefore, taxRates, createdBy, initialStub, initialLineItems, prefillFromStub }: Props) {
   const router = useRouter()
   const isEdit = !!initialStub
 
   const suggestedStart = lastPayPeriodEnd ? addDays(lastPayPeriodEnd, 1) : ''
   const suggestedEnd = suggestedStart ? addDays(suggestedStart, 6) : ''
 
+  // Resolve initial values: edit mode wins, then "same as last week" prefill,
+  // then settings/empty defaults.
+  const initialHours = initialStub
+    ? String(initialStub.hours_worked)
+    : prefillFromStub
+      ? String(prefillFromStub.hours)
+      : ''
+  const initialRate = initialStub
+    ? String(initialStub.hourly_rate)
+    : prefillFromStub
+      ? String(prefillFromStub.rate)
+      : settings?.employee_hourly_rate?.toString() ?? ''
+
   const [hoursMode, setHoursMode] = useState<'total' | 'daily'>('total')
-  const [hours, setHours] = useState(initialStub ? String(initialStub.hours_worked) : '')
+  const [hours, setHours] = useState(initialHours)
   const [dailyHours, setDailyHours] = useState<Record<string, string>>({})
-  const [rate, setRate] = useState(
-    initialStub ? String(initialStub.hourly_rate) : settings?.employee_hourly_rate?.toString() ?? '',
-  )
+  const [rate, setRate] = useState(initialRate)
   const [periodStart, setPeriodStart] = useState(initialStub?.pay_period_start ?? suggestedStart)
   const [periodEnd, setPeriodEnd] = useState(initialStub?.pay_period_end ?? suggestedEnd)
-  const [payDate, setPayDate] = useState(initialStub?.pay_date ?? suggestedEnd)
+  const [payDate, setPayDate] = useState(initialStub?.pay_date ?? prefillFromStub?.suggestedPayDate ?? suggestedEnd)
   const [overtimeHoursOverride, setOvertimeHoursOverride] = useState<string>(
     initialStub ? String(initialStub.overtime_hours) : '',
   )
@@ -91,17 +111,19 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
   const [sickHours, setSickHours] = useState<string>(
     initialStub ? String(initialStub.sick_hours) : '',
   )
-  const [lineItems, setLineItems] = useState<LineItemDraft[]>(
-    initialLineItems
-      ? initialLineItems.map(i => ({
-          id: i.id,
-          line_type: i.line_type as LineType,
-          label: i.label,
-          amount: Number(i.amount),
-          given_separately: i.given_separately,
-        }))
-      : [],
-  )
+  const [lineItems, setLineItems] = useState<LineItemDraft[]>(() => {
+    const source = initialLineItems ?? prefillFromStub?.lineItems
+    if (!source || source.length === 0) return []
+    return source.map(i => ({
+      // Prefill mode gets fresh client-side IDs so the items are inserted as
+      // new rows (not treated as existing rows being updated).
+      id: initialStub ? i.id : crypto.randomUUID(),
+      line_type: i.line_type as LineType,
+      label: i.label,
+      amount: Number(i.amount),
+      given_separately: i.given_separately,
+    }))
+  })
   const [preview, setPreview] = useState<TaxResult | null>(null)
   const [saving, setSaving] = useState(false)
 
