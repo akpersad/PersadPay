@@ -90,6 +90,8 @@ export function CalendarView({ stubs, year, month }: Props) {
 
   return (
     <div className="space-y-5">
+      <h1 className="text-lg font-semibold">Calendar</h1>
+
       {/* Month navigation */}
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="icon" onClick={() => navMonth(-1)}>

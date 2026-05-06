@@ -484,8 +484,11 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
             </div>
           )}
 
-          {/* Reason — only meaningful for zero-hour weeks */}
-          {totalHoursNum === 0 && (
+          {/* Reason — only shown when admin has explicitly entered 0 hours (empty
+              field also evaluates to 0, which would be a false positive). In
+              total mode require a non-empty entry; in daily mode require the
+              date range to be set so the total reflects actual day inputs. */}
+          {totalHoursNum === 0 && (hoursMode === 'total' ? hours.trim() !== '' : datesInRange.length > 0) && (
             <div className="space-y-1.5">
               <Label htmlFor="reason">Reason (zero-hour week)</Label>
               <Select value={reason || undefined} onValueChange={v => { setReason((v as StubReason) || ''); setPreview(null) }}>
