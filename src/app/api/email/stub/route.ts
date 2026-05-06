@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendStubEmail } from '@/lib/email'
+import { sendPushToUsers } from '@/lib/push-server'
 import { generateStubPDF } from '@/lib/pdf'
+import { formatCurrency, formatDateRange } from '@/lib/dates'
 import type { Paystub, Settings, PaystubWithYTD, PaystubLineItem } from '@/lib/types'
 
 export async function POST(request: Request) {
@@ -94,6 +96,15 @@ export async function POST(request: Request) {
   }
 
   await supabase.from('paystubs').update({ stub_sent: true }).eq('id', stubId)
+
+  // Push the employee a notification mirroring the email — if she's
+  // subscribed on her phone she'll see it instantly.
+  await sendPushToUsers(supabase, [stub.employee_id], {
+    title: 'New paystub from PersadPay',
+    body: `${formatDateRange(stub.pay_period_start, stub.pay_period_end)} · Net ${formatCurrency(Number(stub.net_pay))}`,
+    url: `/stubs/${stubId}`,
+    tag: `stub-${stubId}`,
+  })
 
   return NextResponse.json({ success: true })
 }

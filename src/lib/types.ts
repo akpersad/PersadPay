@@ -169,6 +169,17 @@ export interface WithholdingForm {
   notes: string | null
 }
 
+export interface PushSubscriptionRow {
+  id: string
+  user_id: string
+  endpoint: string
+  p256dh_key: string
+  auth_key: string
+  user_agent: string | null
+  created_at: string
+  last_used_at: string | null
+}
+
 export interface AuditLogEntry {
   id: string
   table_name: string

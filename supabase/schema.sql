@@ -217,6 +217,22 @@ create table public.audit_log (
 create index audit_log_table_record_idx on public.audit_log (table_name, record_id);
 create index audit_log_created_at_idx   on public.audit_log (created_at desc);
 
+-- ── push_subscriptions ──────────────────────────────────────────────────────
+-- Web Push subscriptions per device. One row per (user, endpoint). Server
+-- prunes on 410 Gone / 404 Not Found from web-push.sendNotification.
+create table public.push_subscriptions (
+  id            uuid primary key default uuid_generate_v4(),
+  user_id       uuid not null references public.profiles(id) on delete cascade,
+  endpoint      text not null unique,
+  p256dh_key    text not null,
+  auth_key      text not null,
+  user_agent    text,
+  created_at    timestamptz not null default now(),
+  last_used_at  timestamptz
+);
+
+create index push_subscriptions_user_id_idx on public.push_subscriptions (user_id);
+
 -- ── signed_documents ────────────────────────────────────────────────────────
 -- Tracks redundancy copies of signed legal/HR docs uploaded to the
 -- signed-documents Storage bucket. Physical originals live in the user's
@@ -291,6 +307,7 @@ alter table public.paystub_line_items enable row level security;
 alter table public.audit_log enable row level security;
 alter table public.signed_documents enable row level security;
 alter table public.withholding_forms enable row level security;
+alter table public.push_subscriptions enable row level security;
 
 -- Helper: is the current user an admin?
 create or replace function public.is_admin()
@@ -366,6 +383,12 @@ create policy "Admins full access to signed_documents"
 create policy "Admins full access to withholding_forms"
   on public.withholding_forms for all using (public.is_admin());
 
+-- push_subscriptions (users manage own; admins read all)
+create policy "Users manage own push subscriptions"
+  on public.push_subscriptions for all using (user_id = auth.uid());
+create policy "Admins read all push subscriptions"
+  on public.push_subscriptions for select using (public.is_admin());
+
 -- ── Audit trigger function ───────────────────────────────────────────────────
 create or replace function public.audit_trigger() returns trigger
 language plpgsql security definer set search_path = public as $$
@@ -417,6 +440,10 @@ create trigger signed_documents_audit
 
 create trigger withholding_forms_audit
   after insert or update or delete on public.withholding_forms
+  for each row execute procedure public.audit_trigger();
+
+create trigger push_subscriptions_audit
+  after insert or update or delete on public.push_subscriptions
   for each row execute procedure public.audit_trigger();
 
 -- ── Seed: Onboarding Checklist ───────────────────────────────────────────────
@@ -492,5 +519,6 @@ grant select, insert, update, delete on public.paystub_line_items to authenticat
 grant select, insert on public.audit_log to authenticated;
 grant select, insert, update, delete on public.signed_documents to authenticated;
 grant select, insert, update, delete on public.withholding_forms to authenticated;
+grant select, insert, update, delete on public.push_subscriptions to authenticated;
 
 -- anon role has no table access — all routes require authentication

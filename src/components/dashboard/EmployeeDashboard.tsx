@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { formatDateRange, formatCurrency, formatDate } from '@/lib/dates'
+import { PushNotificationsToggle } from '@/components/settings/PushNotificationsToggle'
 import type { Paystub } from '@/lib/types'
 
 export async function EmployeeDashboard() {
@@ -64,6 +65,8 @@ export async function EmployeeDashboard() {
           View W-2s
         </Link>
       </div>
+
+      <PushNotificationsToggle />
     </div>
   )
 }
