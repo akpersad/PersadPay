@@ -9,7 +9,7 @@ import { UpcomingDeadlines } from './UpcomingDeadlines'
 import { NextFilingCard } from './NextFilingCard'
 import { formatDateRange, formatCurrency, daysUntil } from '@/lib/dates'
 import { getCurrentQuarter, getQuarterDateRange, getQuarterDueDate } from '@/lib/filings'
-import { PlusCircle, CheckCircle2, AlertCircle } from 'lucide-react'
+import { PlusCircle, CheckCircle2, AlertCircle, PiggyBank } from 'lucide-react'
 import type { Paystub, Reminder, OnboardingItem, Filing } from '@/lib/types'
 
 export async function AdminDashboard() {
@@ -39,7 +39,7 @@ export async function AdminDashboard() {
       .gte('pay_date', yearStart),
     supabase
       .from('paystubs')
-      .select('id, stub_number, pay_period_start, pay_period_end, gross_pay, payment_sent, stub_sent')
+      .select('id, stub_number, pay_period_start, pay_period_end, gross_pay, payment_sent, stub_sent, hysa_transferred')
       .order('stub_number', { ascending: false })
       .limit(5),
     supabase
@@ -150,7 +150,7 @@ export async function AdminDashboard() {
                       <p className="text-sm font-medium">#{stub.stub_number} · {formatDateRange(stub.pay_period_start, stub.pay_period_end)}</p>
                       <p className="text-sm text-muted-foreground">{formatCurrency(Number(stub.gross_pay))}</p>
                     </div>
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-1.5" aria-label="Workflow status: paid · emailed · HYSA-funded">
                       {stub.payment_sent
                         ? <CheckCircle2 className="h-4 w-4 text-green-600" />
                         : <AlertCircle className="h-4 w-4 text-amber-500" />
@@ -158,6 +158,10 @@ export async function AdminDashboard() {
                       {stub.stub_sent
                         ? <CheckCircle2 className="h-4 w-4 text-blue-500" />
                         : <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                      }
+                      {stub.hysa_transferred
+                        ? <PiggyBank className="h-4 w-4 text-green-600" />
+                        : <PiggyBank className="h-4 w-4 text-muted-foreground" />
                       }
                     </div>
                   </CardContent>
