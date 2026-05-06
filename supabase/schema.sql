@@ -68,6 +68,13 @@ create table public.paystubs (
   pay_period_end        date not null,
   pay_date              date not null,
   hours_worked          numeric(6,2) not null default 0,
+  overtime_hours        numeric(6,2) not null default 0,
+  -- Sick hours used during this stub's period. Sums across the year drive
+  -- the on-demand summary required by NY Labor Law § 196-b(4).
+  sick_hours            numeric(6,2) not null default 0,
+  -- Optional context for zero-hour weeks: 'week_off' / 'sick_unpaid' /
+  -- 'vacation_unpaid' / 'holiday_unpaid' / 'other'.
+  reason                text,
   hourly_rate           numeric(10,2) not null,
   gross_pay             numeric(10,2) not null,
   federal_withholding   numeric(10,2) not null default 0,
@@ -86,7 +93,9 @@ create table public.paystubs (
   stub_sent             boolean not null default false,
   created_at            timestamptz not null default now(),
   created_by            uuid not null references public.profiles(id),
-  constraint stub_number_positive check (stub_number > 0)
+  constraint stub_number_positive check (stub_number > 0),
+  constraint paystubs_overtime_within_total check (overtime_hours >= 0 and overtime_hours <= hours_worked),
+  constraint paystubs_reason_known check (reason is null or reason in ('week_off', 'sick_unpaid', 'vacation_unpaid', 'holiday_unpaid', 'other'))
 );
 
 create index paystubs_employee_id_idx on public.paystubs(employee_id);
@@ -349,21 +358,26 @@ create trigger w2s_audit
   for each row execute procedure public.audit_trigger();
 
 -- ── Seed: Onboarding Checklist ───────────────────────────────────────────────
+-- Order is logical / priority:
+--   1–2  registrations (prerequisite)
+--   3–8  at-hire compliance (required at or before first day)
+--   9–11 app setup
+--   12–15 email infrastructure (lowest priority — app works without it)
 insert into public.onboarding_checklist (label, detail, sort_order) values
   ('Apply for Federal EIN at irs.gov', 'File IRS Form SS-4 online at irs.gov/businesses/small-businesses-self-employed/apply-for-an-employer-identification-number-ein-online', 1),
   ('Register with New York State', 'File Form NYS-100 at labor.ny.gov to register as a household employer', 2),
-  ('File new hire report with NY', 'Report within 20 days of hire at labor.ny.gov/newhire — required by law', 3),
-  ('Provide signed LS-59 Wage Notice to employee', 'NY Labor Law § 195(1) requires a Wage Theft Prevention Act notice at hire (Form LS-59 for hourly employees) in English plus the employee''s primary language. Employee signs; retain copy for 6 years. Form: https://dol.ny.gov/system/files/documents/2022/02/ls59.pdf', 4),
-  ('Have employee complete Federal W-4', 'Withholding certificate required before first paycheck', 5),
-  ('Have employee complete NY IT-2104', 'NY State equivalent of the W-4', 6),
-  ('Obtain signed PFL-Waiver form (employee <20 hrs/week)', 'Employees working a regular schedule of <20 hrs/week AND fewer than 175 days in a 52-week period may waive PFL contributions. Use the official PFL-Waiver form at https://paidfamilyleave.ny.gov/pfl-waiver-form. Retain signed waiver for the entire duration of employment. Waiver auto-revokes if schedule changes — back contributions may be owed retroactively.', 7),
-  ('Purchase persadpay.com domain', 'Purchase at GoDaddy or your preferred registrar', 8),
-  ('Add Vercel DNS records to domain registrar', 'Point your domain to Vercel after deploying', 9),
-  ('Sign up for Resend and verify persadpay.com', 'Verify the domain for outbound email at resend.com', 10),
-  ('Fill out all fields in Persad Pay Settings', 'Navigate to Settings and complete all employer/employee fields', 11),
-  ('Create Supabase user accounts for all three users', 'Create accounts in Supabase Auth dashboard with role metadata', 12),
-  ('Confirm quarterly reminders are seeded in Reminders tab', 'Check that all NYS-45 and Schedule H reminders appear', 13),
-  ('Print, sign, and file the Sick Leave Policy', 'Open Documents → Sick Leave Policy in the app, print it, have both employer and employee sign, and store the signed copy. Recommended: commit a scanned PDF to /docs/signed/sick-leave-policy.pdf in the repo so it''s preserved alongside the source code.', 14),
+  ('Provide signed LS-59 Wage Notice to employee', 'NY Labor Law § 195(1) requires a Wage Theft Prevention Act notice at hire (Form LS-59 for hourly employees) in English plus the employee''s primary language. Employee signs; retain copy for 6 years. Form: https://dol.ny.gov/system/files/documents/2022/02/ls59.pdf', 3),
+  ('Have employee complete Federal W-4', 'Withholding certificate required before first paycheck', 4),
+  ('Have employee complete NY IT-2104', 'NY State equivalent of the W-4', 5),
+  ('Obtain signed PFL-Waiver form (employee <20 hrs/week)', 'Employees working a regular schedule of <20 hrs/week AND fewer than 175 days in a 52-week period may waive PFL contributions. Use the official PFL-Waiver form at https://paidfamilyleave.ny.gov/pfl-waiver-form. Retain signed waiver for the entire duration of employment. Waiver auto-revokes if schedule changes — back contributions may be owed retroactively.', 6),
+  ('Print, sign, and file the Sick Leave Policy', 'Open Documents → Sick Leave Policy in the app, print it, have both employer and employee sign, and store the signed copy. Recommended: commit a scanned PDF to /docs/signed/sick-leave-policy.pdf in the repo so it''s preserved alongside the source code.', 7),
+  ('File new hire report with NY', 'Report within 20 days of hire at labor.ny.gov/newhire — required by law', 8),
+  ('Create Supabase user accounts for all three users', 'Create accounts in Supabase Auth dashboard with role metadata', 9),
+  ('Fill out all fields in Persad Pay Settings', 'Navigate to Settings and complete all employer/employee fields', 10),
+  ('Confirm quarterly reminders are seeded in Reminders tab', 'Check that all NYS-45 and Schedule H reminders appear', 11),
+  ('Purchase persadpay.com domain', 'Purchase at GoDaddy or your preferred registrar', 12),
+  ('Add Vercel DNS records to domain registrar', 'Point your domain to Vercel after deploying', 13),
+  ('Sign up for Resend and verify persadpay.com', 'Verify the domain for outbound email at resend.com', 14),
   ('Switch email FROM to payroll@persadpay.com', 'Currently using Resend''s sandbox sender (onboarding@resend.dev) which only delivers to addresses verified on the Resend account. Once persadpay.com is purchased AND verified in Resend (SPF/DKIM DNS records), update the FROM constant in src/lib/email.ts to ''Persad Pay <payroll@persadpay.com>''.', 15);
 
 -- ── Seed: Reminders (2026) ───────────────────────────────────────────────────
