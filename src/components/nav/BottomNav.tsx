@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, FileText, BellRing, FileSpreadsheet, Folder, Settings } from 'lucide-react'
+import { LayoutDashboard, FileText, BellRing, FileSpreadsheet, Folder, Settings, PiggyBank } from 'lucide-react'
 import type { Role } from '@/lib/types'
 
 const adminTabs = [
@@ -10,6 +10,7 @@ const adminTabs = [
   { href: '/stubs', label: 'Stubs', icon: FileText },
   { href: '/reminders', label: 'Reminders', icon: BellRing },
   { href: '/w2', label: 'W-2', icon: FileSpreadsheet },
+  { href: '/hysa', label: 'HYSA', icon: PiggyBank },
   { href: '/documents', label: 'Docs', icon: Folder },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]

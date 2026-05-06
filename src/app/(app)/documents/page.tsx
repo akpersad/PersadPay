@@ -17,10 +17,54 @@ interface DocSpec {
   inAppHref?: string
   externalHref?: string
   externalLabel?: string
+  requiresSignature?: boolean  // false = "Uploaded/Not uploaded" copy instead of "Signed/Unsigned"
 }
 
-// Order mirrors the at-hire / setup workflow on the dashboard checklist.
 const DOCS: DocSpec[] = [
+  {
+    type: 'ein_confirmation',
+    title: 'EIN Confirmation Letter',
+    description: 'IRS CP575 or 147C letter confirming your Employer Identification Number. Needed for W-2s, NYS-45, and Schedule H.',
+    externalHref: 'https://www.irs.gov/businesses/small-businesses-self-employed/lost-or-misplaced-your-ein',
+    externalLabel: 'Request 147C replacement',
+    requiresSignature: false,
+  },
+  {
+    type: 'w4',
+    title: 'Federal W-4',
+    description: 'Withholding allowance certificate. Required before first paycheck. Retain 4 years.',
+    externalHref: 'https://www.irs.gov/pub/irs-pdf/fw4.pdf',
+    externalLabel: 'Open IRS form',
+  },
+  {
+    type: 'ls59',
+    title: 'LS-59 Wage Notice',
+    description: 'NY § 195(1) WTPA notice. Required at hire, in English plus the employee\'s primary language. Retain 6 years.',
+    externalHref: 'https://dol.ny.gov/system/files/documents/2022/02/ls59.pdf',
+    externalLabel: 'Open NY DOL form',
+  },
+  {
+    type: 'it2104',
+    title: 'NY IT-2104',
+    description: 'NY State withholding allowance certificate. Required before first paycheck.',
+    externalHref: 'https://www.tax.ny.gov/pdf/current_forms/it/it2104_fill_in.pdf',
+    externalLabel: 'Open NY DTF form',
+  },
+  {
+    type: 'nys_registration',
+    title: 'NY State Employer Registration',
+    description: 'Confirmation letter from NY DOL acknowledging your NYS-100 registration. Required to file NYS-45 and receive your UI account number.',
+    externalHref: 'https://labor.ny.gov/ui/bpta/nys100.shtm',
+    externalLabel: 'File NYS-100 online',
+    requiresSignature: false,
+  },
+  {
+    type: 'pfl_waiver',
+    title: 'PFL-Waiver',
+    description: 'For employees working <20 hrs/week AND <175 days/52 weeks. Retain for the duration of employment.',
+    externalHref: 'https://paidfamilyleave.ny.gov/pfl-waiver-form',
+    externalLabel: 'Open NY PFL form',
+  },
   {
     type: 'sick_leave_policy',
     title: 'Sick Leave Policy',
@@ -32,34 +76,6 @@ const DOCS: DocSpec[] = [
     title: 'Sick Leave Summary',
     description: 'On-demand year summary required by NY Labor Law § 196-b(4) within 3 business days of an employee request.',
     inAppHref: '/documents/sick-leave-summary',
-  },
-  {
-    type: 'ls59',
-    title: 'LS-59 Wage Notice',
-    description: 'NY § 195(1) WTPA notice. Required at hire, in English plus the employee\'s primary language. Retain 6 years.',
-    externalHref: 'https://dol.ny.gov/system/files/documents/2022/02/ls59.pdf',
-    externalLabel: 'Open NY DOL form',
-  },
-  {
-    type: 'pfl_waiver',
-    title: 'PFL-Waiver',
-    description: 'For employees working <20 hrs/week AND <175 days/52 weeks. Retain for the duration of employment.',
-    externalHref: 'https://paidfamilyleave.ny.gov/pfl-waiver-form',
-    externalLabel: 'Open NY PFL form',
-  },
-  {
-    type: 'w4',
-    title: 'Federal W-4',
-    description: 'Withholding allowance certificate. Required before first paycheck. Retain 4 years.',
-    externalHref: 'https://www.irs.gov/pub/irs-pdf/fw4.pdf',
-    externalLabel: 'Open IRS form',
-  },
-  {
-    type: 'it2104',
-    title: 'NY IT-2104',
-    description: 'NY State withholding allowance certificate. Required before first paycheck.',
-    externalHref: 'https://www.tax.ny.gov/pdf/current_forms/it/it2104_fill_in.pdf',
-    externalLabel: 'Open NY DTF form',
   },
 ]
 
@@ -106,6 +122,7 @@ export default async function DocumentsPage() {
         {DOCS.map(doc => {
           const signed = signedByType.get(doc.type)
           const signedUrl = signedUrls.get(doc.type)
+          const needsSig = doc.requiresSignature !== false
           return (
             <Card key={doc.type}>
               <CardContent className="py-3 px-4 space-y-3">
@@ -118,10 +135,10 @@ export default async function DocumentsPage() {
                         ? (
                           <Badge className="bg-green-600 hover:bg-green-600">
                             <CheckCircle2 className="h-3 w-3 mr-1" />
-                            Signed
+                            {needsSig ? 'Signed' : 'Uploaded'}
                           </Badge>
                         )
-                        : <Badge variant="outline">Unsigned</Badge>
+                        : <Badge variant="outline">{needsSig ? 'Unsigned' : 'Not uploaded'}</Badge>
                       }
                     </div>
                     <p className="text-xs text-muted-foreground">{doc.description}</p>
@@ -151,7 +168,7 @@ export default async function DocumentsPage() {
                   )}
                 </div>
 
-                {/* Signed copy actions */}
+                {/* Upload actions */}
                 <div className="flex flex-wrap items-center gap-2 pt-1 border-t">
                   {signed ? (
                     <>
@@ -170,13 +187,15 @@ export default async function DocumentsPage() {
                     </>
                   ) : (
                     <p className="text-xs text-muted-foreground flex-1">
-                      No signed copy uploaded yet.
+                      {needsSig ? 'No signed copy uploaded yet.' : 'No copy uploaded yet.'}
                     </p>
                   )}
                   <UploadDocumentButton
                     documentType={doc.type}
                     hasExisting={!!signed}
                     uploaderId={user.id}
+                    uploadLabel={needsSig ? 'Upload signed copy' : 'Upload copy'}
+                    successLabel={needsSig ? 'Signed copy uploaded.' : 'Copy uploaded.'}
                   />
                 </div>
               </CardContent>

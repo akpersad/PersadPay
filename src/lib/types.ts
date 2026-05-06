@@ -24,6 +24,8 @@ export interface Settings {
   additional_emails: string[]
   reply_to_emails: string[]
   reminder_emails: string[]
+  hysa_actual_balance: number | null
+  hysa_actual_balance_at: string | null
   updated_at: string
 }
 
@@ -145,6 +147,8 @@ export type SignedDocumentType =
   | 'pfl_waiver'
   | 'w4'
   | 'it2104'
+  | 'ein_confirmation'
+  | 'nys_registration'
 
 export interface SignedDocument {
   id: string
@@ -204,6 +208,31 @@ export interface Filing {
   notes: string | null
   created_at: string
   created_by: string | null
+}
+
+export type HysaTransactionType =
+  | 'deposit_paystub'
+  | 'deposit_manual'
+  | 'withdrawal_filing'
+  | 'withdrawal_manual'
+  | 'balance_correction'
+
+export interface HysaTransaction {
+  id: string
+  transaction_type: HysaTransactionType
+  amount: number
+  paystub_id: string | null
+  filing_id: string | null
+  effective_date: string
+  notes: string | null
+  actor_id: string | null
+  created_at: string
+}
+
+// HysaTransaction enriched with related stub/filing data for ledger display
+export interface HysaTransactionWithRefs extends HysaTransaction {
+  paystubs: { stub_number: number; pay_period_start: string; pay_period_end: string } | null
+  filings: { filing_type: string; tax_year: number; quarter: number | null } | null
 }
 
 export interface W2Data {

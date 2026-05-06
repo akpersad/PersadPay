@@ -50,6 +50,9 @@ create table public.settings (
   additional_emails               text[] not null default '{}',
   reply_to_emails                 text[] not null default '{}',
   reminder_emails                 text[] not null default '{"Persad.household@gmail.com"}',
+  -- HYSA reconciliation: most recent admin-entered actual bank balance
+  hysa_actual_balance             numeric(10,2),
+  hysa_actual_balance_at          timestamptz,
   updated_at                      timestamptz not null default now()
 );
 
@@ -245,7 +248,7 @@ create index push_subscriptions_user_id_idx on public.push_subscriptions (user_i
 create table public.signed_documents (
   id              uuid primary key default uuid_generate_v4(),
   document_type   text not null unique check (
-    document_type in ('sick_leave_policy', 'sick_leave_summary', 'ls59', 'pfl_waiver', 'w4', 'it2104')
+    document_type in ('sick_leave_policy', 'sick_leave_summary', 'ls59', 'pfl_waiver', 'w4', 'it2104', 'ein_confirmation', 'nys_registration')
   ),
   file_path       text not null,
   file_name       text,
@@ -298,6 +301,35 @@ create unique index filings_unique
   on public.filings (filing_type, tax_year, coalesce(quarter, 0));
 
 create index filings_year_idx on public.filings (tax_year desc);
+
+-- ── hysa_transactions ────────────────────────────────────────────────────────
+-- Running ledger of all money in/out of the high-yield savings account used to
+-- hold employee withholdings + employer taxes until quarterly/annual filings
+-- are paid. Deposits auto-created on HYSA mark; withdrawals auto-created on
+-- filing mark-as-paid; manual entries for out-of-band moves.
+create table public.hysa_transactions (
+  id               uuid primary key default uuid_generate_v4(),
+  transaction_type text not null check (transaction_type in (
+    'deposit_paystub', 'deposit_manual', 'withdrawal_filing',
+    'withdrawal_manual', 'balance_correction'
+  )),
+  amount           numeric(10,2) not null,
+  paystub_id       uuid references public.paystubs(id) on delete set null,
+  filing_id        uuid references public.filings(id) on delete set null,
+  effective_date   date not null,
+  notes            text,
+  actor_id         uuid references public.profiles(id),
+  created_at       timestamptz not null default now(),
+  constraint hysa_amount_sign check (
+    (transaction_type in ('deposit_paystub', 'deposit_manual') and amount > 0)
+    or (transaction_type in ('withdrawal_filing', 'withdrawal_manual') and amount < 0)
+    or (transaction_type = 'balance_correction')
+  )
+);
+
+create index hysa_transactions_effective_date_idx on public.hysa_transactions (effective_date desc);
+create index hysa_transactions_paystub_id_idx    on public.hysa_transactions (paystub_id);
+create index hysa_transactions_filing_id_idx     on public.hysa_transactions (filing_id);
 
 -- ── Row Level Security ───────────────────────────────────────────────────────
 alter table public.profiles enable row level security;
@@ -362,6 +394,11 @@ create policy "Admins full access to tax_rates" on public.tax_rates
 -- filings (admin only)
 create policy "Admins full access to filings" on public.filings
   for all using (public.is_admin());
+
+-- hysa_transactions (admin only)
+alter table public.hysa_transactions enable row level security;
+create policy "Admins full access to hysa_transactions"
+  on public.hysa_transactions for all using (public.is_admin());
 
 -- paystub_line_items
 create policy "Admins full access to paystub_line_items"
@@ -449,6 +486,10 @@ create trigger withholding_forms_audit
 
 create trigger push_subscriptions_audit
   after insert or update or delete on public.push_subscriptions
+  for each row execute procedure public.audit_trigger();
+
+create trigger hysa_transactions_audit
+  after insert or update or delete on public.hysa_transactions
   for each row execute procedure public.audit_trigger();
 
 -- ── Seed: Onboarding Checklist ───────────────────────────────────────────────

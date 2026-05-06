@@ -12,12 +12,14 @@ interface Props {
   documentType: SignedDocumentType
   hasExisting: boolean
   uploaderId: string
+  uploadLabel?: string
+  successLabel?: string
 }
 
 const ACCEPTED = '.pdf,.png,.jpg,.jpeg'
 const MAX_BYTES = 10 * 1024 * 1024  // 10 MB — sane ceiling for scans
 
-export function UploadDocumentButton({ documentType, hasExisting, uploaderId }: Props) {
+export function UploadDocumentButton({ documentType, hasExisting, uploaderId, uploadLabel = 'Upload signed copy', successLabel = 'Signed copy uploaded.' }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -79,7 +81,7 @@ export function UploadDocumentButton({ documentType, hasExisting, uploaderId }: 
       return
     }
 
-    toast.success('Signed copy uploaded.')
+    toast.success(successLabel)
     setUploading(false)
     e.target.value = ''
     startTransition(() => router.refresh())
@@ -101,7 +103,7 @@ export function UploadDocumentButton({ documentType, hasExisting, uploaderId }: 
         onClick={pick}
       >
         <Upload className="h-3.5 w-3.5 mr-1.5" />
-        {uploading ? 'Uploading…' : hasExisting ? 'Replace' : 'Upload signed copy'}
+        {uploading ? 'Uploading…' : hasExisting ? 'Replace' : uploadLabel}
       </Button>
     </>
   )

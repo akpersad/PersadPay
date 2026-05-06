@@ -9,9 +9,9 @@ import { UpcomingDeadlines } from './UpcomingDeadlines'
 import { NextFilingCard } from './NextFilingCard'
 import { formatDateRange, formatCurrency, daysUntil } from '@/lib/dates'
 import { getCurrentQuarter, getQuarterDateRange, getQuarterDueDate } from '@/lib/filings'
-import { PlusCircle, CheckCircle2, AlertCircle, PiggyBank, AlertTriangle } from 'lucide-react'
+import { PlusCircle, CheckCircle2, AlertCircle, PiggyBank, AlertTriangle, TrendingUp } from 'lucide-react'
 import { computeCoverageWatch } from '@/lib/coverage'
-import type { Paystub, Reminder, OnboardingItem, Filing } from '@/lib/types'
+import type { Paystub, Reminder, OnboardingItem, Filing, Settings } from '@/lib/types'
 
 export async function AdminDashboard() {
   const supabase = await createClient()
@@ -20,7 +20,7 @@ export async function AdminDashboard() {
 
   const now = new Date()
   const yearStart = `${now.getFullYear()}-01-01`
-  const sixtyDaysOut = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
+  const ninetyDaysOut = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000)
     .toLocaleDateString('en-CA')
 
   const { year: currentYear, quarter: currentQuarter } = getCurrentQuarter(now)
@@ -34,6 +34,8 @@ export async function AdminDashboard() {
     { data: currentQuarterStubs },
     { data: currentQuarterFiling },
     { data: coverageStubs },
+    { data: hysaTxAmounts },
+    { data: hysaSettings },
   ] = await Promise.all([
     supabase
       .from('paystubs')
@@ -48,7 +50,7 @@ export async function AdminDashboard() {
       .from('reminders')
       .select('*')
       .eq('dismissed', false)
-      .lte('due_date', sixtyDaysOut)
+      .lte('due_date', ninetyDaysOut)
       .order('due_date', { ascending: true }),
     supabase
       .from('onboarding_checklist')
@@ -75,12 +77,23 @@ export async function AdminDashboard() {
         .select('pay_date, hours_worked')
         .gte('pay_date', cutoff.toISOString().slice(0, 10))
     })(),
+    supabase.from('hysa_transactions').select('amount'),
+    supabase.from('settings').select('hysa_actual_balance, hysa_actual_balance_at').single<Pick<Settings, 'hysa_actual_balance' | 'hysa_actual_balance_at'>>(),
   ])
 
   const coverage = computeCoverageWatch((coverageStubs ?? []) as Paystub[], now)
 
   const ytdGross = (ytdStubs ?? []).reduce((sum, s) => sum + Number(s.gross_pay), 0)
   const stubCount = ytdStubs?.length ?? 0
+
+  const hysaExpectedBalance = Math.round(
+    (hysaTxAmounts ?? []).reduce((s, row) => s + Number((row as { amount: number }).amount), 0) * 100
+  ) / 100
+  const hysaActualBalance = hysaSettings?.hysa_actual_balance ?? null
+  const hysaActualBalanceAt = hysaSettings?.hysa_actual_balance_at ?? null
+  const hysaDiscrepancy = hysaActualBalance !== null
+    ? Math.round((hysaActualBalance - hysaExpectedBalance) * 100) / 100
+    : null
   const nextReminder = (reminders ?? []).find(r => !r.dismissed)
   const checklistItems = (checklist ?? []) as OnboardingItem[]
   const allDone = checklistItems.every(i => i.completed)
@@ -161,6 +174,39 @@ export async function AdminDashboard() {
           filed={currentQuarterFiled}
         />
       )}
+
+      {/* HYSA balance card */}
+      <Link href="/hysa">
+        <Card className={`hover:bg-muted/50 transition-colors cursor-pointer ${hysaDiscrepancy !== null && hysaDiscrepancy !== 0 ? 'border-amber-400' : ''}`}>
+          <CardContent className="py-3 px-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <PiggyBank className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium">HYSA Balance</p>
+                {hysaActualBalanceAt && (
+                  <p className="text-xs text-muted-foreground">
+                    Reconciled {new Date(hysaActualBalanceAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' })}
+                  </p>
+                )}
+                {!hysaActualBalanceAt && (
+                  <p className="text-xs text-muted-foreground">Not yet reconciled</p>
+                )}
+              </div>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <p className="text-sm font-semibold font-mono">
+                {formatCurrency(hysaExpectedBalance)}
+              </p>
+              {hysaDiscrepancy !== null && hysaDiscrepancy !== 0 && (
+                <p className="text-[10px] text-amber-600 flex items-center gap-0.5 justify-end">
+                  <TrendingUp className="h-3 w-3" />
+                  {formatCurrency(Math.abs(hysaDiscrepancy))} off
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </Link>
 
       {/* Onboarding checklist */}
       {!allDone && <OnboardingChecklist items={checklistItems} />}

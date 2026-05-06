@@ -273,35 +273,40 @@ NY State tax quarters align with federal: Q1 Jan–Mar (due Apr 30), Q2 Apr–Ju
 
 ### Phase 5 — HYSA ledger + reconciliation
 
+**Status: COMPLETE on 2026-05-06.** Migration `0013_phase5_hysa_ledger.sql` written; user to apply via MCP. Build green.
+
 **Goal:** every dollar in and out of the HYSA is accounted for in the app, so a discrepancy between what the app expects and what the bank actually shows can be flagged and audited at a glance. Closes the loop on the per-stub HYSA workflow that landed in Phase 4a.
 
 **Schema**
-- [ ] `hysa_transactions` table: id, transaction_type, amount, paystub_id (FK, nullable), filing_id (FK, nullable), effective_date, notes, actor_id, created_at. Audit-logged via the existing `audit_trigger` function. Admin-only RLS.
-- [ ] `transaction_type` enum-text: `deposit_paystub` | `deposit_manual` | `withdrawal_filing` | `withdrawal_manual` | `balance_correction`. Constraint: deposit types have positive amount, withdrawal types have negative amount, correction can be either signed.
-- [ ] Settings additions (or new `hysa_state` table): `hysa_actual_balance numeric` + `hysa_actual_balance_at timestamptz` for the most-recent admin-entered actual bank balance.
+- [x] `hysa_transactions` table: id, transaction_type, amount, paystub_id (FK, nullable), filing_id (FK, nullable), effective_date, notes, actor_id, created_at. Audit-logged via the existing `audit_trigger` function. Admin-only RLS.
+- [x] `transaction_type` enum-text: `deposit_paystub` | `deposit_manual` | `withdrawal_filing` | `withdrawal_manual` | `balance_correction`. Constraint: deposit types have positive amount, withdrawal types have negative amount, correction can be either signed.
+- [x] Settings additions: `hysa_actual_balance numeric` + `hysa_actual_balance_at timestamptz` for the most-recent admin-entered actual bank balance.
 
 **Auto-flow (no manual entry needed)**
-- [ ] When admin marks a stub HYSA-funded, insert a `deposit_paystub` row with `amount = hysaAmountForStub(stub).total` and FK to the stub. Reverse if admin un-marks (edit existing toggle behavior).
-- [ ] When admin marks a filing as filed, insert a `withdrawal_filing` row with `amount = -<filing's computed amount>` and FK to the filing. NYS-45 uses Box 5 + Box 15. Federal Estimated Tax uses total_due. Schedule H uses total_household_employment_taxes (only relevant if user pays at year-end rather than via 1040-ES).
-- [ ] When admin un-marks a filing or edits the filed_on/confirmation, reconcile the matching transaction (or insert an offsetting one).
+- [x] When admin marks a stub HYSA-funded, insert a `deposit_paystub` row with `amount = hysaAmountForStub(stub).total` and FK to the stub. "Undo" button reverses the paystub update + deletes the transaction.
+- [x] When admin marks a filing as filed, insert a `withdrawal_filing` row with `amount = -<filing's computed amount>` and FK to the filing. NYS-45 uses Box 5 + Box 15. Federal Estimated Tax uses total_due. Schedule H uses total_household_employment_taxes.
+- [x] When admin edits/re-saves a filing, the existing withdrawal is deleted and a fresh one inserted (upsert pattern).
 
 **Manual entry**
-- [ ] `/hysa` admin page with a "Add manual transaction" form: type (deposit / withdrawal / balance correction), amount, effective date, notes. For out-of-band moves (you bumped $50 in to round up, you withdrew $20 by mistake, the bank credited interest, etc.).
+- [x] `/hysa` admin page with a "Add manual transaction" dialog: type (deposit / withdrawal / balance correction), amount, effective date, notes.
 
 **Ledger view**
-- [ ] `/hysa` — running-balance ledger: chronological list of every transaction with type badge, source link (stub or filing if applicable), running total. Filter by year + type.
-- [ ] Stat cards: current balance, YTD deposits, YTD withdrawals, YTD interest (sum of balance_correction with positive amount?).
+- [x] `/hysa` — running-balance ledger: reverse-chronological list of every transaction with type badge, source link (stub or filing if applicable), running balance column. All transactions shown (no year filter needed at this volume).
+- [x] Stat cards: expected balance, actual balance (if reconciled), YTD deposits, YTD withdrawals.
 
 **Reconciliation**
-- [ ] "Enter actual HYSA balance" form: admin pastes the bank balance + date. App computes expected balance from transactions and shows the delta.
-- [ ] If delta != 0: surface a banner with "Discrepancy of $X.XX as of YYYY-MM-DD — most likely cause: <interest accrual / bank fee / unrecorded transaction>" and a one-click "Record balance correction for $X.XX" action.
-- [ ] Dashboard card showing "HYSA balance: $X · last reconciled YYYY-MM-DD" with a discrepancy warning when applicable.
+- [x] "Enter actual HYSA balance" form on `/hysa`: admin enters the bank balance + date. App computes expected balance from all transactions and shows the delta.
+- [x] If delta != 0: amber banner with discrepancy amount, likely-cause note, and one-click "Record correction" action.
+- [x] Dashboard card showing "HYSA Balance: $X · last reconciled date" with amber discrepancy indicator when applicable. Links to `/hysa`.
 
 **Backfill at migration time**
-- [ ] Migration script generates synthetic transactions for every existing `paystubs.hysa_transferred = true` row and every `filings.filed_on != null` row so the ledger reflects historical activity from day one.
+- [x] Migration script generates synthetic `deposit_paystub` transactions for every existing `paystubs.hysa_transferred = true` row. Filing backfill omitted (no filed filings exist yet at first-stub date).
 
-**Open question — daily snapshots vs computed**
-- The running balance can either be (a) a computed column that re-derives from the transaction table on each query, or (b) a stored balance_after on each row that's maintained in app code. Option (a) is simpler + always accurate; option (b) is faster at scale but introduces drift risk. Default to (a) given the volume (~52 paystubs/yr + handful of filings + occasional manual = ~100 transactions/year max).
+**Running balance strategy**
+- Computed dynamically from the `hysa_transactions` table (option a — always accurate). ~100 transactions/year max makes this trivially fast.
+
+**User TODO from Phase 5:**
+- Apply migration `0013_phase5_hysa_ledger.sql` to the remote Supabase project.
 
 #### Phase 4a delivery details
 
@@ -319,6 +324,80 @@ NY State tax quarters align with federal: Q1 Jan–Mar (due Apr 30), Q2 Apr–Ju
     - **IT-2104 card:** total allowances, additional withholding $/period. "Open Pub NYS-50-T (NY tax tables)" button opens the current-year PDF on tax.ny.gov with an inline note showing her gross/wk + filing status so the admin knows which row to look up. Field to paste the looked-up amount. Save updates `settings.state_withholding_per_period`.
   - Last-computed timestamp on each card; warning banner if `employee_hourly_rate` × expected hours has changed since last computation ("re-run with the new gross to be safe").
   - No tax-engine refactor — settings stays the source of truth for per-period dollar amounts; this feature is a smart UI for keeping those amounts current.
+
+---
+
+### Phase 6 — Visual polish + brand identity
+
+**Status: PENDING.**
+
+**Goal:** give the app a real visual identity so it feels like a finished product. Right now the CSS theme is pure grayscale — every `--primary` is near-black. `BRAND_COLOR = '#1a1a2e'` exists but only in the PDFs. Phase 6 wires the palette across the entire UI, audits every colored element for consistency, and locks in the app icon.
+
+---
+
+#### Palette
+
+The brand color is **deep navy** `#1a1a2e` — already established in the PDFs and the PWA `theme_color`. Build the full token set around it:
+
+| Token | Light mode | Dark mode | Role |
+|---|---|---|---|
+| `--primary` | `#1a1a2e` (navy) | `#4f7ec8` (lighter navy-blue) | Buttons, active nav, focus rings |
+| `--primary-foreground` | `#ffffff` | `#ffffff` | Text on primary |
+| `--accent` | `#e8f0fe` (pale blue tint) | `#1e2d4a` (dark tinted navy) | Hover states, subtle highlights |
+| `--accent-foreground` | `#1a1a2e` | `#c5d8f8` | |
+| Success green | `#16a34a` (green-600) | `#22c55e` (green-500) | Paid badge, HYSA funded, Uploaded |
+| Amber warning | `#d97706` (amber-600) | `#f59e0b` (amber-500) | HYSA discrepancy, cap warnings |
+| Destructive | keep existing oklch red | | Delete, error states |
+
+All other tokens (background, card, border, muted, etc.) stay neutral — only `primary` and `accent` get color.
+
+---
+
+#### Deliverables
+
+**Color tokens**
+- [ ] Update `globals.css` `:root` and `.dark` — wire `--primary`, `--primary-foreground`, `--accent`, `--accent-foreground` to the palette above. All in OKLCH.
+- [ ] Update `manifest.ts` `theme_color` to match new primary (currently already `#1a1a2e` — verify still correct after palette decision).
+- [ ] Update `BRAND_COLOR` in `src/lib/pdf/constants.ts` if palette shifts. Keep `BRAND_COLOR_LIGHT` in sync.
+
+**Bottom nav**
+- [ ] Active tab: use `text-primary` (navy) + filled icon weight instead of just opacity difference. Currently active = black, inactive = gray — hard to tell at a glance.
+- [ ] Nav bar itself: white with `border-t border-border`. No color change needed — the active icon color is enough.
+
+**Badges + status chips**
+- [ ] Audit every hardcoded `bg-green-600`, `text-green-600`, `bg-amber-*` etc. across the codebase — convert to semantic Tailwind utilities where possible or extract a `StatusBadge` component with variants (`paid`, `pending`, `warning`, `error`).
+- [ ] "Payment Sent" / "Signed" / "Uploaded" / "HYSA funded" — all should use the same success green token.
+- [ ] HYSA discrepancy / wage-base warning / DBL watch — all should use the same amber token.
+
+**Cards + layout**
+- [ ] Audit card header padding across pages — some pages use `py-3 px-4`, others differ. Pick one standard and apply it everywhere.
+- [ ] Page header area (`<h1>` + subtitle `<p>`) — ensure consistent spacing (`pt-6 pb-4` or similar) and text sizes across all pages. Currently ad hoc.
+- [ ] Stat cards (dashboard, HYSA, filing detail) — unify the structure. Currently three slightly different card layouts do the same job.
+
+**Typography**
+- [ ] Swap the default Geist font for **Inter** (better number rendering for a finance app; slightly warmer than Geist). Or keep Geist but evaluate on device before deciding.
+- [ ] Verify `font-mono` is used consistently for all currency display, stub numbers, EINs, and transaction amounts — numbers in a tabular context should never jump width mid-scroll.
+
+**PWA icon**
+- [ ] Drop `icon-192.png` and `icon-512.png` into `/public` once the icon asset is ready. No code changes needed — `manifest.ts` already references those paths.
+- [ ] Verify on iOS "Add to Home Screen" after adding icons — confirm safe zone / maskable padding looks correct.
+
+**Dark mode**
+- [ ] Decision: support it or drop it. Options:
+  - **Keep + wire toggle** (add a theme toggle to Settings): more work, good for nighttime use.
+  - **Drop dark mode**: remove `.dark` block from `globals.css`, simplify. Fine since this is a 3-person private app.
+  - **Keep but don't surface toggle**: system-preference-only (current implicit behavior). Least work, still benefits OS dark-mode users.
+- [ ] Implement the chosen option. If keeping dark mode, audit every hardcoded hex/color class that doesn't adapt.
+
+**PDF alignment**
+- [ ] After final palette is locked, verify `BRAND_COLOR` in `src/lib/pdf/constants.ts` still matches `--primary`. If primary shifted at all, update constants and spot-check a generated paystub PDF.
+
+---
+
+#### Out of scope for Phase 6
+- Animations / transitions beyond what shadcn provides out of the box.
+- Custom illustrations or decorative graphics.
+- Per-user theme preferences.
 
 ---
 

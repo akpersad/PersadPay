@@ -182,6 +182,7 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
         taxYear={year}
         quarter={q}
         createdBy={user.id}
+        computedAmount={data.ui_tax_due + data.total_tax_withheld}
       />
 
       <a

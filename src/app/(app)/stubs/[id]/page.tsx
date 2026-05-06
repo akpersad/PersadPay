@@ -103,6 +103,7 @@ export default async function StubDetailPage({ params }: Props) {
     <StubDetail
       stub={stubWithYTD}
       role={profile?.role ?? 'employee'}
+      userId={user.id}
       settings={settings}
       lineItems={(lineItems ?? []) as PaystubLineItem[]}
       ytdByLineType={ytdByLineType}

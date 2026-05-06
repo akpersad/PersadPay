@@ -219,6 +219,7 @@ export default async function ScheduleHYearPage({ params }: { params: Promise<Pa
         taxYear={year}
         quarter={null}
         createdBy={user.id}
+        computedAmount={data.total_household_employment_taxes}
       />
 
       <a
