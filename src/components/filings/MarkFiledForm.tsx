@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { CheckCircle2, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate } from '@/lib/dates'
+import { upsertHysaWithdrawalForFiling, deleteHysaWithdrawalForFiling } from '@/lib/hysa'
 import type { Filing } from '@/lib/types'
 
 interface Props {
@@ -19,9 +20,12 @@ interface Props {
   taxYear: number
   quarter: number | null
   createdBy: string
+  // When provided, a withdrawal_filing HYSA transaction is automatically
+  // created/updated/deleted in sync with the filed_on state.
+  computedAmount?: number
 }
 
-export function MarkFiledForm({ existing, filingType, taxYear, quarter, createdBy }: Props) {
+export function MarkFiledForm({ existing, filingType, taxYear, quarter, createdBy, computedAmount }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
 
@@ -46,14 +50,35 @@ export function MarkFiledForm({ existing, filingType, taxYear, quarter, createdB
       created_by: createdBy,
     }
 
-    const { error } = existing
-      ? await supabase.from('filings').update(payload).eq('id', existing.id)
-      : await supabase.from('filings').insert(payload)
+    let filingId = existing?.id
+    if (existing) {
+      const { error } = await supabase.from('filings').update(payload).eq('id', existing.id)
+      if (error) {
+        toast.error('Failed to save filing.')
+        setSaving(false)
+        return
+      }
+    } else {
+      const { data: inserted, error } = await supabase
+        .from('filings')
+        .insert(payload)
+        .select('id')
+        .single()
+      if (error) {
+        toast.error('Failed to save filing.')
+        setSaving(false)
+        return
+      }
+      filingId = inserted?.id
+    }
 
-    if (error) {
-      toast.error('Failed to save filing.')
-      setSaving(false)
-      return
+    // Sync the HYSA withdrawal transaction when an amount is provided
+    if (computedAmount !== undefined && filingId) {
+      if (filedOn) {
+        await upsertHysaWithdrawalForFiling(supabase, filingId, computedAmount, filedOn, createdBy)
+      } else {
+        await deleteHysaWithdrawalForFiling(supabase, filingId)
+      }
     }
 
     toast.success(existing ? 'Filing updated.' : 'Filing recorded.')

@@ -148,6 +148,7 @@ export default async function FederalEstimatedTaxQuarterPage({ params }: { param
         taxYear={year}
         quarter={q}
         createdBy={user.id}
+        computedAmount={data.total_due}
       />
 
       <a

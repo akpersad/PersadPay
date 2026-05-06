@@ -273,35 +273,40 @@ NY State tax quarters align with federal: Q1 Jan–Mar (due Apr 30), Q2 Apr–Ju
 
 ### Phase 5 — HYSA ledger + reconciliation
 
+**Status: COMPLETE on 2026-05-06.** Migration `0013_phase5_hysa_ledger.sql` written; user to apply via MCP. Build green.
+
 **Goal:** every dollar in and out of the HYSA is accounted for in the app, so a discrepancy between what the app expects and what the bank actually shows can be flagged and audited at a glance. Closes the loop on the per-stub HYSA workflow that landed in Phase 4a.
 
 **Schema**
-- [ ] `hysa_transactions` table: id, transaction_type, amount, paystub_id (FK, nullable), filing_id (FK, nullable), effective_date, notes, actor_id, created_at. Audit-logged via the existing `audit_trigger` function. Admin-only RLS.
-- [ ] `transaction_type` enum-text: `deposit_paystub` | `deposit_manual` | `withdrawal_filing` | `withdrawal_manual` | `balance_correction`. Constraint: deposit types have positive amount, withdrawal types have negative amount, correction can be either signed.
-- [ ] Settings additions (or new `hysa_state` table): `hysa_actual_balance numeric` + `hysa_actual_balance_at timestamptz` for the most-recent admin-entered actual bank balance.
+- [x] `hysa_transactions` table: id, transaction_type, amount, paystub_id (FK, nullable), filing_id (FK, nullable), effective_date, notes, actor_id, created_at. Audit-logged via the existing `audit_trigger` function. Admin-only RLS.
+- [x] `transaction_type` enum-text: `deposit_paystub` | `deposit_manual` | `withdrawal_filing` | `withdrawal_manual` | `balance_correction`. Constraint: deposit types have positive amount, withdrawal types have negative amount, correction can be either signed.
+- [x] Settings additions: `hysa_actual_balance numeric` + `hysa_actual_balance_at timestamptz` for the most-recent admin-entered actual bank balance.
 
 **Auto-flow (no manual entry needed)**
-- [ ] When admin marks a stub HYSA-funded, insert a `deposit_paystub` row with `amount = hysaAmountForStub(stub).total` and FK to the stub. Reverse if admin un-marks (edit existing toggle behavior).
-- [ ] When admin marks a filing as filed, insert a `withdrawal_filing` row with `amount = -<filing's computed amount>` and FK to the filing. NYS-45 uses Box 5 + Box 15. Federal Estimated Tax uses total_due. Schedule H uses total_household_employment_taxes (only relevant if user pays at year-end rather than via 1040-ES).
-- [ ] When admin un-marks a filing or edits the filed_on/confirmation, reconcile the matching transaction (or insert an offsetting one).
+- [x] When admin marks a stub HYSA-funded, insert a `deposit_paystub` row with `amount = hysaAmountForStub(stub).total` and FK to the stub. "Undo" button reverses the paystub update + deletes the transaction.
+- [x] When admin marks a filing as filed, insert a `withdrawal_filing` row with `amount = -<filing's computed amount>` and FK to the filing. NYS-45 uses Box 5 + Box 15. Federal Estimated Tax uses total_due. Schedule H uses total_household_employment_taxes.
+- [x] When admin edits/re-saves a filing, the existing withdrawal is deleted and a fresh one inserted (upsert pattern).
 
 **Manual entry**
-- [ ] `/hysa` admin page with a "Add manual transaction" form: type (deposit / withdrawal / balance correction), amount, effective date, notes. For out-of-band moves (you bumped $50 in to round up, you withdrew $20 by mistake, the bank credited interest, etc.).
+- [x] `/hysa` admin page with a "Add manual transaction" dialog: type (deposit / withdrawal / balance correction), amount, effective date, notes.
 
 **Ledger view**
-- [ ] `/hysa` — running-balance ledger: chronological list of every transaction with type badge, source link (stub or filing if applicable), running total. Filter by year + type.
-- [ ] Stat cards: current balance, YTD deposits, YTD withdrawals, YTD interest (sum of balance_correction with positive amount?).
+- [x] `/hysa` — running-balance ledger: reverse-chronological list of every transaction with type badge, source link (stub or filing if applicable), running balance column. All transactions shown (no year filter needed at this volume).
+- [x] Stat cards: expected balance, actual balance (if reconciled), YTD deposits, YTD withdrawals.
 
 **Reconciliation**
-- [ ] "Enter actual HYSA balance" form: admin pastes the bank balance + date. App computes expected balance from transactions and shows the delta.
-- [ ] If delta != 0: surface a banner with "Discrepancy of $X.XX as of YYYY-MM-DD — most likely cause: <interest accrual / bank fee / unrecorded transaction>" and a one-click "Record balance correction for $X.XX" action.
-- [ ] Dashboard card showing "HYSA balance: $X · last reconciled YYYY-MM-DD" with a discrepancy warning when applicable.
+- [x] "Enter actual HYSA balance" form on `/hysa`: admin enters the bank balance + date. App computes expected balance from all transactions and shows the delta.
+- [x] If delta != 0: amber banner with discrepancy amount, likely-cause note, and one-click "Record correction" action.
+- [x] Dashboard card showing "HYSA Balance: $X · last reconciled date" with amber discrepancy indicator when applicable. Links to `/hysa`.
 
 **Backfill at migration time**
-- [ ] Migration script generates synthetic transactions for every existing `paystubs.hysa_transferred = true` row and every `filings.filed_on != null` row so the ledger reflects historical activity from day one.
+- [x] Migration script generates synthetic `deposit_paystub` transactions for every existing `paystubs.hysa_transferred = true` row. Filing backfill omitted (no filed filings exist yet at first-stub date).
 
-**Open question — daily snapshots vs computed**
-- The running balance can either be (a) a computed column that re-derives from the transaction table on each query, or (b) a stored balance_after on each row that's maintained in app code. Option (a) is simpler + always accurate; option (b) is faster at scale but introduces drift risk. Default to (a) given the volume (~52 paystubs/yr + handful of filings + occasional manual = ~100 transactions/year max).
+**Running balance strategy**
+- Computed dynamically from the `hysa_transactions` table (option a — always accurate). ~100 transactions/year max makes this trivially fast.
+
+**User TODO from Phase 5:**
+- Apply migration `0013_phase5_hysa_ledger.sql` to the remote Supabase project.
 
 #### Phase 4a delivery details
 

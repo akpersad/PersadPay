@@ -18,18 +18,20 @@ import { formatDate, formatDateRange, formatCurrency } from '@/lib/dates'
 import { toast } from 'sonner'
 import { Download, Mail, Trash2, CheckCircle2, Pencil, Copy, PiggyBank } from 'lucide-react'
 import { hysaAmountForStub } from '@/lib/tax'
+import { insertHysaDeposit, deleteHysaDepositForStub } from '@/lib/hysa'
 import { CopyValue } from '@/components/filings/CopyValue'
 import type { PaystubWithYTD, Settings, Role, PaystubLineItem } from '@/lib/types'
 
 interface Props {
   stub: PaystubWithYTD
   role: Role
+  userId: string
   settings: Settings | null
   lineItems?: PaystubLineItem[]
   ytdByLineType?: Record<string, number>
 }
 
-export function StubDetail({ stub, role, settings, lineItems = [], ytdByLineType = {} }: Props) {
+export function StubDetail({ stub, role, userId, settings, lineItems = [], ytdByLineType = {} }: Props) {
   const taxableLineItems = lineItems.filter(i =>
     !i.informational_only && (i.taxable_fed || i.taxable_fica || i.taxable_ny || i.w2_box1)
   )
@@ -59,12 +61,14 @@ export function StubDetail({ stub, role, settings, lineItems = [], ytdByLineType
   const [paymentDialog, setPaymentDialog] = useState(false)
   const [deleteDialog, setDeleteDialog] = useState(false)
   const [hysaDialog, setHysaDialog] = useState(false)
+  const [unmarkHysaDialog, setUnmarkHysaDialog] = useState(false)
   const [zelleId, setZelleId] = useState(stub.zelle_transaction_id ?? '')
   const [hysaNotes, setHysaNotes] = useState(stub.hysa_notes ?? '')
   const [emailPending, setEmailPending] = useState(false)
   const [paymentPending, setPaymentPending] = useState(false)
   const [deletePending, setDeletePending] = useState(false)
   const [hysaPending, setHysaPending] = useState(false)
+  const [unmarkHysaPending, setUnmarkHysaPending] = useState(false)
 
   const isAdmin = role === 'admin'
   const pflWaived = settings?.pfl_waived ?? false
@@ -123,12 +127,44 @@ export function StubDetail({ stub, role, settings, lineItems = [], ytdByLineType
 
     if (error) {
       toast.error('Failed to record HYSA transfer.')
-    } else {
-      toast.success('HYSA transfer recorded.')
-      setHysaDialog(false)
-      startTransition(() => router.refresh())
+      setHysaPending(false)
+      return
     }
+
+    // Record deposit transaction so the ledger stays in sync
+    await insertHysaDeposit(supabase, stub, userId)
+
+    toast.success('HYSA transfer recorded.')
+    setHysaDialog(false)
+    startTransition(() => router.refresh())
     setHysaPending(false)
+  }
+
+  async function unmarkHysaTransferred() {
+    setUnmarkHysaPending(true)
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('paystubs')
+      .update({
+        hysa_transferred: false,
+        hysa_transferred_at: null,
+        hysa_notes: null,
+      })
+      .eq('id', stub.id)
+
+    if (error) {
+      toast.error('Failed to undo HYSA transfer.')
+      setUnmarkHysaPending(false)
+      return
+    }
+
+    // Remove the deposit transaction from the ledger
+    await deleteHysaDepositForStub(supabase, stub.id)
+
+    toast.success('HYSA transfer reversed.')
+    setUnmarkHysaDialog(false)
+    startTransition(() => router.refresh())
+    setUnmarkHysaPending(false)
   }
 
   async function deleteStub() {
@@ -373,10 +409,18 @@ export function StubDetail({ stub, role, settings, lineItems = [], ytdByLineType
             </div>
             {stub.hysa_transferred ? (
               <div className="rounded-md bg-green-50 border border-green-200 px-3 py-2 text-xs text-green-900">
-                <p className="font-medium flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  Moved {stub.hysa_transferred_at ? `on ${formatDate(stub.hysa_transferred_at.slice(0, 10))}` : ''}
-                </p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-medium flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Moved {stub.hysa_transferred_at ? `on ${formatDate(stub.hysa_transferred_at.slice(0, 10))}` : ''}
+                  </p>
+                  <button
+                    onClick={() => setUnmarkHysaDialog(true)}
+                    className="text-[10px] text-green-700 hover:text-green-900 underline flex-shrink-0"
+                  >
+                    Undo
+                  </button>
+                </div>
                 {stub.hysa_notes && <p className="mt-1 whitespace-pre-wrap">{stub.hysa_notes}</p>}
               </div>
             ) : !stub.stub_sent ? (
@@ -523,6 +567,24 @@ export function StubDetail({ stub, role, settings, lineItems = [], ytdByLineType
             <Button variant="outline" onClick={() => setHysaDialog(false)}>Cancel</Button>
             <Button disabled={hysaPending} onClick={markHysaTransferred}>
               {hysaPending ? 'Saving…' : stub.hysa_transferred ? 'Update' : 'Confirm transfer'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unmark HYSA confirmation dialog */}
+      <Dialog open={unmarkHysaDialog} onOpenChange={setUnmarkHysaDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Undo HYSA transfer?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground py-2">
+            This will reverse the {formatCurrency(hysa.total)} deposit entry in the HYSA ledger and mark this stub as unfunded. Use this only if the transfer was recorded in error.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUnmarkHysaDialog(false)}>Cancel</Button>
+            <Button variant="destructive" disabled={unmarkHysaPending} onClick={unmarkHysaTransferred}>
+              {unmarkHysaPending ? 'Reversing…' : 'Reverse transfer'}
             </Button>
           </DialogFooter>
         </DialogContent>
