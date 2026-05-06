@@ -10,6 +10,7 @@ import {
   getQuarterDateRange,
   getQuarterDueDate,
   getScheduleHDueDate,
+  getFederalEstimatedTaxDueDate,
   type Quarter,
 } from '@/lib/filings'
 import type { Profile, Paystub, Filing } from '@/lib/types'
@@ -49,9 +50,10 @@ export default async function FilingsPage() {
 
   const filingMap = new Map<string, Filing>()
   for (const f of (filings ?? []) as Filing[]) {
-    const key = f.filing_type === 'NYS-45'
-      ? `nys45-${f.tax_year}-${f.quarter}`
-      : `sh-${f.tax_year}`
+    const key =
+      f.filing_type === 'NYS-45' ? `nys45-${f.tax_year}-${f.quarter}` :
+      f.filing_type === 'Federal Estimated Tax' ? `fed1040es-${f.tax_year}-${f.quarter}` :
+      `sh-${f.tax_year}`
     filingMap.set(key, f)
   }
 
@@ -108,52 +110,112 @@ function YearSection({
       <div className="space-y-1.5">
         {quarters.map(q => {
           const data = stubsByQuarter[`${year}-${q}`]
-          const filing = filingMap.get(`nys45-${year}-${q}`)
+          const nysFiling = filingMap.get(`nys45-${year}-${q}`)
+          const fedFiling = filingMap.get(`fed1040es-${year}-${q}`)
           const range = getQuarterDateRange(year, q)
-          const due = getQuarterDueDate(year, q)
-          const days = daysUntil(due)
 
           return (
-            <Link key={q} href={`/filings/nys-45/${year}/${q}`}>
-              <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
-                <CardContent className="py-3 px-4 flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">Q{q} NYS-45</p>
-                      {filing?.filed_on
-                        ? (
-                          <Badge variant="default" className="bg-green-600 hover:bg-green-600">
-                            <CheckCircle2 className="h-3 w-3 mr-1" />
-                            Filed {formatDate(filing.filed_on)}
-                          </Badge>
-                        )
-                        : days <= 0
-                          ? <Badge variant="destructive">Overdue</Badge>
-                          : days <= 20
-                            ? <Badge variant="secondary">Due in {days}d</Badge>
-                            : null
-                      }
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {formatDate(range.start)} – {formatDate(range.end)} · Due {formatDate(due)}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {data ? `${data.count} stubs · $${data.gross.toFixed(2)} gross` : 'No stubs'}
-                    </p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                </CardContent>
-              </Card>
-            </Link>
+            <div key={q} className="space-y-1.5">
+              <FilingRow
+                href={`/filings/nys-45/${year}/${q}`}
+                title={`Q${q} NYS-45`}
+                subtitle={`${formatDate(range.start)} – ${formatDate(range.end)} · NY State`}
+                rangeText={data ? `${data.count} stubs · $${data.gross.toFixed(2)} gross` : 'No stubs'}
+                dueDate={getQuarterDueDate(year, q)}
+                filed={nysFiling}
+                threshold={20}
+              />
+              <FilingRow
+                href={`/filings/federal-estimated-tax/${year}/${q}`}
+                title={`Q${q} Federal Estimated Tax (1040-ES)`}
+                subtitle={`${formatDate(range.start)} – ${formatDate(range.end)} · IRS`}
+                rangeText={data ? `${data.count} stubs covered` : 'No stubs'}
+                dueDate={getFederalEstimatedTaxDueDate(year, q)}
+                filed={fedFiling}
+                threshold={30}
+              />
+            </div>
           )
         })}
 
-        {/* Schedule H — only show for past years and once Dec 31 has passed for current */}
+        {/* Schedule H + Year-end packet — only for past years */}
         {!isCurrentYear && (
-          <ScheduleHRow year={year} filing={filingMap.get(`sh-${year}`) ?? null} />
+          <>
+            <ScheduleHRow year={year} filing={filingMap.get(`sh-${year}`) ?? null} />
+            <YearEndPacketRow year={year} />
+          </>
         )}
       </div>
     </section>
+  )
+}
+
+function YearEndPacketRow({ year }: { year: number }) {
+  return (
+    <Link href={`/filings/year-end/${year}`}>
+      <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+        <CardContent className="py-3 px-4 flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium">Year-end packet · {year}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              W-2 + W-3 + Schedule H + every paystub in one PDF for the CPA
+            </p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+        </CardContent>
+      </Card>
+    </Link>
+  )
+}
+
+function FilingRow({
+  href,
+  title,
+  subtitle,
+  rangeText,
+  dueDate,
+  filed,
+  threshold,
+}: {
+  href: string
+  title: string
+  subtitle: string
+  rangeText: string
+  dueDate: string
+  filed: Filing | undefined
+  threshold: number
+}) {
+  const days = daysUntil(dueDate)
+  return (
+    <Link href={href}>
+      <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+        <CardContent className="py-3 px-4 flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium">{title}</p>
+              {filed?.filed_on
+                ? (
+                  <Badge variant="default" className="bg-green-600 hover:bg-green-600">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Filed {formatDate(filed.filed_on)}
+                  </Badge>
+                )
+                : days <= 0
+                  ? <Badge variant="destructive">Overdue</Badge>
+                  : days <= threshold
+                    ? <Badge variant="secondary">Due in {days}d</Badge>
+                    : null
+              }
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {subtitle} · Due {formatDate(dueDate)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">{rangeText}</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+        </CardContent>
+      </Card>
+    </Link>
   )
 }
 

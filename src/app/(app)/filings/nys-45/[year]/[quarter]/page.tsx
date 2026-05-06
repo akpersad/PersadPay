@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ChevronLeft, ExternalLink } from 'lucide-react'
-import { formatDate, formatCurrency, daysUntil } from '@/lib/dates'
+import { formatDate, formatCurrency, daysUntil, shiftedDeadline, selfImposedDeadline } from '@/lib/dates'
 import { calculateNYS45, type Quarter } from '@/lib/filings'
 import { getTaxRatesForYear } from '@/lib/tax'
 import { CopyValue } from '@/components/filings/CopyValue'
@@ -79,7 +79,10 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
 
   const sutaRate = Number(settings?.suta_rate ?? 0)
   const data = calculateNYS45(stubsInQuarter, ytdGrossBeforeQuarter, rates, sutaRate, year, q)
-  const days = daysUntil(data.due_date)
+  const { effective: dueDateEffective, shifted } = shiftedDeadline(data.due_date)
+  const fileBy = selfImposedDeadline(dueDateEffective)
+  const daysUntilDue = daysUntil(dueDateEffective)
+  const daysUntilFileBy = daysUntil(fileBy)
   const isFiled = !!filing?.filed_on
 
   return (
@@ -89,15 +92,29 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
         All filings
       </Link>
 
-      <div>
+      <div className="space-y-1">
         <h1 className="text-lg font-semibold flex items-center gap-2">
           NYS-45 · Q{q} {year}
           {isFiled && <Badge className="bg-green-600 hover:bg-green-600">Filed</Badge>}
         </h1>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          {formatDate(data.date_range.start)} – {formatDate(data.date_range.end)} · Due {formatDate(data.due_date)}
-          {!isFiled && (days <= 0 ? ' · Overdue' : days <= 20 ? ` · ${days} days` : '')}
+        <p className="text-xs text-muted-foreground">
+          {formatDate(data.date_range.start)} – {formatDate(data.date_range.end)}
         </p>
+        {!isFiled && (
+          <div className="text-xs space-y-0.5">
+            <p>
+              <span className="font-medium text-foreground">File by</span>{' '}
+              <span className="text-foreground">{formatDate(fileBy)}</span>
+              <span className="text-muted-foreground"> · {daysUntilFileBy <= 0 ? 'past your buffer' : `${daysUntilFileBy} days`}</span>
+            </p>
+            <p className="text-muted-foreground">
+              Due {formatDate(dueDateEffective)}
+              {shifted && <span className="text-amber-700"> (shifted from {formatDate(data.due_date)})</span>}
+              {' · '}
+              {daysUntilDue <= 0 ? 'overdue' : `${daysUntilDue} days`}
+            </p>
+          </div>
+        )}
       </div>
 
       {!data.stub_count ? (

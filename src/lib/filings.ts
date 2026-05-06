@@ -27,6 +27,36 @@ export function getScheduleHDueDate(taxYear: number): string {
   return `${taxYear + 1}-04-15`
 }
 
+// Form 1040-ES quarterly estimated payment due dates (IRS calendar):
+//   Q1 → Apr 15 of tax year
+//   Q2 → Jun 15 of tax year
+//   Q3 → Sep 15 of tax year
+//   Q4 → Jan 15 of the following year
+// Note these are different from NYS-45's Apr 30 / Jul 31 / Oct 31 / Jan 31.
+export function getFederalEstimatedTaxDueDate(year: number, quarter: Quarter): string {
+  if (quarter === 1) return `${year}-04-15`
+  if (quarter === 2) return `${year}-06-15`
+  if (quarter === 3) return `${year}-09-15`
+  return `${year + 1}-01-15`
+}
+
+// IRS Form 1040-ES "fiscal periods" are NOT calendar quarters. They run
+// 3 / 2 / 3 / 4 months (totaling 12) so the IRS can collect estimated
+// taxes earlier in the year than actual quarter-ends would imply. From
+// IRS Pub 505:
+//   Q1 covers Jan 1 – Mar 31  (3 months) → due Apr 15
+//   Q2 covers Apr 1 – May 31  (2 months) → due Jun 15
+//   Q3 covers Jun 1 – Aug 31  (3 months) → due Sep 15
+//   Q4 covers Sep 1 – Dec 31  (4 months) → due Jan 15 of next year
+// Distinct from getQuarterDateRange() (calendar quarters), which is the
+// correct period for NYS-45.
+export function getFederalEstimatedTaxPeriod(year: number, quarter: Quarter): { start: string; end: string } {
+  if (quarter === 1) return { start: `${year}-01-01`, end: `${year}-03-31` }
+  if (quarter === 2) return { start: `${year}-04-01`, end: `${year}-05-31` }
+  if (quarter === 3) return { start: `${year}-06-01`, end: `${year}-08-31` }
+  return { start: `${year}-09-01`, end: `${year}-12-31` }
+}
+
 export function getCurrentQuarter(date: Date = new Date()): { year: number; quarter: Quarter } {
   const year = date.getFullYear()
   const quarter = Math.ceil((date.getMonth() + 1) / 3) as Quarter
@@ -130,6 +160,55 @@ export interface ScheduleHData {
 // 2026 thresholds per IRS Pub 926. Verify each January.
 const FICA_HOUSEHOLD_THRESHOLD_2026 = 2800
 const FUTA_QUARTERLY_THRESHOLD = 1000
+
+export interface FederalEstimatedTaxData {
+  year: number
+  quarter: Quarter
+  date_range: { start: string; end: string }
+  due_date: string
+  stub_count: number
+  // Per-stub stored values summed across the quarter — these are the quarterly
+  // slices of the annual Schedule H lines.
+  ss_combined: number          // employee + employer FICA SS for quarter (Schedule H Line 1b slice)
+  medicare_combined: number    // employee + employer FICA Medicare for quarter (Line 2b slice)
+  fed_income_tax_withheld: number  // Line 5 slice
+  futa: number                 // Line 8 slice
+  total_due: number            // sum — what to send via Form 1040-ES this quarter
+}
+
+// Computes the per-period Schedule H slice paid via Form 1040-ES. Uses IRS
+// fiscal periods (3/2/3/4 months — see getFederalEstimatedTaxPeriod), NOT
+// calendar quarters. Caller is expected to pass `stubsInPeriod` already
+// filtered by getFederalEstimatedTaxPeriod's start/end. Per-stub stored
+// values (FUTA correctly wage-base-capped at generation time) are summed.
+// Pays IRS via EFTPS / IRS Direct Pay / paper voucher.
+export function calculateFederalEstimatedTax(
+  stubsInPeriod: Paystub[],
+  year: number,
+  quarter: Quarter,
+): FederalEstimatedTaxData {
+  const sum = (key: keyof Paystub) =>
+    stubsInPeriod.reduce((acc, s) => acc + Number(s[key] ?? 0), 0)
+
+  const ss_combined  = round(sum('fica_social_security') + sum('employer_fica_ss'))
+  const medicare_combined = round(sum('fica_medicare') + sum('employer_fica_medicare'))
+  const fed_income_tax_withheld = round(sum('federal_withholding'))
+  const futa = round(sum('futa'))
+  const total_due = round(ss_combined + medicare_combined + fed_income_tax_withheld + futa)
+
+  return {
+    year,
+    quarter,
+    date_range: getFederalEstimatedTaxPeriod(year, quarter),
+    due_date: getFederalEstimatedTaxDueDate(year, quarter),
+    stub_count: stubsInPeriod.length,
+    ss_combined,
+    medicare_combined,
+    fed_income_tax_withheld,
+    futa,
+    total_due,
+  }
+}
 
 export function calculateScheduleH(
   yearStubs: Paystub[],
