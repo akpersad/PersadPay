@@ -182,7 +182,7 @@ export interface AuditLogEntry {
 
 export interface Filing {
   id: string
-  filing_type: 'NYS-45' | 'Schedule H'
+  filing_type: 'NYS-45' | 'Schedule H' | 'Federal Estimated Tax'
   tax_year: number
   quarter: number | null
   filed_on: string | null

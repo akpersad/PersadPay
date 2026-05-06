@@ -259,7 +259,7 @@ create table public.withholding_forms (
 -- Created when admin marks a filing as "filed" from the filings detail view.
 create table public.filings (
   id            uuid primary key default uuid_generate_v4(),
-  filing_type   text not null check (filing_type in ('NYS-45', 'Schedule H')),
+  filing_type   text not null check (filing_type in ('NYS-45', 'Schedule H', 'Federal Estimated Tax')),
   tax_year      integer not null,
   quarter       integer check (quarter is null or quarter between 1 and 4),
   filed_on      date,
@@ -268,8 +268,8 @@ create table public.filings (
   created_at    timestamptz not null default now(),
   created_by    uuid references public.profiles(id),
   constraint filings_quarter_consistency check (
-    (filing_type = 'NYS-45' and quarter is not null) or
-    (filing_type = 'Schedule H' and quarter is null)
+    (filing_type = 'Schedule H' and quarter is null) or
+    (filing_type in ('NYS-45', 'Federal Estimated Tax') and quarter is not null)
   )
 );
 
@@ -440,7 +440,8 @@ insert into public.onboarding_checklist (label, detail, sort_order) values
   ('Purchase persadpay.com domain', 'Purchase at GoDaddy or your preferred registrar', 12),
   ('Add Vercel DNS records to domain registrar', 'Point your domain to Vercel after deploying', 13),
   ('Sign up for Resend and verify persadpay.com', 'Verify the domain for outbound email at resend.com', 14),
-  ('Switch email FROM to payroll@persadpay.com', 'Currently using Resend''s sandbox sender (onboarding@resend.dev) which only delivers to addresses verified on the Resend account. Once persadpay.com is purchased AND verified in Resend (SPF/DKIM DNS records), update the FROM constant in src/lib/email.ts to ''Persad Pay <payroll@persadpay.com>''.', 15);
+  ('Switch email FROM to payroll@persadpay.com', 'Currently using Resend''s sandbox sender (onboarding@resend.dev) which only delivers to addresses verified on the Resend account. Once persadpay.com is purchased AND verified in Resend (SPF/DKIM DNS records), update the FROM constant in src/lib/email.ts to ''Persad Pay <payroll@persadpay.com>''.', 15),
+  ('Consider voluntary Workers'' Comp policy (recommended, not required)', 'NY Workers'' Comp is NOT required at <40 hrs/wk live-out per WCB rule, but every household-payroll service (HomePay, GTM, HWS) recommends voluntary coverage in case of an on-the-job injury. Quote available through NYSIF (https://www.nysif.com) or any private carrier. This is a recommendation, not a mandate.', 16);
 
 -- ── Seed: Reminders (2026) ───────────────────────────────────────────────────
 insert into public.reminders (title, due_date, description) values
@@ -449,7 +450,13 @@ insert into public.reminders (title, due_date, description) values
   ('NYS-45 Q2 2026', '2026-07-31', 'File NYS-45 for Q2 at labor.ny.gov'),
   ('NYS-45 Q3 2026', '2026-10-31', 'File NYS-45 for Q3 at labor.ny.gov'),
   ('NYS-45 Q4 2026', '2027-01-31', 'File NYS-45 for Q4 at labor.ny.gov'),
-  ('Verify 2027 tax rates', '2026-12-01', 'Update the tax_rates table with verified values for the upcoming year: FICA SS wage base, FUTA wage base, NY SUTA wage base, NY SDI rate/cap, NY PFL rate/cap, IRS standard mileage rate. Cite primary sources (IRS, NY DOL, NY DFS) in the migration commit message. See /docs/ROADMAP.md.');
+  ('Verify 2027 tax rates', '2026-12-01', 'Update the tax_rates table with verified values for the upcoming year: FICA SS wage base, FUTA wage base, NY SUTA wage base, NY SDI rate/cap, NY PFL rate/cap, IRS standard mileage rate. Cite primary sources (IRS, NY DOL, NY DFS) in the migration commit message. See /docs/ROADMAP.md.'),
+  ('Federal Estimated Tax Q1 2026', '2026-04-15', 'Form 1040-ES Q1 estimated payment to IRS. Covers Jan–Mar wages. ~1/4 of projected annual Schedule H liability (FICA combined + FUTA + federal withholding). Pay via EFTPS or IRS Direct Pay.'),
+  ('Federal Estimated Tax Q2 2026', '2026-06-15', 'Form 1040-ES Q2 estimated payment to IRS. Covers Apr–May wages. ~1/4 of projected annual Schedule H liability. Pay via EFTPS or IRS Direct Pay.'),
+  ('Federal Estimated Tax Q3 2026', '2026-09-15', 'Form 1040-ES Q3 estimated payment to IRS. Covers Jun–Aug wages. ~1/4 of projected annual Schedule H liability. Pay via EFTPS or IRS Direct Pay.'),
+  ('Federal Estimated Tax Q4 2026', '2027-01-15', 'Form 1040-ES Q4 estimated payment to IRS. Covers Sep–Dec wages. ~1/4 of projected annual Schedule H liability. Pay via EFTPS or IRS Direct Pay.'),
+  ('Verify 2027 NY SUTA rate', '2027-02-15', 'NY DOL mails new annual SUTA rate notices in Feb–Mar. Once your 2027 rate notice arrives, update settings.suta_rate to match. Tracked separately from the December tax_rates verification because the rate notice arrives later.'),
+  ('W-2 / W-3 to employee + SSA 2026', '2027-01-31', 'Furnish W-2 to babysitter by Jan 31, 2027. File W-2 Copy A + W-3 transmittal to SSA via Business Services Online (https://www.ssa.gov/bso/bsowelcome.htm) or paper by Jan 31, 2027.');
 
 -- ── Seed: Tax Rates (2026) ──────────────────────────────────────────────────
 insert into public.tax_rates (
