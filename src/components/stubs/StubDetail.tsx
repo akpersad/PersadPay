@@ -460,15 +460,36 @@ export function StubDetail({ stub, role, settings, lineItems = [], ytdByLineType
               </Button>
             )}
 
-            <Button
-              variant="destructive"
-              size="sm"
-              className="w-full"
-              onClick={() => setDeleteDialog(true)}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Stub
-            </Button>
+            {/* Deletion guard: once a stub has been emailed or its HYSA cash
+                moved, deleting it would corrupt the audit trail (SSA wage
+                records, IRS YTD reconciliation) and create gaps that match
+                no payment record. Block the action with an explanation. */}
+            {stub.stub_sent || stub.hysa_transferred ? (
+              <div className="rounded-md bg-muted/50 border px-3 py-2 text-xs text-muted-foreground">
+                <p className="font-medium text-foreground mb-0.5 flex items-center gap-1.5">
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Cannot delete this stub
+                </p>
+                <p>
+                  {stub.stub_sent && stub.hysa_transferred
+                    ? 'Stub has been emailed and the HYSA cash has been moved.'
+                    : stub.stub_sent
+                      ? 'Stub has already been emailed to the babysitter.'
+                      : 'HYSA tax cash has already been moved.'}
+                  {' '}Deleting now would mismatch SSA / IRS wage records.
+                </p>
+              </div>
+            ) : (
+              <Button
+                variant="destructive"
+                size="sm"
+                className="w-full"
+                onClick={() => setDeleteDialog(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Stub
+              </Button>
+            )}
           </>
         )}
       </div>

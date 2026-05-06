@@ -9,7 +9,8 @@ import { UpcomingDeadlines } from './UpcomingDeadlines'
 import { NextFilingCard } from './NextFilingCard'
 import { formatDateRange, formatCurrency, daysUntil } from '@/lib/dates'
 import { getCurrentQuarter, getQuarterDateRange, getQuarterDueDate } from '@/lib/filings'
-import { PlusCircle, CheckCircle2, AlertCircle, PiggyBank } from 'lucide-react'
+import { PlusCircle, CheckCircle2, AlertCircle, PiggyBank, AlertTriangle } from 'lucide-react'
+import { computeCoverageWatch } from '@/lib/coverage'
 import type { Paystub, Reminder, OnboardingItem, Filing } from '@/lib/types'
 
 export async function AdminDashboard() {
@@ -32,6 +33,7 @@ export async function AdminDashboard() {
     { data: checklist },
     { data: currentQuarterStubs },
     { data: currentQuarterFiling },
+    { data: coverageStubs },
   ] = await Promise.all([
     supabase
       .from('paystubs')
@@ -64,7 +66,18 @@ export async function AdminDashboard() {
       .eq('tax_year', currentYear)
       .eq('quarter', currentQuarter)
       .maybeSingle<Filing>(),
+    // Last 52 weeks of stubs for the DBL/PFL coverage threshold watch.
+    (() => {
+      const cutoff = new Date(now)
+      cutoff.setDate(cutoff.getDate() - 52 * 7)
+      return supabase
+        .from('paystubs')
+        .select('pay_date, hours_worked')
+        .gte('pay_date', cutoff.toISOString().slice(0, 10))
+    })(),
   ])
+
+  const coverage = computeCoverageWatch((coverageStubs ?? []) as Paystub[], now)
 
   const ytdGross = (ytdStubs ?? []).reduce((sum, s) => sum + Number(s.gross_pay), 0)
   const stubCount = ytdStubs?.length ?? 0
@@ -79,6 +92,28 @@ export async function AdminDashboard() {
 
   return (
     <div className="px-4 pt-6 pb-4 space-y-6 max-w-lg mx-auto">
+      {/* DBL/PFL coverage threshold watch — only renders when triggered */}
+      {coverage.status !== 'ok' && (
+        <Card className={coverage.status === 'exceeded' ? 'border-destructive' : 'border-amber-500'}>
+          <CardContent className="py-3 px-4 flex items-start gap-3">
+            <AlertTriangle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${coverage.status === 'exceeded' ? 'text-destructive' : 'text-amber-600'}`} />
+            <div className="space-y-1 text-sm">
+              <p className="font-medium">
+                {coverage.status === 'exceeded'
+                  ? 'NY DBL + PFL coverage now required'
+                  : 'Approaching DBL/PFL coverage threshold'}
+              </p>
+              <p className="text-xs text-muted-foreground">{coverage.message}</p>
+              {coverage.status === 'exceeded' && (
+                <p className="text-xs text-muted-foreground">
+                  Quote: <a href="https://www.nysif.com" target="_blank" rel="noopener noreferrer" className="underline">NYSIF</a> · Update settings.pfl_waived = false once policy is in place.
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3">
         <Card>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -126,6 +126,15 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
   })
   const [preview, setPreview] = useState<TaxResult | null>(null)
   const [saving, setSaving] = useState(false)
+
+  // Auto-scroll the preview card into view when it appears so the admin
+  // gets visible feedback that the Preview button actually did something.
+  const previewRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (preview) {
+      previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [preview])
 
   const stubNumber = initialStub?.stub_number ?? nextStubNumber
 
@@ -563,7 +572,7 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
         const cashToZelle = Math.round((finalNet - givenSeparatelyTotal) * 100) / 100
 
         return (
-          <Card>
+          <Card ref={previewRef}>
             <CardHeader className="pb-2 pt-4">
               <CardTitle className="text-sm">Stub #{stubNumber} {isEdit ? 'Updated' : 'Preview'}</CardTitle>
             </CardHeader>
