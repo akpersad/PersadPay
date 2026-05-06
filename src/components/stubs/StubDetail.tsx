@@ -38,6 +38,19 @@ export function StubDetail({ stub, role, settings, lineItems = [], ytdByLineType
   const givenSeparatelyItems = lineItems.filter(i => !i.informational_only && i.given_separately)
   const givenSeparatelyTotal = givenSeparatelyItems.reduce((sum, i) => sum + Number(i.amount), 0)
   const cashToZelle = Math.round((Number(stub.net_pay) - givenSeparatelyTotal) * 100) / 100
+
+  const overtimeHours = Number(stub.overtime_hours ?? 0)
+  const regularHours = Math.max(0, Number(stub.hours_worked) - overtimeHours)
+  const hourlyRate = Number(stub.hourly_rate)
+  const regularPay = regularHours * hourlyRate
+  const overtimePay = overtimeHours * hourlyRate * 1.5
+  const reasonLabels: Record<string, string> = {
+    week_off: 'Week off',
+    sick_unpaid: 'Sick — unpaid',
+    vacation_unpaid: 'Vacation — unpaid',
+    holiday_unpaid: 'Holiday — unpaid',
+    other: 'Other',
+  }
   const router = useRouter()
   const [, startTransition] = useTransition()
 
@@ -141,18 +154,32 @@ export function StubDetail({ stub, role, settings, lineItems = [], ytdByLineType
             <span>Description</span><span className="text-right">Current</span><span className="text-right">YTD</span>
           </div>
           {stub.hours_worked === 0 && taxableLineItems.length === 0 ? (
-            <div className="grid grid-cols-3 text-sm">
-              <span>No Hours — Week Off</span>
-              <span className="text-right">{formatCurrency(0)}</span>
-              <span className="text-right">{formatCurrency(stub.ytd_gross)}</span>
-            </div>
+            <>
+              <div className="grid grid-cols-3 text-sm">
+                <span>No Hours{stub.reason ? ` — ${reasonLabels[stub.reason] ?? stub.reason}` : ''}</span>
+                <span className="text-right">{formatCurrency(0)}</span>
+                <span className="text-right">{formatCurrency(stub.ytd_gross)}</span>
+              </div>
+              {Number(stub.sick_hours) > 0 && (
+                <p className="text-xs text-muted-foreground pt-1">
+                  Sick hours used: {Number(stub.sick_hours)}
+                </p>
+              )}
+            </>
           ) : (
             <>
-              {stub.hours_worked > 0 && (
+              {regularHours > 0 && (
                 <div className="grid grid-cols-3 text-sm">
-                  <span>Regular ({stub.hours_worked}h @ {formatCurrency(Number(stub.hourly_rate))})</span>
-                  <span className="text-right">{formatCurrency(Number(stub.hours_worked) * Number(stub.hourly_rate))}</span>
+                  <span>Regular ({regularHours}h @ {formatCurrency(hourlyRate)})</span>
+                  <span className="text-right">{formatCurrency(regularPay)}</span>
                   <span className="text-right">{formatCurrency(stub.ytd_regular_wages)}</span>
+                </div>
+              )}
+              {overtimeHours > 0 && (
+                <div className="grid grid-cols-3 text-sm">
+                  <span>Overtime ({overtimeHours}h @ {formatCurrency(hourlyRate * 1.5)} · 1.5×)</span>
+                  <span className="text-right">{formatCurrency(overtimePay)}</span>
+                  <span className="text-right">—</span>
                 </div>
               )}
               {taxableLineItems.map(item => (
@@ -162,7 +189,7 @@ export function StubDetail({ stub, role, settings, lineItems = [], ytdByLineType
                   <span className="text-right">{formatCurrency(ytdByLineType[item.line_type] ?? Number(item.amount))}</span>
                 </div>
               ))}
-              {taxableLineItems.length > 0 && (
+              {(taxableLineItems.length > 0 || overtimeHours > 0) && (
                 <div className="grid grid-cols-3 text-sm font-medium border-t pt-1">
                   <span>Gross taxable wages</span>
                   <span className="text-right">{formatCurrency(Number(stub.gross_pay))}</span>

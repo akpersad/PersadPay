@@ -60,6 +60,20 @@ export function PaystubDocument({ stub, settings, variant, lineItems = [], ytdBy
   const givenSeparatelyTotal = givenSeparatelyItems.reduce((sum, i) => sum + Number(i.amount), 0)
   const cashToZelle = Math.round((Number(stub.net_pay) - givenSeparatelyTotal) * 100) / 100
 
+  const overtimeHours = Number(stub.overtime_hours ?? 0)
+  const regularHours = Math.max(0, Number(stub.hours_worked) - overtimeHours)
+  const hourlyRate = Number(stub.hourly_rate)
+  const regularPay = regularHours * hourlyRate
+  const overtimePay = overtimeHours * hourlyRate * 1.5
+  const reasonLabels: Record<string, string> = {
+    week_off: 'Week off',
+    sick_unpaid: 'Sick — unpaid',
+    vacation_unpaid: 'Vacation — unpaid',
+    holiday_unpaid: 'Holiday — unpaid',
+    other: 'Other',
+  }
+  const reasonText = stub.reason ? (reasonLabels[stub.reason] ?? stub.reason) : null
+
   return (
     <Document>
       <Page size="LETTER" style={styles.page}>
@@ -112,7 +126,7 @@ export function PaystubDocument({ stub, settings, variant, lineItems = [], ytdBy
           </View>
           {stub.hours_worked === 0 && taxableLineItems.length === 0 ? (
             <View style={styles.tableRow}>
-              <Text style={styles.col1}>No Hours — Week Off</Text>
+              <Text style={styles.col1}>{reasonText ? `No Hours — ${reasonText}` : 'No Hours — Week Off'}</Text>
               <Text style={styles.col2}>—</Text>
               <Text style={styles.col2}>—</Text>
               <Text style={styles.col2}>{formatCurrency(0)}</Text>
@@ -120,19 +134,24 @@ export function PaystubDocument({ stub, settings, variant, lineItems = [], ytdBy
             </View>
           ) : (
             <>
-              {stub.hours_worked > 0 && (
+              {regularHours > 0 && (
                 <View style={styles.tableRow}>
                   <Text style={styles.col1}>Regular Earnings</Text>
-                  <Text style={styles.col2}>{formatCurrency(Number(stub.hourly_rate))}</Text>
-                  <Text style={styles.col2}>{stub.hours_worked}</Text>
-                  <Text style={styles.col2}>{formatCurrency(Number(stub.hours_worked) * Number(stub.hourly_rate))}</Text>
+                  <Text style={styles.col2}>{formatCurrency(hourlyRate)}</Text>
+                  <Text style={styles.col2}>{regularHours}</Text>
+                  <Text style={styles.col2}>{formatCurrency(regularPay)}</Text>
                   <Text style={styles.col3}>{formatCurrency(stub.ytd_regular_wages)}</Text>
                 </View>
               )}
-              {/* OT row intentionally omitted until Phase 3 adds overtime_hours.
-                  NY § 195(3) lists OT rate/hours for non-exempt employees; once
-                  the field exists, render the row conditionally on
-                  overtime_hours > 0. */}
+              {overtimeHours > 0 && (
+                <View style={styles.tableRowAlt}>
+                  <Text style={styles.col1}>Overtime (1.5×)</Text>
+                  <Text style={styles.col2}>{formatCurrency(hourlyRate * 1.5)}</Text>
+                  <Text style={styles.col2}>{overtimeHours}</Text>
+                  <Text style={styles.col2}>{formatCurrency(overtimePay)}</Text>
+                  <Text style={styles.col3}>—</Text>
+                </View>
+              )}
               {taxableLineItems.map((item, idx) => (
                 <View key={item.id} style={(idx + (stub.hours_worked > 0 ? 2 : 0)) % 2 === 0 ? styles.tableRow : styles.tableRowAlt}>
                   <Text style={styles.col1}>{item.label}</Text>

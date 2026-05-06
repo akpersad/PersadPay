@@ -27,6 +27,8 @@ export interface Settings {
   updated_at: string
 }
 
+export type StubReason = 'week_off' | 'sick_unpaid' | 'vacation_unpaid' | 'holiday_unpaid' | 'other'
+
 export interface Paystub {
   id: string
   stub_number: number
@@ -35,6 +37,9 @@ export interface Paystub {
   pay_period_end: string
   pay_date: string
   hours_worked: number
+  overtime_hours: number
+  sick_hours: number
+  reason: StubReason | null
   hourly_rate: number
   gross_pay: number
   federal_withholding: number

@@ -10,11 +10,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { calculateTaxes } from '@/lib/tax'
 import { addDays, formatCurrency } from '@/lib/dates'
-import type { Settings, Paystub, PaystubLineItem } from '@/lib/types'
+import type { Settings, Paystub, PaystubLineItem, StubReason } from '@/lib/types'
 import type { TaxResult, TaxRates } from '@/lib/tax'
 import { toast } from 'sonner'
 import { AdditionalPaySection } from './AdditionalPaySection'
 import { WageBaseCaps } from './WageBaseCaps'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   getLineTypeDef,
   lineItemContributesToGrossPay,
@@ -22,6 +23,21 @@ import {
   type LineItemDraft,
   type LineType,
 } from '@/lib/line-items'
+
+const REASON_OPTIONS: { value: StubReason; label: string }[] = [
+  { value: 'week_off', label: 'Week off' },
+  { value: 'sick_unpaid', label: 'Sick — unpaid' },
+  { value: 'vacation_unpaid', label: 'Vacation — unpaid' },
+  { value: 'holiday_unpaid', label: 'Holiday — unpaid' },
+  { value: 'other', label: 'Other' },
+]
+
+// Federal FLSA exempts casual babysitters, but NY's Domestic Workers' Bill of
+// Rights requires 1.5× after 40 hrs/week for non-residential domestic workers
+// (Labor Law Art. 19, § 170). Live-in workers use 44 hrs/week — not the case
+// here. The babysitter's regular schedule is 9 hrs/wk so this never triggers
+// in practice, but the system supports it.
+const OT_THRESHOLD = 40
 
 interface Props {
   settings: Settings | null
@@ -68,6 +84,13 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
   const [periodStart, setPeriodStart] = useState(initialStub?.pay_period_start ?? suggestedStart)
   const [periodEnd, setPeriodEnd] = useState(initialStub?.pay_period_end ?? suggestedEnd)
   const [payDate, setPayDate] = useState(initialStub?.pay_date ?? suggestedEnd)
+  const [overtimeHoursOverride, setOvertimeHoursOverride] = useState<string>(
+    initialStub ? String(initialStub.overtime_hours) : '',
+  )
+  const [reason, setReason] = useState<StubReason | ''>(initialStub?.reason ?? '')
+  const [sickHours, setSickHours] = useState<string>(
+    initialStub ? String(initialStub.sick_hours) : '',
+  )
   const [lineItems, setLineItems] = useState<LineItemDraft[]>(
     initialLineItems
       ? initialLineItems.map(i => ({
@@ -95,7 +118,20 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
   )
 
   const effectiveHours = hoursMode === 'daily' ? String(dailyTotal) : hours
-  const baseWages = parseFloat(effectiveHours || '0') * parseFloat(rate || '0')
+  const totalHoursNum = parseFloat(effectiveHours || '0')
+  const rateNum = parseFloat(rate || '0')
+
+  // Auto-suggest OT split when total > 40. Admin can override via the OT
+  // input below. Empty override = use the suggestion.
+  const suggestedOvertimeHours = Math.max(0, totalHoursNum - OT_THRESHOLD)
+  const overtimeHoursNum = overtimeHoursOverride === ''
+    ? suggestedOvertimeHours
+    : Math.max(0, Math.min(parseFloat(overtimeHoursOverride || '0'), totalHoursNum))
+  const regularHoursNum = Math.max(0, totalHoursNum - overtimeHoursNum)
+
+  const regularPay = regularHoursNum * rateNum
+  const overtimePay = overtimeHoursNum * rateNum * 1.5
+  const baseWages = regularPay + overtimePay
 
   // Line items partition: taxable additions roll into the wage base; non-
   // taxable reimbursements skip taxes but still go into the employee's hand;
@@ -194,7 +230,10 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
       pay_period_start: periodStart,
       pay_period_end: periodEnd,
       pay_date: payDate,
-      hours_worked: parseFloat(effectiveHours || '0'),
+      hours_worked: totalHoursNum,
+      overtime_hours: overtimeHoursNum,
+      sick_hours: parseFloat(sickHours || '0'),
+      reason: totalHoursNum === 0 ? (reason || null) : null,
       hourly_rate: parseFloat(rate),
       gross_pay: preview.gross_pay,
       federal_withholding: preview.federal_withholding,
@@ -372,6 +411,67 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
             />
           </div>
 
+          {/* Overtime — only when total > 40 hrs/wk (NY domestic-worker OT rule) */}
+          {totalHoursNum > OT_THRESHOLD && (
+            <div className="space-y-1.5 rounded-md bg-amber-50 border border-amber-200 px-3 py-2">
+              <Label htmlFor="ot-hours" className="text-amber-900">
+                Overtime hours (NY 1.5×)
+              </Label>
+              <p className="text-xs text-amber-800">
+                Total {totalHoursNum} hrs &gt; 40/wk threshold. NY Domestic Workers&apos; Bill of
+                Rights requires 1.5× OT after 40 hrs. Suggested split: <strong>{OT_THRESHOLD} regular + {suggestedOvertimeHours} OT</strong>.
+              </p>
+              <Input
+                id="ot-hours"
+                type="number"
+                min="0"
+                max={totalHoursNum}
+                step="0.25"
+                value={overtimeHoursOverride}
+                onChange={e => { setOvertimeHoursOverride(e.target.value); setPreview(null) }}
+                placeholder={String(suggestedOvertimeHours)}
+                className="bg-white"
+              />
+              <p className="text-[11px] text-amber-700">
+                Leave blank to use the suggested split. Override only with reason.
+              </p>
+            </div>
+          )}
+
+          {/* Reason — only meaningful for zero-hour weeks */}
+          {totalHoursNum === 0 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="reason">Reason (zero-hour week)</Label>
+              <Select value={reason || undefined} onValueChange={v => { setReason((v as StubReason) || ''); setPreview(null) }}>
+                <SelectTrigger id="reason" className="w-full">
+                  <SelectValue placeholder="Pick a reason (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {REASON_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {reason === 'sick_unpaid' && (
+                <div className="pt-2 space-y-1.5">
+                  <Label htmlFor="sick-hours">Sick hours used (for the § 196-b summary)</Label>
+                  <Input
+                    id="sick-hours"
+                    type="number"
+                    min="0"
+                    step="0.25"
+                    value={sickHours}
+                    onChange={e => { setSickHours(e.target.value); setPreview(null) }}
+                    placeholder="9"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Hours she would have worked. Sums into the on-demand sick-leave summary.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Dates */}
           <div className="space-y-1.5">
             <Label htmlFor="period-start">Pay Period Start</Label>
@@ -447,14 +547,25 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
             </CardHeader>
             <CardContent className="space-y-3 pb-4">
               <p className="text-xs text-muted-foreground font-medium">Earnings</p>
-              <div className="flex justify-between text-sm">
-                <span>
-                  {parseFloat(effectiveHours) === 0
-                    ? 'No Hours — Week Off'
-                    : `${effectiveHours} hrs × ${formatCurrency(parseFloat(rate))}`}
-                </span>
-                <span>{formatCurrency(baseWages)}</span>
-              </div>
+              {totalHoursNum === 0 ? (
+                <div className="flex justify-between text-sm">
+                  <span>No Hours{reason ? ` — ${REASON_OPTIONS.find(o => o.value === reason)?.label ?? reason}` : ''}</span>
+                  <span>{formatCurrency(0)}</span>
+                </div>
+              ) : (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span>Regular {regularHoursNum} hrs × {formatCurrency(rateNum)}</span>
+                    <span>{formatCurrency(regularPay)}</span>
+                  </div>
+                  {overtimeHoursNum > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span>Overtime {overtimeHoursNum} hrs × {formatCurrency(rateNum * 1.5)} (1.5×)</span>
+                      <span>{formatCurrency(overtimePay)}</span>
+                    </div>
+                  )}
+                </>
+              )}
               {taxableLineItems.map(item => (
                 <div key={item.id} className="flex justify-between text-sm">
                   <span>{item.label}</span>
