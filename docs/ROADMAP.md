@@ -358,18 +358,15 @@ All other tokens (background, card, border, muted, etc.) stay neutral — only `
 #### Deliverables
 
 **Color tokens**
-- [ ] Update `globals.css` `:root` and `.dark` — wire `--primary`, `--primary-foreground`, `--accent`, `--accent-foreground` to the palette above. All in OKLCH.
-- [ ] Update `manifest.ts` `theme_color` to match new primary (currently already `#1a1a2e` — verify still correct after palette decision).
-- [ ] Update `BRAND_COLOR` in `src/lib/pdf/constants.ts` if palette shifts. Keep `BRAND_COLOR_LIGHT` in sync.
+- [x] Update `globals.css` `:root` and `.dark` — wire `--primary`, `--primary-foreground`, `--accent`, `--accent-foreground` to the palette above. All in OKLCH.
+- [x] Update `manifest.ts` `theme_color` to `#a53005`.
+- [x] Update `BRAND_COLOR` in `src/lib/pdf/constants.ts` to `#a53005`; `BRAND_COLOR_LIGHT` to `#fdf0eb`.
 
 **Bottom nav**
-- [ ] Active tab: use `text-primary` (navy) + filled icon weight instead of just opacity difference. Currently active = black, inactive = gray — hard to tell at a glance.
-- [ ] Nav bar itself: white with `border-t border-border`. No color change needed — the active icon color is enough.
+- [x] Active tab: already uses `text-primary` + `strokeWidth={2.5}` — auto-updates with the token. No code change needed.
 
 **Badges + status chips**
-- [ ] Audit every hardcoded `bg-green-600`, `text-green-600`, `bg-amber-*` etc. across the codebase — convert to semantic Tailwind utilities where possible or extract a `StatusBadge` component with variants (`paid`, `pending`, `warning`, `error`).
-- [ ] "Payment Sent" / "Signed" / "Uploaded" / "HYSA funded" — all should use the same success green token.
-- [ ] HYSA discrepancy / wage-base warning / DBL watch — all should use the same amber token.
+- [x] Shifted all `amber-*` classes → `yellow-*` globally across all TSX/TS files (17 files). Warning states now at hue ~85° vs primary at ~34° — clear separation. HYSA debit/credit red/green left intact (accounting convention).
 
 **Cards + layout**
 - [ ] Audit card header padding across pages — some pages use `py-3 px-4`, others differ. Pick one standard and apply it everywhere.
