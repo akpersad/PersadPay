@@ -337,19 +337,21 @@ NY State tax quarters align with federal: Q1 Jan–Mar (due Apr 30), Q2 Apr–Ju
 
 #### Palette
 
-The brand color is **deep navy** `#1a1a2e` — already established in the PDFs and the PWA `theme_color`. Build the full token set around it:
+The brand color is **burnt orange** `#a53005`. The three semantic state colors are deliberately spread across the hue wheel to stay unambiguous next to the primary:
 
-| Token | Light mode | Dark mode | Role |
-|---|---|---|---|
-| `--primary` | `#1a1a2e` (navy) | `#4f7ec8` (lighter navy-blue) | Buttons, active nav, focus rings |
-| `--primary-foreground` | `#ffffff` | `#ffffff` | Text on primary |
-| `--accent` | `#e8f0fe` (pale blue tint) | `#1e2d4a` (dark tinted navy) | Hover states, subtle highlights |
-| `--accent-foreground` | `#1a1a2e` | `#c5d8f8` | |
-| Success green | `#16a34a` (green-600) | `#22c55e` (green-500) | Paid badge, HYSA funded, Uploaded |
-| Amber warning | `#d97706` (amber-600) | `#f59e0b` (amber-500) | HYSA discrepancy, cap warnings |
-| Destructive | keep existing oklch red | | Delete, error states |
+| Token | Light mode | Dark mode | Role | Hue |
+|---|---|---|---|---|
+| `--primary` | `#a53005` (burnt orange) | `#d4541a` (lighter orange) | Buttons, active nav, focus rings | ~20° |
+| `--primary-foreground` | `#ffffff` | `#ffffff` | Text on primary | — |
+| `--accent` | `#fdf0eb` (pale orange tint) | `#3d1a0a` (dark tinted orange) | Hover states, subtle highlights | — |
+| `--accent-foreground` | `#a53005` | `#f5b99a` | | — |
+| Success green | `#16a34a` (green-600) | `#22c55e` (green-500) | Paid badge, HYSA funded, Uploaded | ~140° |
+| Warning yellow | `#eab308` (yellow-500) | `#ca8a04` (yellow-600) | HYSA discrepancy, cap warnings | ~85° |
+| Destructive | `#be123c` (rose-700) | `#f43f5e` (rose-500) | Delete, error states | ~350° |
 
-All other tokens (background, card, border, muted, etc.) stay neutral — only `primary` and `accent` get color.
+**Why this spread:** `#a53005` sits at hue ~20° (orange-red). Amber (~40°) and the shadcn default destructive red (~27°) are both too close. Shifting warning to golden yellow (~85°, 65° gap) and destructive to cooler crimson/rose (~350°, 30° gap but visually distinct because the primary is dark+orange while crimson is brighter+magenta-leaning) keeps all four semantic roles unambiguous.
+
+All other tokens (background, card, border, muted, etc.) stay neutral — only `primary`, `accent`, success, warning, and destructive get color.
 
 ---
 
@@ -401,7 +403,59 @@ All other tokens (background, card, border, muted, etc.) stay neutral — only `
 
 ---
 
-## Working norms
+### Phase 7 — TOTP / Authenticator App MFA
+
+**Status: PENDING.**
+
+**Goal:** add a second factor to every login using Supabase's built-in TOTP MFA (free on all plans). All three users — both admins and the employee — must enroll before they can access the app. This closes the biggest remaining security gap for a household payroll app that contains EINs, SSNs, and financial data.
+
+---
+
+#### Supabase configuration
+
+- [ ] Enable TOTP MFA in the Supabase dashboard: **Authentication → Sign In / Up → Multi-Factor Authentication → Enable TOTP**. No code change; confirm in the Supabase console.
+
+---
+
+#### Enrollment flow
+
+- [ ] On first login after MFA is enabled, any user whose session has no enrolled TOTP factor is redirected to `/auth/enroll-mfa` before reaching `/dashboard`.
+- [ ] `/auth/enroll-mfa` page renders:
+  - A QR code (from `supabase.auth.mfa.enroll()`) for scanning with Google Authenticator, Authy, etc.
+  - A manual entry secret (the plain-text seed) for users who can't scan.
+  - A 6-digit TOTP input + **Verify & Enable** button — calls `supabase.auth.mfa.challengeAndVerify()`.
+  - On success: user is fully enrolled; redirect to `/dashboard`.
+- [ ] Middleware updated: after confirming session validity, also check `supabase.auth.mfa.getAuthenticatorAssuranceLevel()`. If `currentLevel < nextLevel`, redirect to `/auth/verify-mfa`. If no factor enrolled at all, redirect to `/auth/enroll-mfa`.
+
+#### Verification flow (subsequent logins)
+
+- [ ] `/auth/verify-mfa` page renders after a successful password login:
+  - 6-digit TOTP input.
+  - **Verify** button — calls `supabase.auth.mfa.challengeAndVerify()`.
+  - On success: redirect to `/dashboard`.
+  - On failure: inline error with remaining attempts note.
+
+#### MFA management (authenticated users)
+
+- [ ] Each user can unenroll and re-enroll their own authenticator from a **Security** section on their profile/settings page:
+  - Admins: `/settings` page gets a **Security** card.
+  - Employee: dashboard gets a small **Security** card (since there's no Settings tab for employees).
+- [ ] Unenroll action requires the user to enter a valid TOTP code before removing the factor — calls `supabase.auth.mfa.unenroll()`. Unenrolled users are immediately redirected to `/auth/enroll-mfa` on next page load.
+- [ ] Re-enroll follows the same QR + verify flow as initial enrollment.
+
+#### Admin visibility
+
+- [ ] Settings page: read-only **MFA Status** table showing each user (by name) and whether they have an active TOTP factor (`enrolled` / `not enrolled`). Sourced from `supabase.auth.admin.listUsers()` → `factors` array. Admin-only, server-rendered.
+
+---
+
+#### Out of scope for Phase 7
+
+- SMS MFA (requires paid Supabase add-on — $75/month).
+- Recovery codes (Supabase does not expose these for TOTP in the free tier; advise users to save their QR seed in a password manager).
+- Per-user MFA enforcement toggle (all-or-nothing for this 3-person app).
+
+---
 
 - Every tax / labor-law code change must include the source URL in the commit message. See `memory/feedback_tax_accuracy.md`.
 - Tax constants are tagged with the year they apply to in inline comments; verify each January.
