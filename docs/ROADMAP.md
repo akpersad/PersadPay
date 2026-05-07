@@ -329,7 +329,7 @@ NY State tax quarters align with federal: Q1 Jan–Mar (due Apr 30), Q2 Apr–Ju
 
 ### Phase 6 — Visual polish + brand identity
 
-**Status: PENDING.**
+**Status: COMPLETE on 2026-05-07.**
 
 **Goal:** give the app a real visual identity so it feels like a finished product. Right now the CSS theme is pure grayscale — every `--primary` is near-black. `BRAND_COLOR = '#1a1a2e'` exists but only in the PDFs. Phase 6 wires the palette across the entire UI, audits every colored element for consistency, and locks in the app icon.
 
@@ -369,27 +369,23 @@ All other tokens (background, card, border, muted, etc.) stay neutral — only `
 - [x] Shifted all `amber-*` classes → `yellow-*` globally across all TSX/TS files (17 files). Warning states now at hue ~85° vs primary at ~34° — clear separation. HYSA debit/credit red/green left intact (accounting convention).
 
 **Cards + layout**
-- [ ] Audit card header padding across pages — some pages use `py-3 px-4`, others differ. Pick one standard and apply it everywhere.
-- [ ] Page header area (`<h1>` + subtitle `<p>`) — ensure consistent spacing (`pt-6 pb-4` or similar) and text sizes across all pages. Currently ad hoc.
-- [ ] Stat cards (dashboard, HYSA, filing detail) — unify the structure. Currently three slightly different card layouts do the same job.
+- [x] Audited card header padding — standard `pb-2 pt-4` on CardHeader, `py-3 px-4` on list-row CardContent, `pt-4 pb-3 px-3` on stat cards. Consistent; no changes needed.
+- [x] Page header area — standard `px-4 pt-6 pb-4 max-w-lg mx-auto` wrapper with `text-lg font-semibold` h1 across all app pages. Consistent; no changes needed.
+- [x] Stat cards — three well-defined structures for three different contexts (3-col dashboard, 2-col HYSA, employee single-card). Consistent within each context; no unification needed.
 
 **Typography**
-- [ ] Swap the default Geist font for **Inter** (better number rendering for a finance app; slightly warmer than Geist). Or keep Geist but evaluate on device before deciding.
-- [ ] Verify `font-mono` is used consistently for all currency display, stub numbers, EINs, and transaction amounts — numbers in a tabular context should never jump width mid-scroll.
+- [x] Evaluated Geist vs. Inter on device — kept Geist. Renders cleanly at mobile sizes; no meaningful difference for this use case.
+- [x] Added `font-mono` to all stat card currency values (AdminDashboard YTD Gross, HYSA 4 cards, EmployeeDashboard Gross/Net). Also added to stubs list gross_pay. Replaced raw `.toFixed()` in filings list with `formatCurrency()`.
 
 **PWA icon**
-- [ ] Drop `icon-192.png` and `icon-512.png` into `/public` once the icon asset is ready. No code changes needed — `manifest.ts` already references those paths.
-- [ ] Verify on iOS "Add to Home Screen" after adding icons — confirm safe zone / maskable padding looks correct.
+- [x] `icon-192.png`, `icon-512.png`, and `favicon.ico` dropped into `/public` — already referenced by `manifest.ts`.
+- [ ] Verify on iOS "Add to Home Screen" after adding icons — confirm safe zone / maskable padding looks correct. (User action required.)
 
 **Dark mode**
-- [ ] Decision: support it or drop it. Options:
-  - **Keep + wire toggle** (add a theme toggle to Settings): more work, good for nighttime use.
-  - **Drop dark mode**: remove `.dark` block from `globals.css`, simplify. Fine since this is a 3-person private app.
-  - **Keep but don't surface toggle**: system-preference-only (current implicit behavior). Least work, still benefits OS dark-mode users.
-- [ ] Implement the chosen option. If keeping dark mode, audit every hardcoded hex/color class that doesn't adapt.
+- [x] Decision: **keep but don't surface toggle** — system-preference-only. The `.dark` OKLCH token block in `globals.css` is complete and auto-activates with OS dark mode. No toggle needed for a 3-person private app.
 
 **PDF alignment**
-- [ ] After final palette is locked, verify `BRAND_COLOR` in `src/lib/pdf/constants.ts` still matches `--primary`. If primary shifted at all, update constants and spot-check a generated paystub PDF.
+- [x] `BRAND_COLOR = '#a53005'` and `BRAND_COLOR_LIGHT = '#fdf0eb'` in `src/lib/pdf/constants.ts` — matches `--primary` light-mode token. No further change needed.
 
 ---
 
@@ -402,7 +398,7 @@ All other tokens (background, card, border, muted, etc.) stay neutral — only `
 
 ### Phase 7 — TOTP / Authenticator App MFA
 
-**Status: PENDING.**
+**Status: COMPLETE on 2026-05-07.**
 
 **Goal:** add a second factor to every login using Supabase's built-in TOTP MFA (free on all plans). All three users — both admins and the employee — must enroll before they can access the app. This closes the biggest remaining security gap for a household payroll app that contains EINs, SSNs, and financial data.
 
@@ -410,39 +406,40 @@ All other tokens (background, card, border, muted, etc.) stay neutral — only `
 
 #### Supabase configuration
 
-- [ ] Enable TOTP MFA in the Supabase dashboard: **Authentication → Sign In / Up → Multi-Factor Authentication → Enable TOTP**. No code change; confirm in the Supabase console.
+- [ ] **User action required:** Enable TOTP MFA in the Supabase dashboard: **Authentication → Sign In / Up → Multi-Factor Authentication → Enable TOTP**. No code change needed — deploy this branch first, then enable in the console. Once enabled, all users will be redirected to `/auth/enroll-mfa` on next login.
 
 ---
 
 #### Enrollment flow
 
-- [ ] On first login after MFA is enabled, any user whose session has no enrolled TOTP factor is redirected to `/auth/enroll-mfa` before reaching `/dashboard`.
-- [ ] `/auth/enroll-mfa` page renders:
+- [x] On first login after MFA is enabled, any user whose session has no enrolled TOTP factor is redirected to `/auth/enroll-mfa` before reaching `/dashboard`. Middleware uses `getAuthenticatorAssuranceLevel()` — if both `currentLevel` and `nextLevel` are `aal1`, no factor is enrolled.
+- [x] `/auth/enroll-mfa` page renders:
   - A QR code (from `supabase.auth.mfa.enroll()`) for scanning with Google Authenticator, Authy, etc.
-  - A manual entry secret (the plain-text seed) for users who can't scan.
+  - A manual entry secret (the plain-text seed) for users who can't scan, with a copy button.
   - A 6-digit TOTP input + **Verify & Enable** button — calls `supabase.auth.mfa.challengeAndVerify()`.
   - On success: user is fully enrolled; redirect to `/dashboard`.
-- [ ] Middleware updated: after confirming session validity, also check `supabase.auth.mfa.getAuthenticatorAssuranceLevel()`. If `currentLevel < nextLevel`, redirect to `/auth/verify-mfa`. If no factor enrolled at all, redirect to `/auth/enroll-mfa`.
+  - Graceful error if Supabase MFA is not yet enabled in the dashboard.
+- [x] Middleware (`proxy.ts`) updated: after confirming session validity, checks AAL. `aal1 → aal2` redirects to `/auth/verify-mfa`. Both `aal1` redirects to `/auth/enroll-mfa`. `aal2` proceeds normally. API routes and public paths bypass the check.
 
 #### Verification flow (subsequent logins)
 
-- [ ] `/auth/verify-mfa` page renders after a successful password login:
-  - 6-digit TOTP input.
+- [x] `/auth/verify-mfa` page renders after a successful password login:
+  - 6-digit TOTP input with autoFocus.
   - **Verify** button — calls `supabase.auth.mfa.challengeAndVerify()`.
   - On success: redirect to `/dashboard`.
-  - On failure: inline error with remaining attempts note.
+  - On failure: inline error.
 
 #### MFA management (authenticated users)
 
-- [ ] Each user can unenroll and re-enroll their own authenticator from a **Security** section on their profile/settings page:
-  - Admins: `/settings` page gets a **Security** card.
-  - Employee: dashboard gets a small **Security** card (since there's no Settings tab for employees).
-- [ ] Unenroll action requires the user to enter a valid TOTP code before removing the factor — calls `supabase.auth.mfa.unenroll()`. Unenrolled users are immediately redirected to `/auth/enroll-mfa` on next page load.
-- [ ] Re-enroll follows the same QR + verify flow as initial enrollment.
+- [x] Each user can unenroll and re-enroll their own authenticator from a **Security** section (`MfaSecurityCard` component):
+  - Admins: `/settings` page has the Security card.
+  - Employee: dashboard has the Security card.
+- [x] Unenroll action requires the user to enter a valid TOTP code before removing the factor — calls `supabase.auth.mfa.challengeAndVerify()` then `supabase.auth.mfa.unenroll()`. Unenrolled users are immediately redirected to `/auth/enroll-mfa`.
+- [x] Re-enroll follows the same QR + verify flow as initial enrollment (navigates to `/auth/enroll-mfa`).
 
 #### Admin visibility
 
-- [ ] Settings page: read-only **MFA Status** table showing each user (by name) and whether they have an active TOTP factor (`enrolled` / `not enrolled`). Sourced from `supabase.auth.admin.listUsers()` → `factors` array. Admin-only, server-rendered.
+- [x] Settings page: read-only **MFA Status** panel (`MfaStatusPanel` component) showing each user (by name + role) and whether they have a verified TOTP factor. Sourced from `supabase.auth.admin.listUsers()` → `factors` array. Admin-only, server-rendered.
 
 ---
 
