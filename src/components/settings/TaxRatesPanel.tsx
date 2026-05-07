@@ -14,7 +14,7 @@ export function TaxRatesPanel({ rates, requestedYear }: Props) {
           <CardTitle className="text-sm">Tax Rates</CardTitle>
         </CardHeader>
         <CardContent className="pb-4">
-          <p className="text-sm text-amber-700">
+          <p className="text-sm text-yellow-700">
             No tax rates seeded for {requestedYear}. Apply the latest migration or seed the
             tax_rates table before generating stubs.
           </p>
@@ -31,7 +31,7 @@ export function TaxRatesPanel({ rates, requestedYear }: Props) {
         <CardTitle className="text-sm flex items-center justify-between">
           <span>Tax Rates — {rates.effective_year}</span>
           {fallback && (
-            <span className="text-[10px] uppercase tracking-wide font-normal text-amber-700">
+            <span className="text-[10px] uppercase tracking-wide font-normal text-yellow-700">
               Fallback
             </span>
           )}
@@ -39,7 +39,7 @@ export function TaxRatesPanel({ rates, requestedYear }: Props) {
       </CardHeader>
       <CardContent className="pb-4 space-y-1.5">
         {fallback && (
-          <p className="text-xs text-amber-700 mb-2">
+          <p className="text-xs text-yellow-700 mb-2">
             No row seeded for {requestedYear}; using {rates.effective_year} until next year&apos;s
             rates are added.
           </p>

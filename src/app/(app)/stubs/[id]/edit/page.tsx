@@ -52,7 +52,7 @@ export default async function EditStubPage({ params }: { params: Promise<Params>
   if (!taxRates) {
     return (
       <div className="px-4 pt-6 pb-4 max-w-lg mx-auto">
-        <p className="text-sm text-amber-700">No tax rates seeded for {payYear}.</p>
+        <p className="text-sm text-yellow-700">No tax rates seeded for {payYear}.</p>
       </div>
     )
   }

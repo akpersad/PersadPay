@@ -216,7 +216,7 @@ function W4Card({ existing, settings, expectedGross, userId }: CardProps) {
         </div>
 
         {grossDrifted && (
-          <div className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-900">
+          <div className="flex items-start gap-2 rounded-md bg-yellow-50 border border-yellow-200 px-3 py-2 text-xs text-yellow-900">
             <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
             <span>
               Last computed against {formatCurrency(grossAtCompute)}/wk; current expected gross is {formatCurrency(expectedGross)}/wk.
@@ -384,7 +384,7 @@ function IT2104Card({ existing, settings, expectedGross, userId }: CardProps) {
         </div>
 
         {grossDrifted && (
-          <div className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-900">
+          <div className="flex items-start gap-2 rounded-md bg-yellow-50 border border-yellow-200 px-3 py-2 text-xs text-yellow-900">
             <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
             <span>
               Last computed against {formatCurrency(grossAtCompute)}/wk; current expected gross is {formatCurrency(expectedGross)}/wk.

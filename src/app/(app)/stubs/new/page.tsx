@@ -79,7 +79,7 @@ export default async function NewStubPage({
     return (
       <div className="px-4 pt-6 pb-4 max-w-lg mx-auto">
         <h1 className="text-lg font-semibold mb-4">New Pay Stub</h1>
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
           No tax rates seeded for {currentYear}. Run the latest migration in Supabase or seed the
           tax_rates table before generating stubs.
         </div>
@@ -91,7 +91,7 @@ export default async function NewStubPage({
     <div className="px-4 pt-6 pb-4 max-w-lg mx-auto">
       <h1 className="text-lg font-semibold mb-4">New Pay Stub</h1>
       {settingsIncomplete && (
-        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="mb-4 rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
           Settings are incomplete. Please fill out employer info, employee info, and create the employee account before generating stubs.
         </div>
       )}

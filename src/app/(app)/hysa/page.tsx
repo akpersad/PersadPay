@@ -112,7 +112,7 @@ export default async function HYSAPage() {
               {formatCurrency(expectedBalance)}
             </p>
             {discrepancy !== null && discrepancy !== 0 && (
-              <p className="text-[10px] text-amber-600 mt-0.5">
+              <p className="text-[10px] text-yellow-600 mt-0.5">
                 {Math.abs(discrepancy) < 0.01 ? '~$0 discrepancy' : `${formatCurrency(Math.abs(discrepancy))} discrepancy`}
               </p>
             )}

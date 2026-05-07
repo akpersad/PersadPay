@@ -78,7 +78,7 @@ export function PushNotificationsToggle() {
             (Add to Home Screen on iOS 16.4+; Install App on Android/desktop) and try again.
           </p>
         ) : permission === 'denied' ? (
-          <p className="text-xs text-amber-700">
+          <p className="text-xs text-yellow-700">
             Notifications are blocked in browser settings. Reset the site permission and try again.
           </p>
         ) : (

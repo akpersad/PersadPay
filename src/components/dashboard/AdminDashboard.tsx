@@ -107,9 +107,9 @@ export async function AdminDashboard() {
     <div className="px-4 pt-6 pb-4 space-y-6 max-w-lg mx-auto">
       {/* DBL/PFL coverage threshold watch — only renders when triggered */}
       {coverage.status !== 'ok' && (
-        <Card className={coverage.status === 'exceeded' ? 'border-destructive' : 'border-amber-500'}>
+        <Card className={coverage.status === 'exceeded' ? 'border-destructive' : 'border-yellow-500'}>
           <CardContent className="py-3 px-4 flex items-start gap-3">
-            <AlertTriangle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${coverage.status === 'exceeded' ? 'text-destructive' : 'text-amber-600'}`} />
+            <AlertTriangle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${coverage.status === 'exceeded' ? 'text-destructive' : 'text-yellow-600'}`} />
             <div className="space-y-1 text-sm">
               <p className="font-medium">
                 {coverage.status === 'exceeded'
@@ -177,7 +177,7 @@ export async function AdminDashboard() {
 
       {/* HYSA balance card */}
       <Link href="/hysa">
-        <Card className={`hover:bg-muted/50 transition-colors cursor-pointer ${hysaDiscrepancy !== null && hysaDiscrepancy !== 0 ? 'border-amber-400' : ''}`}>
+        <Card className={`hover:bg-muted/50 transition-colors cursor-pointer ${hysaDiscrepancy !== null && hysaDiscrepancy !== 0 ? 'border-yellow-400' : ''}`}>
           <CardContent className="py-3 px-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <PiggyBank className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
@@ -198,7 +198,7 @@ export async function AdminDashboard() {
                 {formatCurrency(hysaExpectedBalance)}
               </p>
               {hysaDiscrepancy !== null && hysaDiscrepancy !== 0 && (
-                <p className="text-[10px] text-amber-600 flex items-center gap-0.5 justify-end">
+                <p className="text-[10px] text-yellow-600 flex items-center gap-0.5 justify-end">
                   <TrendingUp className="h-3 w-3" />
                   {formatCurrency(Math.abs(hysaDiscrepancy))} off
                 </p>
@@ -234,7 +234,7 @@ export async function AdminDashboard() {
                     <div className="flex gap-1.5" aria-label="Workflow status: paid · emailed · HYSA-funded">
                       {stub.payment_sent
                         ? <CheckCircle2 className="h-4 w-4 text-green-600" />
-                        : <AlertCircle className="h-4 w-4 text-amber-500" />
+                        : <AlertCircle className="h-4 w-4 text-yellow-500" />
                       }
                       {stub.stub_sent
                         ? <CheckCircle2 className="h-4 w-4 text-blue-500" />

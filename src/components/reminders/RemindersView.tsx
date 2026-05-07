@@ -120,7 +120,7 @@ export function RemindersView({
                           </p>
                           <p className="text-muted-foreground">
                             Due {formatDate(effectiveDue)}
-                            {shifted && <span className="text-amber-700"> (shifted from {formatDate(r.due_date)})</span>}
+                            {shifted && <span className="text-yellow-700"> (shifted from {formatDate(r.due_date)})</span>}
                             {' · '}
                             {daysUntilDue <= 0 ? 'overdue' : `${daysUntilDue} days`}
                           </p>
@@ -128,7 +128,7 @@ export function RemindersView({
                       ) : (
                         <p className="text-xs text-muted-foreground">
                           Due {formatDate(effectiveDue)}
-                          {shifted && <span className="text-amber-700"> (shifted from {formatDate(r.due_date)})</span>}
+                          {shifted && <span className="text-yellow-700"> (shifted from {formatDate(r.due_date)})</span>}
                           {' · '}
                           {daysUntilDue <= 0 ? 'overdue' : `${daysUntilDue} days`}
                         </p>

@@ -58,7 +58,7 @@ export default async function YearEndPage({ params }: { params: Promise<Params> 
   if (!rates) {
     return (
       <div className="px-4 pt-6 pb-4 max-w-lg mx-auto">
-        <p className="text-sm text-amber-700">No tax rates seeded for {year}.</p>
+        <p className="text-sm text-yellow-700">No tax rates seeded for {year}.</p>
       </div>
     )
   }
@@ -119,7 +119,7 @@ export default async function YearEndPage({ params }: { params: Promise<Params> 
             </p>
             <p className="text-muted-foreground">
               Due {formatDate(w2Due)}
-              {w2Shifted && <span className="text-amber-700"> (shifted from {formatDate(w2DueRaw)})</span>}
+              {w2Shifted && <span className="text-yellow-700"> (shifted from {formatDate(w2DueRaw)})</span>}
               {' · '}
               {w2Days <= 0 ? 'overdue' : `${w2Days} days`}
             </p>
@@ -182,7 +182,7 @@ export default async function YearEndPage({ params }: { params: Promise<Params> 
               </p>
               <p className="text-muted-foreground">
                 Due {formatDate(schedHDue)}
-                {schedHShifted && <span className="text-amber-700"> (shifted from {formatDate(schedHDueRaw)})</span>}
+                {schedHShifted && <span className="text-yellow-700"> (shifted from {formatDate(schedHDueRaw)})</span>}
                 {' · '}
                 {schedHDays <= 0 ? 'overdue' : `${schedHDays} days`}
               </p>

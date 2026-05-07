@@ -82,7 +82,7 @@ export default async function StubsPage() {
                       <span aria-label={stub.payment_sent ? 'Payment sent' : 'Payment pending'}>
                         {stub.payment_sent
                           ? <CheckCircle2 className="h-4 w-4 text-green-600" />
-                          : <AlertCircle className="h-4 w-4 text-amber-500" />
+                          : <AlertCircle className="h-4 w-4 text-yellow-500" />
                         }
                       </span>
                       <span aria-label={stub.stub_sent ? 'Stub emailed' : 'Not emailed'}>

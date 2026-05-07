@@ -46,7 +46,7 @@ function formatHours(h: number): string {
 }
 
 function stubBgClass(stub: CalendarStub) {
-  if (!stub.payment_sent) return 'bg-amber-50 border border-amber-200'
+  if (!stub.payment_sent) return 'bg-yellow-50 border border-yellow-200'
   if (!stub.stub_sent) return 'bg-sky-50 border border-sky-200'
   return 'bg-green-50 border border-green-200'
 }
@@ -162,7 +162,7 @@ export function CalendarView({ stubs, year, month }: Props) {
       {/* Legend */}
       <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
         <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded-sm bg-amber-50 border border-amber-200 flex-shrink-0" />
+          <div className="w-3 h-3 rounded-sm bg-yellow-50 border border-yellow-200 flex-shrink-0" />
           Unpaid
         </div>
         <div className="flex items-center gap-1">
@@ -204,7 +204,7 @@ export function CalendarView({ stubs, year, month }: Props) {
                 <div className="flex gap-1">
                   {stub.payment_sent
                     ? <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
-                    : <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+                    : <AlertCircle className="h-3.5 w-3.5 text-yellow-500" />
                   }
                   {stub.stub_sent
                     ? <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />
