@@ -108,7 +108,7 @@ export default async function HYSAPage() {
         <Card>
           <CardContent className="pt-4 pb-3 px-3">
             <p className="text-xs text-muted-foreground">Expected Balance</p>
-            <p className={`text-lg font-semibold mt-0.5 ${expectedBalance < 0 ? 'text-destructive' : ''}`}>
+            <p className={`text-lg font-semibold font-mono mt-0.5 ${expectedBalance < 0 ? 'text-destructive' : ''}`}>
               {formatCurrency(expectedBalance)}
             </p>
             {discrepancy !== null && discrepancy !== 0 && (
@@ -125,7 +125,7 @@ export default async function HYSAPage() {
               {actualBalance !== null ? 'Actual Balance' : 'Last Reconciled'}
             </p>
             {actualBalance !== null ? (
-              <p className="text-lg font-semibold mt-0.5">{formatCurrency(actualBalance)}</p>
+              <p className="text-lg font-semibold font-mono mt-0.5">{formatCurrency(actualBalance)}</p>
             ) : (
               <p className="text-sm text-muted-foreground mt-0.5">Never</p>
             )}
@@ -143,7 +143,7 @@ export default async function HYSAPage() {
               <TrendingUp className="h-3 w-3" />
               {currentYear} Deposits
             </p>
-            <p className="text-lg font-semibold mt-0.5 text-green-700">{formatCurrency(ytdDeposits)}</p>
+            <p className="text-lg font-semibold font-mono mt-0.5 text-green-700">{formatCurrency(ytdDeposits)}</p>
           </CardContent>
         </Card>
 
@@ -153,7 +153,7 @@ export default async function HYSAPage() {
               <TrendingDown className="h-3 w-3" />
               {currentYear} Withdrawals
             </p>
-            <p className="text-lg font-semibold mt-0.5 text-red-700">{formatCurrency(Math.abs(ytdWithdrawals))}</p>
+            <p className="text-lg font-semibold font-mono mt-0.5 text-red-700">{formatCurrency(Math.abs(ytdWithdrawals))}</p>
           </CardContent>
         </Card>
       </div>

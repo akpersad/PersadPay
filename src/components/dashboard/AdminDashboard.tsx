@@ -132,7 +132,7 @@ export async function AdminDashboard() {
         <Card>
           <CardContent className="pt-4 pb-3 px-3">
             <p className="text-xs text-muted-foreground">YTD Gross</p>
-            <p className="text-lg font-semibold mt-0.5">{formatCurrency(ytdGross)}</p>
+            <p className="text-lg font-semibold font-mono mt-0.5">{formatCurrency(ytdGross)}</p>
           </CardContent>
         </Card>
         <Card>

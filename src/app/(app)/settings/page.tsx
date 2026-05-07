@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { SettingsForm } from '@/components/settings/SettingsForm'
 import { TaxRatesPanel } from '@/components/settings/TaxRatesPanel'
 import { PushNotificationsToggle } from '@/components/settings/PushNotificationsToggle'
+import { MfaSecurityCard } from '@/components/settings/MfaSecurityCard'
+import { MfaStatusPanel } from '@/components/settings/MfaStatusPanel'
 import { getTaxRatesForYear } from '@/lib/tax'
 import type { Settings, Profile } from '@/lib/types'
 
@@ -21,9 +23,10 @@ export default async function SettingsPage() {
 
   const currentYear = new Date().getFullYear()
 
-  const [{ data: settings }, taxRates] = await Promise.all([
+  const [{ data: settings }, taxRates, { data: allProfiles }] = await Promise.all([
     supabase.from('settings').select('*').single<Settings>(),
     getTaxRatesForYear(supabase, currentYear),
+    supabase.from('profiles').select('id, full_name, role').order('role'),
   ])
 
   return (
@@ -31,6 +34,8 @@ export default async function SettingsPage() {
       <h1 className="text-lg font-semibold">Settings</h1>
       <SettingsForm settings={settings} />
       <PushNotificationsToggle />
+      <MfaSecurityCard />
+      <MfaStatusPanel profiles={allProfiles ?? []} />
       <TaxRatesPanel rates={taxRates} requestedYear={currentYear} />
     </div>
   )

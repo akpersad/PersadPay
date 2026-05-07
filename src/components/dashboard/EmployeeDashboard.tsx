@@ -6,6 +6,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { formatDateRange, formatCurrency, formatDate } from '@/lib/dates'
 import { PushNotificationsToggle } from '@/components/settings/PushNotificationsToggle'
+import { MfaSecurityCard } from '@/components/settings/MfaSecurityCard'
 import type { Paystub } from '@/lib/types'
 
 export async function EmployeeDashboard() {
@@ -39,11 +40,11 @@ export async function EmployeeDashboard() {
               <div className="flex gap-6 pt-1">
                 <div>
                   <p className="text-xs text-muted-foreground">Gross</p>
-                  <p className="text-base font-semibold">{formatCurrency(Number(latestStub.gross_pay))}</p>
+                  <p className="text-base font-semibold font-mono">{formatCurrency(Number(latestStub.gross_pay))}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Net Pay</p>
-                  <p className="text-base font-semibold">{formatCurrency(Number(latestStub.net_pay))}</p>
+                  <p className="text-base font-semibold font-mono">{formatCurrency(Number(latestStub.net_pay))}</p>
                 </div>
               </div>
             </CardContent>
@@ -67,6 +68,7 @@ export async function EmployeeDashboard() {
       </div>
 
       <PushNotificationsToggle />
+      <MfaSecurityCard />
     </div>
   )
 }

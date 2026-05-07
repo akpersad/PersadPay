@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 const ADMIN_ONLY_PATHS = ['/stubs/new', '/reminders', '/settings']
+const PUBLIC_PATHS = ['/', '/manifest.webmanifest', '/sw.js']
+// MFA pages need authenticated session but are accessible before AAL2 is satisfied
+const MFA_PATHS = ['/auth/enroll-mfa', '/auth/verify-mfa']
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -31,7 +34,6 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
-  const PUBLIC_PATHS = ['/', '/manifest.webmanifest', '/sw.js']
   if (!user && !PUBLIC_PATHS.includes(pathname)) {
     return NextResponse.redirect(new URL('/', request.url))
   }
@@ -40,6 +42,23 @@ export async function proxy(request: NextRequest) {
   // The login form handles the post-login redirect explicitly.
   // Doing it in the proxy creates a redirect loop when getUser() behaves
   // inconsistently between the proxy and the layout.
+
+  // MFA enforcement — skip for public paths, API routes, and the MFA pages themselves
+  if (user && !MFA_PATHS.includes(pathname) && !PUBLIC_PATHS.includes(pathname) && !pathname.startsWith('/api/')) {
+    const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+
+    if (aalData) {
+      if (aalData.currentLevel === 'aal1' && aalData.nextLevel === 'aal2') {
+        // Factor enrolled but not yet verified for this session
+        return NextResponse.redirect(new URL('/auth/verify-mfa', request.url))
+      }
+      if (aalData.currentLevel === 'aal1' && aalData.nextLevel === 'aal1') {
+        // No factor enrolled — force enrollment
+        return NextResponse.redirect(new URL('/auth/enroll-mfa', request.url))
+      }
+      // currentLevel === 'aal2' → fully authenticated, proceed
+    }
+  }
 
   // Role-based guard for admin-only paths
   if (user && ADMIN_ONLY_PATHS.some(p => pathname.startsWith(p))) {

@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ChevronRight, CheckCircle2 } from 'lucide-react'
-import { formatDate, daysUntil } from '@/lib/dates'
+import { formatDate, formatCurrency, daysUntil } from '@/lib/dates'
 import {
   getCurrentQuarter,
   getQuarterDateRange,
@@ -120,7 +120,7 @@ function YearSection({
                 href={`/filings/nys-45/${year}/${q}`}
                 title={`Q${q} NYS-45`}
                 subtitle={`${formatDate(range.start)} – ${formatDate(range.end)} · NY State`}
-                rangeText={data ? `${data.count} stubs · $${data.gross.toFixed(2)} gross` : 'No stubs'}
+                rangeText={data ? `${data.count} stubs · ${formatCurrency(data.gross)} gross` : 'No stubs'}
                 dueDate={getQuarterDueDate(year, q)}
                 filed={nysFiling}
                 threshold={20}

@@ -75,7 +75,7 @@ export default async function StubsPage() {
                     <p className="text-sm font-medium">
                       #{stub.stub_number} · {formatDateRange(stub.pay_period_start, stub.pay_period_end)}
                     </p>
-                    <p className="text-sm text-muted-foreground">{formatCurrency(Number(stub.gross_pay))}</p>
+                    <p className="text-sm text-muted-foreground font-mono">{formatCurrency(Number(stub.gross_pay))}</p>
                   </div>
                   {profile?.role === 'admin' && (
                     <div className="flex gap-1.5">
