@@ -83,7 +83,7 @@ export default async function FederalEstimatedTaxQuarterPage({ params }: { param
             </p>
             <p className="text-muted-foreground">
               Due {formatDate(dueDateEffective)}
-              {shifted && <span className="text-amber-700"> (shifted from {formatDate(data.due_date)})</span>}
+              {shifted && <span className="text-yellow-700"> (shifted from {formatDate(data.due_date)})</span>}
               {' · '}
               {daysUntilDue <= 0 ? 'overdue' : `${daysUntilDue} days`}
             </p>

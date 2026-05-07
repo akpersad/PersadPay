@@ -92,7 +92,7 @@ export function ReconcileForm({ expectedBalance, actualBalance, actualBalanceAt,
           <div className={`rounded-md px-3 py-2 text-sm flex items-start gap-2 ${
             discrepancy === 0
               ? 'bg-green-50 border border-green-200 text-green-900'
-              : 'bg-amber-50 border border-amber-200 text-amber-900'
+              : 'bg-yellow-50 border border-yellow-200 text-yellow-900'
           }`}>
             {discrepancy === 0
               ? <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />

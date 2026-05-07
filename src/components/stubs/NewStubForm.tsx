@@ -459,11 +459,11 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
 
           {/* Overtime — only when total > 40 hrs/wk (NY domestic-worker OT rule) */}
           {totalHoursNum > OT_THRESHOLD && (
-            <div className="space-y-1.5 rounded-md bg-amber-50 border border-amber-200 px-3 py-2">
-              <Label htmlFor="ot-hours" className="text-amber-900">
+            <div className="space-y-1.5 rounded-md bg-yellow-50 border border-yellow-200 px-3 py-2">
+              <Label htmlFor="ot-hours" className="text-yellow-900">
                 Overtime hours (NY 1.5×)
               </Label>
-              <p className="text-xs text-amber-800">
+              <p className="text-xs text-yellow-800">
                 Total {totalHoursNum} hrs &gt; 40/wk threshold. NY Domestic Workers&apos; Bill of
                 Rights requires 1.5× OT after 40 hrs. Suggested split: <strong>{OT_THRESHOLD} regular + {suggestedOvertimeHours} OT</strong>.
               </p>
@@ -478,7 +478,7 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
                 placeholder={String(suggestedOvertimeHours)}
                 className="bg-white"
               />
-              <p className="text-[11px] text-amber-700">
+              <p className="text-[11px] text-yellow-700">
                 Leave blank to use the suggested split. Override only with reason.
               </p>
             </div>

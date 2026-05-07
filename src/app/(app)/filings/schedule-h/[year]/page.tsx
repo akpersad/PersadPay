@@ -54,7 +54,7 @@ export default async function ScheduleHYearPage({ params }: { params: Promise<Pa
   if (!rates) {
     return (
       <div className="px-4 pt-6 pb-4 max-w-lg mx-auto">
-        <p className="text-sm text-amber-700">No tax rates seeded for {year}.</p>
+        <p className="text-sm text-yellow-700">No tax rates seeded for {year}.</p>
       </div>
     )
   }
@@ -90,7 +90,7 @@ export default async function ScheduleHYearPage({ params }: { params: Promise<Pa
             </p>
             <p className="text-muted-foreground">
               Due {formatDate(dueDateEffective)}
-              {shifted && <span className="text-amber-700"> (shifted from {formatDate(data.due_date)})</span>}
+              {shifted && <span className="text-yellow-700"> (shifted from {formatDate(data.due_date)})</span>}
               {' · '}
               {daysUntilDue <= 0 ? 'overdue' : `${daysUntilDue} days`}
             </p>
@@ -113,12 +113,12 @@ export default async function ScheduleHYearPage({ params }: { params: Promise<Pa
             <Card>
               <CardContent className="py-3 px-4 text-xs space-y-1">
                 {!data.fica_threshold_met && (
-                  <p className="text-amber-700">
+                  <p className="text-yellow-700">
                     FICA threshold ($2,800/yr per IRS Pub 926) not met — Lines 1a–2b will be $0.
                   </p>
                 )}
                 {!data.futa_threshold_met && (
-                  <p className="text-amber-700">
+                  <p className="text-yellow-700">
                     FUTA threshold ($1,000/quarter per IRS Pub 926) not met — Lines 7–8 will be $0.
                   </p>
                 )}

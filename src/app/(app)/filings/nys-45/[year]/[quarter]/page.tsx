@@ -66,7 +66,7 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
   if (!rates) {
     return (
       <div className="px-4 pt-6 pb-4 max-w-lg mx-auto">
-        <p className="text-sm text-amber-700">No tax rates seeded for {year}.</p>
+        <p className="text-sm text-yellow-700">No tax rates seeded for {year}.</p>
       </div>
     )
   }
@@ -109,7 +109,7 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
             </p>
             <p className="text-muted-foreground">
               Due {formatDate(dueDateEffective)}
-              {shifted && <span className="text-amber-700"> (shifted from {formatDate(data.due_date)})</span>}
+              {shifted && <span className="text-yellow-700"> (shifted from {formatDate(data.due_date)})</span>}
               {' · '}
               {daysUntilDue <= 0 ? 'overdue' : `${daysUntilDue} days`}
             </p>

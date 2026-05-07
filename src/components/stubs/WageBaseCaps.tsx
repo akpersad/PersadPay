@@ -54,7 +54,7 @@ export function WageBaseCaps({ ytdGrossBefore, taxRates }: Props) {
             <div key={row.label} className="space-y-1">
               <div className="flex items-baseline justify-between text-xs">
                 <span className="font-medium">{row.label}</span>
-                <span className={reached ? 'text-green-700' : near ? 'text-amber-700' : 'text-muted-foreground'}>
+                <span className={reached ? 'text-green-700' : near ? 'text-yellow-700' : 'text-muted-foreground'}>
                   {formatCurrency(row.ytd)} / {formatCurrency(row.cap)}
                   {reached && ' · cap reached'}
                   {near && ' · approaching cap'}
@@ -62,7 +62,7 @@ export function WageBaseCaps({ ytdGrossBefore, taxRates }: Props) {
               </div>
               <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                 <div
-                  className={`h-full ${reached ? 'bg-green-600' : near ? 'bg-amber-500' : 'bg-primary/40'}`}
+                  className={`h-full ${reached ? 'bg-green-600' : near ? 'bg-yellow-500' : 'bg-primary/40'}`}
                   style={{ width: `${pct}%` }}
                 />
               </div>
