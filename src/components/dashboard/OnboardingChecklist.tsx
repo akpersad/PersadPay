@@ -19,8 +19,12 @@ const ITEM_LINKS: Record<string, LinkDef> = {
     href: 'https://dol.ny.gov/register-unemployment-insurance-0',
     external: true,
   },
+  'Complete USCIS Form I-9 (Employment Eligibility Verification)': {
+    href: 'https://www.uscis.gov/i-9',
+    external: true,
+  },
   'File new hire report with NY': {
-    href: 'https://dol.ny.gov/online-services-employers-0',
+    href: 'https://www.nynewhire.com/',
     external: true,
   },
   'Have employee complete Federal W-4': {
@@ -53,6 +57,18 @@ const ITEM_LINKS: Record<string, LinkDef> = {
   },
   'Create Supabase user accounts for all three users': {
     href: 'https://supabase.com/dashboard',
+    external: true,
+  },
+  'Adopt and distribute Sexual Harassment Prevention Policy': {
+    href: 'https://www.ny.gov/combating-sexual-harassment-workplace',
+    external: true,
+  },
+  'Complete annual interactive harassment-prevention training': {
+    href: 'https://www.ny.gov/sexual-harassment-prevention-employees',
+    external: true,
+  },
+  'Print and post required workplace posters': {
+    href: 'https://dol.ny.gov/required-workplace-posters',
     external: true,
   },
   'Confirm quarterly reminders are seeded in Reminders tab': {
