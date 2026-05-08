@@ -19,7 +19,8 @@ export interface Settings {
   employee_hourly_rate: number | null
   federal_withholding_per_period: number
   state_withholding_per_period: number
-  pfl_waived: boolean
+  pfl_covered: boolean
+  dbl_covered: boolean
   suta_rate: number
   additional_emails: string[]
   reply_to_emails: string[]
@@ -53,6 +54,9 @@ export interface Paystub {
   state_withholding: number
   sdi: number
   pfl: number
+  dbl_covered_at_generation: boolean
+  pfl_covered_at_generation: boolean
+  suta_rate_at_generation: number | null
   employer_fica_ss: number
   employer_fica_medicare: number
   futa: number

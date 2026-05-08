@@ -177,7 +177,7 @@ export async function AdminDashboard() {
               <p className="text-xs text-muted-foreground">{coverage.message}</p>
               {coverage.status === 'exceeded' && (
                 <p className="text-xs text-muted-foreground">
-                  Quote: <a href="https://www.nysif.com" target="_blank" rel="noopener noreferrer" className="underline">NYSIF</a> · Update settings.pfl_waived = false once policy is in place.
+                  Quote: <a href="https://www.nysif.com" target="_blank" rel="noopener noreferrer" className="underline">NYSIF</a> · Enable DBL and PFL coverage in Settings once policies are in place.
                 </p>
               )}
             </div>

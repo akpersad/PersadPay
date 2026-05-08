@@ -30,16 +30,22 @@ export default async function StubDetailPage({ params }: Props) {
   // Employees can only see their own stubs
   if (profile?.role === 'employee' && stub.employee_id !== user.id) notFound()
 
-  // Calculate YTD: sum all stubs in the same calendar year with lower or equal stub_number
+  // Fetch all stubs in the calendar year so line-item YTD can span the full year.
+  // "Prior" stubs for YTD sums use a composite predicate: earlier pay_date OR
+  // same pay_date with a lower stub_number (handles backdated and same-day stubs).
   const payYear = stub.pay_date.substring(0, 4)
   const { data: ytdStubs } = await supabase
     .from('paystubs')
     .select('*')
     .gte('pay_date', `${payYear}-01-01`)
     .lte('pay_date', `${payYear}-12-31`)
-    .lte('stub_number', stub.stub_number)
 
-  const prior = (ytdStubs ?? []).filter(s => s.id !== id) as Paystub[]
+  const prior = (ytdStubs ?? []).filter(s =>
+    s.id !== id && (
+      s.pay_date < stub.pay_date ||
+      (s.pay_date === stub.pay_date && s.stub_number < stub.stub_number)
+    )
+  ) as Paystub[]
   const sum = (key: keyof Paystub) =>
     prior.reduce((acc, s) => acc + Number(s[key] ?? 0), 0)
 

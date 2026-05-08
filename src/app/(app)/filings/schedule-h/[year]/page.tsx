@@ -114,7 +114,7 @@ export default async function ScheduleHYearPage({ params }: { params: Promise<Pa
               <CardContent className="py-3 px-4 text-xs space-y-1">
                 {!data.fica_threshold_met && (
                   <p className="text-yellow-700">
-                    FICA threshold ($2,800/yr per IRS Pub 926) not met — Lines 1a–2b will be $0.
+                    FICA threshold ({formatCurrency(Number(rates.fica_household_threshold))}/yr per IRS Pub 926) not met — Lines 1a–2b will be $0.
                   </p>
                 )}
                 {!data.futa_threshold_met && (

@@ -38,9 +38,13 @@ export async function GET(request: Request) {
     .select('*')
     .gte('pay_date', `${payYear}-01-01`)
     .lte('pay_date', `${payYear}-12-31`)
-    .lte('stub_number', stub.stub_number)
 
-  const prior = ((ytdStubs ?? []) as Paystub[]).filter(s => s.id !== id)
+  const prior = ((ytdStubs ?? []) as Paystub[]).filter(s =>
+    s.id !== id && (
+      s.pay_date < stub.pay_date ||
+      (s.pay_date === stub.pay_date && s.stub_number < stub.stub_number)
+    )
+  )
   const sum = (key: keyof Paystub) => prior.reduce((acc, s) => acc + Number(s[key] ?? 0), 0)
   const totalEmpTaxes = Number(stub.federal_withholding) + Number(stub.fica_social_security) + Number(stub.fica_medicare) + Number(stub.state_withholding) + Number(stub.sdi) + Number(stub.pfl)
 

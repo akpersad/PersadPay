@@ -44,7 +44,10 @@ interface Props {
 
 export function PaystubDocument({ stub, settings, variant, lineItems = [], ytdByLineType = {} }: Props) {
   const isAdmin = variant === 'admin'
-  const pflWaived = settings.pfl_waived
+  // Use generation-time snapshots so the PDF reflects what was calculated,
+  // not the current live setting.
+  const dblCovered = stub.dbl_covered_at_generation ?? false
+  const pflCovered = stub.pfl_covered_at_generation ?? false
 
   const ytdTaxes = stub.ytd_total_employee_taxes
 
@@ -186,8 +189,8 @@ export function PaystubDocument({ stub, settings, variant, lineItems = [], ytdBy
           <TaxRow label="FICA — Social Security" current={stub.fica_social_security} ytd={stub.ytd_fica_social_security} />
           <TaxRow label="FICA — Medicare" current={stub.fica_medicare} ytd={stub.ytd_fica_medicare} alt />
           <TaxRow label="NY State Income Tax Withheld" current={stub.state_withholding} ytd={stub.ytd_state_withholding} />
-          <TaxRow label="NY SDI" current={stub.sdi} ytd={stub.ytd_sdi} alt />
-          {!pflWaived && <TaxRow label="NY PFL" current={stub.pfl} ytd={stub.ytd_pfl} />}
+          {dblCovered && <TaxRow label="NY SDI" current={stub.sdi} ytd={stub.ytd_sdi} alt />}
+          {pflCovered && <TaxRow label="NY PFL" current={stub.pfl} ytd={stub.ytd_pfl} />}
         </View>
 
         {/* Payment summary — only when something was given outside the Zelle payment */}

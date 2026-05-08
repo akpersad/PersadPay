@@ -72,7 +72,9 @@ export function StubDetail({ stub, role, userId, settings, lineItems = [], ytdBy
   const [unmarkHysaPending, setUnmarkHysaPending] = useState(false)
 
   const isAdmin = role === 'admin'
-  const pflWaived = settings?.pfl_waived ?? false
+  // Use generation-time snapshots so display matches what was calculated for this stub.
+  const dblCovered = stub.dbl_covered_at_generation ?? false
+  const pflCovered = stub.pfl_covered_at_generation ?? false
   const hysa = hysaAmountForStub(stub)
 
   async function markPaymentSent() {
@@ -282,8 +284,8 @@ export function StubDetail({ stub, role, userId, settings, lineItems = [], ytdBy
           <TaxRow label="FICA – Social Security" current={Number(stub.fica_social_security)} ytd={stub.ytd_fica_social_security} />
           <TaxRow label="FICA – Medicare" current={Number(stub.fica_medicare)} ytd={stub.ytd_fica_medicare} />
           <TaxRow label="NY State Withholding" current={Number(stub.state_withholding)} ytd={stub.ytd_state_withholding} />
-          <TaxRow label="NY SDI" current={Number(stub.sdi)} ytd={stub.ytd_sdi} />
-          {!pflWaived && <TaxRow label="NY PFL" current={Number(stub.pfl)} ytd={stub.ytd_pfl} />}
+          {dblCovered && <TaxRow label="NY SDI" current={Number(stub.sdi)} ytd={stub.ytd_sdi} />}
+          {pflCovered && <TaxRow label="NY PFL" current={Number(stub.pfl)} ytd={stub.ytd_pfl} />}
           <Separator />
           <div className="grid grid-cols-3 text-sm font-semibold">
             <span>Net Pay</span>
