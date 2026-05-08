@@ -145,6 +145,14 @@ export function RemindersView({
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground">{r.description}</p>
+                  {href && (
+                    <Link
+                      href={href}
+                      className="text-xs text-primary font-medium hover:underline"
+                    >
+                      View Filing →
+                    </Link>
+                  )}
                 </div>
               </CardContent>
             </Card>
