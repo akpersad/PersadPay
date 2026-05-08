@@ -30,6 +30,13 @@ const DOCS: DocSpec[] = [
     requiresSignature: false,
   },
   {
+    type: 'i9',
+    title: 'USCIS Form I-9 (Employment Eligibility Verification)',
+    description: 'Required for every U.S. employee. Section 1: employee fills on/before first day. Section 2: employer fills within 3 business days after examining ID. Do NOT mail — retain in your files. Keep 3 years from hire or 1 year after termination, whichever is later.',
+    externalHref: 'https://www.uscis.gov/i-9',
+    externalLabel: 'USCIS I-9 page',
+  },
+  {
     type: 'w4',
     title: 'Federal W-4',
     description: 'Withholding allowance certificate. Required before first paycheck. Retain 4 years.',
@@ -64,6 +71,34 @@ const DOCS: DocSpec[] = [
     description: 'For employees working <20 hrs/week AND <175 days/52 weeks. Retain for the duration of employment.',
     externalHref: 'https://paidfamilyleave.ny.gov/pfl-waiver-form',
     externalLabel: 'Open NY PFL form',
+  },
+  {
+    type: 'sexual_harassment_policy',
+    title: 'Sexual Harassment Prevention Policy',
+    description: 'NY Labor Law § 201-g requires all employers to adopt and distribute a sexual harassment prevention policy at hire and annually. Use the NYS model policy or a compliant equivalent. Do NOT mail — retain signed acknowledgement.',
+    externalHref: 'https://www.ny.gov/combating-sexual-harassment-workplace',
+    externalLabel: 'NYS model policy',
+  },
+  {
+    type: 'sexual_harassment_training_certificate',
+    title: 'Sexual Harassment Prevention Training Certificate',
+    description: 'Annual interactive training required by NY Labor Law § 201-g. Free NYS training at ny.gov. Complete at hire and every calendar year. Retain certificate.',
+    externalHref: 'https://www.ny.gov/sexual-harassment-prevention-employees',
+    externalLabel: 'Free NYS training',
+    requiresSignature: false,
+  },
+  {
+    type: 'day_of_rest_acknowledgement',
+    title: 'Day of Rest Acknowledgement (§ 161)',
+    description: 'NY Labor Law § 161 mandates 24 consecutive hours off per calendar week for domestic workers. If she voluntarily works that day, the entire day is paid at 1.5×. Both parties sign; retain for duration of employment.',
+  },
+  {
+    type: 'posters_bundle',
+    title: 'Workplace Posters (required)',
+    description: 'NY and federal law require certain posters to be accessible to the employee. Print and post in kitchen/work area: NYS Domestic Workers Bill of Rights, NYS Sexual Harassment Prevention Notice, NYS Minimum Wage, Federal FLSA, Federal EEO/USERRA/Polygraph Protection.',
+    externalHref: 'https://dol.ny.gov/required-workplace-posters',
+    externalLabel: 'NY DOL poster page',
+    requiresSignature: false,
   },
   {
     type: 'sick_leave_policy',

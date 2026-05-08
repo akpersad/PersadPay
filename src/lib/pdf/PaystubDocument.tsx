@@ -116,13 +116,20 @@ export function PaystubDocument({ stub, settings, variant, lineItems = [], ytdBy
           </View>
         </View>
 
-        {/* Earnings table — NY § 195(3) requires regular rate, OT rate, regular hours, OT hours
-            for non-exempt employees, even when OT hours = 0. */}
+        {/* Earnings table — NY § 195(3) requires basis, regular rate, OT rate, regular hours,
+            OT hours, and "Allowances: None" for non-exempt employees. */}
         <Text style={styles.sectionLabel}>Earnings</Text>
+        {/* OT rate note and allowances disclosure — always shown per NY § 195(3) */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+          <Text style={{ fontSize: 7, color: '#555' }}>
+            Basis: Hourly · Overtime rate (after 40 hrs/wk): {formatCurrency(hourlyRate * 1.5)}/hr
+          </Text>
+          <Text style={{ fontSize: 7, color: '#555' }}>Allowances claimed: None</Text>
+        </View>
         <View style={styles.table}>
           <View style={styles.tableHeader}>
             <Text style={[styles.col1, styles.colHdr]}>Description</Text>
-            <Text style={[styles.col2, styles.colHdr]}>Rate</Text>
+            <Text style={[styles.col2, styles.colHdr]}>Rate (hourly)</Text>
             <Text style={[styles.col2, styles.colHdr]}>Hours</Text>
             <Text style={[styles.col2, styles.colHdr]}>Current</Text>
             <Text style={[styles.col3, styles.colHdr]}>YTD</Text>

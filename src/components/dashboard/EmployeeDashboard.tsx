@@ -66,6 +66,9 @@ export async function EmployeeDashboard() {
         <Link href="/w2" className={cn(buttonVariants({ variant: 'outline' }), 'w-full')}>
           View W-2s
         </Link>
+        <Link href="/documents/sick-leave-summary" className={cn(buttonVariants({ variant: 'outline' }), 'w-full')}>
+          View Sick Leave Summary
+        </Link>
       </div>
 
       <PushNotificationsToggle />

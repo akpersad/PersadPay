@@ -4,9 +4,16 @@
 
 **Audit date:** 2026-05-07
 **Author of plan:** Claude (Opus 4.7) after a 6-agent independent audit
-**Status as of plan creation:** Phase 11 is merged to `main` (commit `1d3c537 Feature/phase11 UI polish (#17)`). Phases 12, 13, 14 below have not started.
 
-**Branching:** match prior-phase convention. Phase 11 was on `feature/phase11-ui-polish`. Each new phase: create a fresh branch off `main` named `feature/phase12-compliance-calc`, `feature/phase13-onboarding-forms`, `feature/phase14-infra-tests` (or similar). Open one PR per phase.
+**Current status (updated 2026-05-08):**
+- Phase 12 — DONE. Branch `verify-calcs` → merged to `main` as PR #18 (`99ec76b`).
+- Phase 13 — DONE. Branch `feature/phase13-onboarding-forms` → open PR to `main` (6 commits, `f6db572`–`ca9c329`).
+- Phase 14 — NEXT. Branch off `main` after Phase 13 PR merges.
+
+**Branching:** Each phase gets a fresh branch off `main`.
+- Phase 12: `verify-calcs` (merged)
+- Phase 13: `feature/phase13-onboarding-forms` (ready to merge)
+- Phase 14: `feature/phase14-infra-tests` (not started — create when starting)
 
 ---
 
@@ -120,7 +127,10 @@ These were independently confirmed by the audit against primary sources. Don't c
 
 ---
 
-# Phase 12 — Calculation Correctness & Data Integrity
+# Phase 12 — Calculation Correctness & Data Integrity ✓ DONE (2026-05-08)
+
+**Branch:** `verify-calcs` — merged to `main` as PR #18 (`99ec76b`).
+**Migration applied:** 0018 (phase12_compliance_calc).
 
 **Goal:** After this phase, every paystub generated will be legally and mathematically correct in dollars. No illegal deductions. Edit-mode preserves immutability.
 
@@ -280,7 +290,10 @@ Commit grouping suggestion (per user preference for medium-sized logical commits
 
 ---
 
-# Phase 13 — Onboarding & Forms Compliance
+# Phase 13 — Onboarding & Forms Compliance ✓ DONE (2026-05-08)
+
+**Branch:** `feature/phase13-onboarding-forms` — 6 commits, ready to PR → `main`.
+**Migrations applied:** 0019 (I-9), 0020 (harassment), 0021 (W-2 fields), 0022 (day-of-rest/posters), 0023 (misc fixes).
 
 **Goal:** After this phase, the onboarding checklist + Documents vault + pay stub + W-2 PDF cover every legally required form and disclosure for a NY household employer with one part-time live-out babysitter.
 

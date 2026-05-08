@@ -14,7 +14,12 @@ export interface Settings {
   employer_ein: string | null
   employer_address: string | null
   employer_phone: string | null
+  employer_ny_state_id: string | null
   employee_name: string | null
+  employee_name_first: string | null
+  employee_name_middle_initial: string | null
+  employee_name_last: string | null
+  employee_address: string | null
   employee_email: string | null
   employee_hourly_rate: number | null
   federal_withholding_per_period: number
@@ -163,6 +168,11 @@ export type SignedDocumentType =
   | 'it2104'
   | 'ein_confirmation'
   | 'nys_registration'
+  | 'i9'
+  | 'sexual_harassment_policy'
+  | 'sexual_harassment_training_certificate'
+  | 'day_of_rest_acknowledgement'
+  | 'posters_bundle'
 
 export interface SignedDocument {
   id: string
@@ -249,11 +259,18 @@ export interface HysaTransactionWithRefs extends HysaTransaction {
   filings: { filing_type: string; tax_year: number; quarter: number | null } | null
 }
 
+export type W2Copy = 'B' | 'C' | '2' | 'D' | 'worksheet'
+
 export interface W2Data {
   employee_name: string
+  employee_name_first: string | null
+  employee_name_middle_initial: string | null
+  employee_name_last: string | null
+  employee_address: string | null
   employer_name: string
   employer_ein: string
   employer_address: string
+  employer_ny_state_id: string | null
   tax_year: number
   wages_tips: number
   federal_tax_withheld: number
@@ -263,4 +280,7 @@ export interface W2Data {
   medicare_tax_withheld: number
   state_wages: number
   state_tax_withheld: number
+  sdi_withheld: number
+  pfl_withheld: number
+  copy: W2Copy
 }

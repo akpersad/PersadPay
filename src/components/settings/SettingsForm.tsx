@@ -30,7 +30,12 @@ export function SettingsForm({ settings: initial }: Props) {
   const [employerEin, setEmployerEin] = useState(s.employer_ein ?? '')
   const [employerAddress, setEmployerAddress] = useState(s.employer_address ?? '')
   const [employerPhone, setEmployerPhone] = useState(s.employer_phone ?? '')
+  const [employerNyStateId, setEmployerNyStateId] = useState(s.employer_ny_state_id ?? '')
   const [employeeName, setEmployeeName] = useState(s.employee_name ?? '')
+  const [employeeNameFirst, setEmployeeNameFirst] = useState(s.employee_name_first ?? '')
+  const [employeeNameMiddle, setEmployeeNameMiddle] = useState(s.employee_name_middle_initial ?? '')
+  const [employeeNameLast, setEmployeeNameLast] = useState(s.employee_name_last ?? '')
+  const [employeeAddress, setEmployeeAddress] = useState(s.employee_address ?? '')
   const [employeeEmail, setEmployeeEmail] = useState(s.employee_email ?? '')
   const [hourlyRate, setHourlyRate] = useState(s.employee_hourly_rate?.toString() ?? '')
   const [federalWithholding, setFederalWithholding] = useState(s.federal_withholding_per_period?.toString() ?? '0')
@@ -53,7 +58,12 @@ export function SettingsForm({ settings: initial }: Props) {
       employer_ein: employerEin || null,
       employer_address: employerAddress || null,
       employer_phone: employerPhone || null,
+      employer_ny_state_id: employerNyStateId || null,
       employee_name: employeeName || null,
+      employee_name_first: employeeNameFirst || null,
+      employee_name_middle_initial: employeeNameMiddle || null,
+      employee_name_last: employeeNameLast || null,
+      employee_address: employeeAddress || null,
       employee_email: employeeEmail || null,
       employee_hourly_rate: hourlyRate ? parseFloat(hourlyRate) : null,
       federal_withholding_per_period: parseFloat(federalWithholding || '0'),
@@ -90,10 +100,35 @@ export function SettingsForm({ settings: initial }: Props) {
         <Field label="EIN" value={employerEin} onChange={setEmployerEin} onBlur={() => setEmployerEin(formatEin(employerEin))} placeholder="12-3456789" />
         <Field label="Address" value={employerAddress} onChange={setEmployerAddress} onBlur={() => setEmployerAddress(employerAddress.trim())} placeholder="123 Main St, Franklin Square, NY 11010" />
         <Field label="Phone" value={employerPhone} onChange={setEmployerPhone} onBlur={() => setEmployerPhone(formatPhone(employerPhone))} type="tel" placeholder="(516) 555-0100" />
+        <div className="space-y-1.5">
+          <Field label="NY State Employer ID (Box 15)" value={employerNyStateId} onChange={setEmployerNyStateId} onBlur={() => setEmployerNyStateId(employerNyStateId.trim())} placeholder="NY UI account number" />
+          <p className="text-xs text-muted-foreground">From your NY DOL NYS-100 registration confirmation. Required for W-2 Box 15. Leave blank until received.</p>
+        </div>
       </Section>
 
       <Section title="Employee">
-        <Field label="Full Name" value={employeeName} onChange={setEmployeeName} onBlur={() => setEmployeeName(employeeName.trim())} />
+        <Field label="Full Name (used on pay stubs)" value={employeeName} onChange={setEmployeeName} onBlur={() => setEmployeeName(employeeName.trim())} />
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium">Name for W-2 (Boxes e — first, MI, last)</p>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">First</Label>
+              <Input value={employeeNameFirst} onChange={e => setEmployeeNameFirst(e.target.value)} onBlur={() => setEmployeeNameFirst(employeeNameFirst.trim())} placeholder="Jane" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">M.I.</Label>
+              <Input value={employeeNameMiddle} onChange={e => setEmployeeNameMiddle(e.target.value)} onBlur={() => setEmployeeNameMiddle(employeeNameMiddle.trim())} placeholder="A" maxLength={1} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Last</Label>
+              <Input value={employeeNameLast} onChange={e => setEmployeeNameLast(e.target.value)} onBlur={() => setEmployeeNameLast(employeeNameLast.trim())} placeholder="Doe" />
+            </div>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Field label="Address (W-2 Box f)" value={employeeAddress} onChange={setEmployeeAddress} onBlur={() => setEmployeeAddress(employeeAddress.trim())} placeholder="456 Elm St, Apt 2B, Hempstead, NY 11550" />
+          <p className="text-xs text-muted-foreground">Required for W-2. Leave blank until confirmed with employee.</p>
+        </div>
         <Field label="Email" value={employeeEmail} onChange={setEmployeeEmail} onBlur={() => setEmployeeEmail(employeeEmail.trim().toLowerCase())} type="email" />
         <Field label="Hourly Rate ($)" value={hourlyRate} onChange={setHourlyRate} onBlur={() => setHourlyRate(formatCurrencyInput(hourlyRate))} inputMode="decimal" placeholder="20.00" />
       </Section>
