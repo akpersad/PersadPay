@@ -99,7 +99,7 @@ async function ensureTotp(): Promise<string> {
   // Remove any existing unverified factors
   const { data: fl } = await supabase.auth.mfa.listFactors()
   for (const f of fl?.totp ?? []) {
-    if (f.status === 'unverified') await supabase.auth.mfa.unenroll({ factorId: f.id })
+    await supabase.auth.mfa.unenroll({ factorId: f.id })
   }
 
   const { data: enroll, error: enrollErr } = await supabase.auth.mfa.enroll({
