@@ -77,7 +77,7 @@ export default async function NewStubPage({
 
   if (!taxRates) {
     return (
-      <div className="px-4 pt-6 pb-4 max-w-lg mx-auto">
+      <div className="px-4 pt-6 pb-4 max-w-lg md:max-w-3xl mx-auto">
         <h1 className="text-lg font-semibold mb-4">New Pay Stub</h1>
         <div className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
           No tax rates seeded for {currentYear}. Run the latest migration in Supabase or seed the
@@ -88,7 +88,7 @@ export default async function NewStubPage({
   }
 
   return (
-    <div className="px-4 pt-6 pb-4 max-w-lg mx-auto">
+    <div className="px-4 pt-6 pb-4 max-w-lg md:max-w-3xl mx-auto">
       <h1 className="text-lg font-semibold mb-4">New Pay Stub</h1>
       {settingsIncomplete && (
         <div className="mb-4 rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">

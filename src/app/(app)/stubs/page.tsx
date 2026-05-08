@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { formatDateRange, formatCurrency } from '@/lib/dates'
-import { CheckCircle2, AlertCircle, PlusCircle, PiggyBank, CalendarDays } from 'lucide-react'
+import { CheckCircle2, AlertCircle, PlusCircle, PiggyBank, CalendarDays, FileText } from 'lucide-react'
 import { ExportCsvButton } from '@/components/stubs/ExportCsvButton'
 import { StubYearFilter } from '@/components/stubs/StubYearFilter'
 import type { Paystub, Profile } from '@/lib/types'
@@ -52,7 +52,7 @@ export default async function StubsPage({ searchParams }: Props) {
     : (stubs as Paystub[] | null)?.filter(s => s.pay_date.startsWith(selectedYear))
 
   return (
-    <div className="px-4 pt-6 pb-4 space-y-4 max-w-lg mx-auto">
+    <div className="px-4 pt-6 pb-4 space-y-4 max-w-lg md:max-w-3xl mx-auto">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Pay Stubs</h1>
         {profile?.role === 'admin' && (
@@ -83,9 +83,27 @@ export default async function StubsPage({ searchParams }: Props) {
       ) : null}
 
       {!filteredStubs?.length ? (
-        <p className="text-sm text-muted-foreground">
-          {stubs?.length ? `No stubs for ${selectedYear}.` : 'No stubs yet.'}
-        </p>
+        stubs?.length ? (
+          <p className="text-sm text-muted-foreground">No stubs for {selectedYear}.</p>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
+            <FileText className="h-12 w-12 text-muted-foreground/30" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium">No pay stubs yet</p>
+              <p className="text-sm text-muted-foreground max-w-xs">
+                {profile?.role === 'admin'
+                  ? 'Generate your first stub to start tracking payroll.'
+                  : 'Your pay stubs will appear here once your employer generates them.'}
+              </p>
+            </div>
+            {profile?.role === 'admin' && (
+              <Link href="/stubs/new" className={cn(buttonVariants({ size: 'sm' }))}>
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Generate First Stub
+              </Link>
+            )}
+          </div>
+        )
       ) : (
         <div className="space-y-2">
           {filteredStubs.map(stub => (

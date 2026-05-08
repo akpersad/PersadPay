@@ -65,7 +65,7 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
 
   if (!rates) {
     return (
-      <div className="px-4 pt-6 pb-4 max-w-lg mx-auto">
+      <div className="px-4 pt-6 pb-4 max-w-lg md:max-w-3xl mx-auto">
         <p className="text-sm text-yellow-700">No tax rates seeded for {year}.</p>
       </div>
     )
@@ -86,7 +86,7 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
   const isFiled = !!filing?.filed_on
 
   return (
-    <div className="px-4 pt-4 pb-4 max-w-lg mx-auto space-y-4">
+    <div className="px-4 pt-4 pb-4 max-w-lg md:max-w-3xl mx-auto space-y-4">
       <Link href="/filings" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
         <ChevronLeft className="h-4 w-4 mr-1" />
         All filings

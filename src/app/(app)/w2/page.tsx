@@ -22,7 +22,7 @@ export default async function W2Page() {
   const { data: w2s } = await w2Query
 
   return (
-    <div className="px-4 pt-6 pb-4 max-w-lg mx-auto">
+    <div className="px-4 pt-6 pb-4 max-w-lg md:max-w-3xl mx-auto">
       <h1 className="text-lg font-semibold mb-4">W-2 Forms</h1>
       <W2View
         w2s={(w2s ?? []) as W2[]}

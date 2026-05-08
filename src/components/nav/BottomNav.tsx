@@ -72,7 +72,7 @@ export function BottomNav({ role }: { role: Role }) {
   if (role === 'employee') {
     return (
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background print:hidden">
-        <div className="flex h-16 items-center justify-around px-2 max-w-lg mx-auto">
+        <div className="flex h-16 items-center justify-around px-2 max-w-lg md:max-w-4xl mx-auto">
           {employeeTabs.map(tab => (
             <TabLink key={tab.href} {...tab} pathname={pathname} className="flex-1" />
           ))}
@@ -86,7 +86,7 @@ export function BottomNav({ role }: { role: Role }) {
   return (
     <>
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background print:hidden">
-        <div className="flex h-16 items-center justify-around px-2 max-w-lg mx-auto">
+        <div className="flex h-16 items-center justify-around px-2 max-w-lg md:max-w-4xl mx-auto">
           {/* Primary tabs — always visible */}
           {adminPrimary.map(tab => (
             <TabLink key={tab.href} {...tab} pathname={pathname} className="flex-1" />

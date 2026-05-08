@@ -187,7 +187,7 @@ export function StubDetail({ stub, role, userId, settings, lineItems = [], ytdBy
   }
 
   return (
-    <div className="px-4 pt-6 pb-4 space-y-4 max-w-lg mx-auto">
+    <div className="px-4 pt-6 pb-4 space-y-4 max-w-lg md:max-w-3xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
