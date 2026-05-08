@@ -25,27 +25,36 @@ export default async function SickLeaveSummaryPage({
     .eq('id', user.id)
     .single<Pick<Profile, 'role'>>()
 
-  if (profile?.role !== 'admin') redirect('/dashboard')
+  const isEmployee = profile?.role === 'employee'
 
   const params = await searchParams
   const today = new Date()
   const currentYear = today.getFullYear()
   const year = parseInt(params.year ?? String(currentYear)) || currentYear
 
+  // Employees see only their own stubs (enforced by RLS + explicit filter).
+  const stubQuery = supabase
+    .from('paystubs')
+    .select('id, pay_period_start, pay_period_end, pay_date, sick_hours, reason')
+    .gte('pay_date', `${year}-01-01`)
+    .lte('pay_date', `${year}-12-31`)
+    .gt('sick_hours', 0)
+    .order('pay_date', { ascending: true })
+
+  if (isEmployee) stubQuery.eq('employee_id', user.id)
+
+  const anyStubQuery = supabase
+    .from('paystubs')
+    .select('pay_date')
+    .order('pay_date', { ascending: true })
+    .limit(1)
+
+  if (isEmployee) anyStubQuery.eq('employee_id', user.id)
+
   const [{ data: settings }, { data: stubsThisYear }, { data: anyStubs }] = await Promise.all([
     supabase.from('settings').select('*').single<Settings>(),
-    supabase
-      .from('paystubs')
-      .select('id, pay_period_start, pay_period_end, pay_date, sick_hours, reason')
-      .gte('pay_date', `${year}-01-01`)
-      .lte('pay_date', `${year}-12-31`)
-      .gt('sick_hours', 0)
-      .order('pay_date', { ascending: true }),
-    supabase
-      .from('paystubs')
-      .select('pay_date')
-      .order('pay_date', { ascending: true })
-      .limit(1),
+    stubQuery,
+    anyStubQuery,
   ])
 
   const earliestYear = anyStubs?.[0]
@@ -65,7 +74,7 @@ export default async function SickLeaveSummaryPage({
     <div className="px-4 pt-4 pb-4 max-w-2xl mx-auto print:max-w-none print:px-0 print:pt-0">
       {/* Toolbar — hidden on print */}
       <div className="flex items-center justify-between mb-4 print:hidden">
-        <Link href="/documents">
+        <Link href={isEmployee ? '/dashboard' : '/documents'}>
           <Button variant="ghost" size="sm">
             <ChevronLeft className="h-4 w-4 mr-1" />
             Back
