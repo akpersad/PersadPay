@@ -31,7 +31,7 @@ export default async function SettingsPage() {
   ])
 
   return (
-    <div className="px-4 pt-6 pb-4 max-w-lg mx-auto space-y-4">
+    <div className="px-4 pt-6 pb-4 max-w-lg md:max-w-3xl mx-auto space-y-4">
       <h1 className="text-lg font-semibold">Settings</h1>
       <SettingsForm settings={settings} />
       <PushNotificationsToggle />

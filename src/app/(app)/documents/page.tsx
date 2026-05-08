@@ -110,7 +110,7 @@ export default async function DocumentsPage() {
   }
 
   return (
-    <div className="px-4 pt-6 pb-4 space-y-5 max-w-lg mx-auto">
+    <div className="px-4 pt-6 pb-4 space-y-5 max-w-lg md:max-w-3xl mx-auto">
       <div>
         <h1 className="text-lg font-semibold">Documents</h1>
         <p className="text-xs text-muted-foreground mt-0.5">

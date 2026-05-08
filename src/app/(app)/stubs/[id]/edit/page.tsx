@@ -51,7 +51,7 @@ export default async function EditStubPage({ params }: { params: Promise<Params>
 
   if (!taxRates) {
     return (
-      <div className="px-4 pt-6 pb-4 max-w-lg mx-auto">
+      <div className="px-4 pt-6 pb-4 max-w-lg md:max-w-3xl mx-auto">
         <p className="text-sm text-yellow-700">No tax rates seeded for {payYear}.</p>
       </div>
     )
@@ -61,7 +61,7 @@ export default async function EditStubPage({ params }: { params: Promise<Params>
   const ytdPflBefore = (priorStubs ?? []).reduce((sum, s) => sum + Number(s.pfl ?? 0), 0)
 
   return (
-    <div className="px-4 pt-6 pb-4 max-w-lg mx-auto">
+    <div className="px-4 pt-6 pb-4 max-w-lg md:max-w-3xl mx-auto">
       <h1 className="text-lg font-semibold mb-4">Edit Stub #{stub.stub_number}</h1>
       <NewStubForm
         settings={settings}

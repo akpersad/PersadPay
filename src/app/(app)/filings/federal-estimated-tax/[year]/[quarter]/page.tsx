@@ -60,7 +60,7 @@ export default async function FederalEstimatedTaxQuarterPage({ params }: { param
   const isFiled = !!filing?.filed_on
 
   return (
-    <div className="px-4 pt-4 pb-4 max-w-lg mx-auto space-y-4">
+    <div className="px-4 pt-4 pb-4 max-w-lg md:max-w-3xl mx-auto space-y-4">
       <Link href="/filings" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
         <ChevronLeft className="h-4 w-4 mr-1" />
         All filings

@@ -24,7 +24,7 @@ export async function EmployeeDashboard() {
     .single<Paystub>()
 
   return (
-    <div className="px-4 pt-6 pb-4 space-y-5 max-w-lg mx-auto">
+    <div className="px-4 pt-6 pb-4 space-y-5 max-w-lg md:max-w-3xl mx-auto">
       <h1 className="text-lg font-semibold">Your Pay</h1>
 
       {latestStub ? (

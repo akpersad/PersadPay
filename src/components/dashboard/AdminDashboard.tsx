@@ -162,7 +162,7 @@ export async function AdminDashboard() {
   const showFilingCard = currentQuarterStubCount > 0 || daysUntil(getQuarterDueDate(currentYear, currentQuarter)) <= 20
 
   return (
-    <div className="px-4 pt-6 pb-4 space-y-6 max-w-lg mx-auto">
+    <div className="px-4 pt-6 pb-4 space-y-8 max-w-lg md:max-w-3xl mx-auto">
       {/* DBL/PFL coverage threshold watch — only renders when triggered */}
       {coverage.status !== 'ok' && (
         <Card className={coverage.status === 'exceeded' ? 'border-destructive' : 'border-yellow-500'}>
@@ -240,7 +240,7 @@ export async function AdminDashboard() {
       )}
 
       {/* HYSA balance card */}
-      <Link href="/hysa">
+      <Link href="/hysa" className="block">
         <Card className={`hover:bg-muted/50 transition-colors cursor-pointer ${hysaDiscrepancy !== null && hysaDiscrepancy !== 0 ? 'border-yellow-400' : ''}`}>
           <CardContent className="py-3 px-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
