@@ -21,11 +21,11 @@ import * as path from 'path'
 import * as crypto from 'crypto'
 
 const BASE_URL    = 'http://localhost:3000'
-const SUPA_URL    = 'https://cmctfwzqumdkthehpqxv.supabase.co'
-const ANON_KEY    = 'sb_publishable_Bt5MaklCq9qUTgndTw8mRQ_dYHCiWlr'
+const SUPA_URL    = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const ANON_KEY    = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
 
-const TEST_EMAIL  = 'test-admin@persadpay.com'
-const TEST_PASS   = 'TestAdmin2026!'
+const TEST_EMAIL  = process.env.SCREENSHOT_TEST_EMAIL!
+const TEST_PASS   = process.env.SCREENSHOT_TEST_PASS!
 const SECRET_FILE = path.join(__dirname, '.totp-secret')
 const OUT_DIR     = path.join(__dirname, 'screenshots')
 
@@ -143,6 +143,13 @@ async function screenshot(page: PwPage, route: { path: string; name: string }, o
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
+  const missing = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'SCREENSHOT_TEST_EMAIL', 'SCREENSHOT_TEST_PASS']
+    .filter(k => !process.env[k])
+  if (missing.length) {
+    console.error(`Missing env vars: ${missing.join(', ')}\nAdd them to .env.local`)
+    process.exit(1)
+  }
+
   console.log('\n📸 PersadPay Phase 12 Screenshot Script')
   console.log('─────────────────────────────────────────')
 
