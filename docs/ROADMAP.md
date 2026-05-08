@@ -482,18 +482,14 @@ All other tokens (background, card, border, muted, etc.) stay neutral — only `
 
 ### Phase 9 — Navigation & auth
 
-**Status: PENDING.** Branch: `feature/phase9-nav-auth` (create fresh).
+**Status: COMPLETE on 2026-05-07.** Branch: `feature/phase9-nav-auth`.
 
 **Goal:** fix mobile nav crowding and give all users a self-service password path.
 
-- [ ] **Mobile nav "More" tab** — on small screens (`< md`), collapse W-2, Filings, Documents, Calendar, Settings into a 5th "More" tab; clicking opens a shadcn `Sheet` with `side="bottom"` listing the overflow items with icons. Desktop (`md+`) keeps all tabs visible as-is. Admin has 5 overflow items; employee has only 3 tabs total so no overflow needed.
-- [ ] **"Forgot password?" on login page** — link below the sign-in button; calls Supabase `auth.resetPasswordForEmail()`; shows a confirmation message "Check your email for a reset link"
-- [ ] **In-app change password (admin)** — new "Change Password" card in `/settings`; inputs for new password + confirm; calls `supabase.auth.updateUser({ password })`
-- [ ] **In-app change password (employee)** — same UI but surfaced in the employee's profile/account area (she has no Settings tab); accessible via a profile icon or similar on her dashboard
-
-**Commit grouping (guidance):**
-1. Mobile nav "More" tab (nav component + CSS only)
-2. Password reset + change (auth pages + settings)
+- [x] **Mobile nav "More" tab** — on small screens (`< md`), collapse W-2, Filings, Documents, Calendar, Settings into a 5th "More" tab; clicking opens a shadcn `Sheet` with `side="bottom"` listing the overflow items with icons. Desktop (`md+`) keeps all tabs visible as-is. Admin has 5 overflow items; employee has only 3 tabs total so no overflow needed.
+- [x] **"Forgot password?" on login page** — link below the sign-in button; calls Supabase `auth.resetPasswordForEmail()`; shows a confirmation message "Check your email for a reset link"
+- [x] **In-app change password (admin)** — new "Change Password" card in `/settings`; inputs for new password + confirm; calls `supabase.auth.updateUser({ password })`
+- [x] **In-app change password (employee)** — same UI but surfaced in the employee's dashboard (below MFA card); calls `supabase.auth.updateUser({ password })`
 
 ---
 

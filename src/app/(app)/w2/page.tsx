@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { W2View } from '@/components/w2/W2View'
-import type { Profile, W2, Settings } from '@/lib/types'
+import type { Profile, W2 } from '@/lib/types'
 
 export default async function W2Page() {
   const supabase = await createClient()
@@ -19,10 +19,7 @@ export default async function W2Page() {
   const w2Query = supabase.from('w2s').select('*').order('tax_year', { ascending: false })
   if (!isAdmin) w2Query.eq('employee_id', user.id)
 
-  const [{ data: w2s }, { data: settings }] = await Promise.all([
-    w2Query,
-    isAdmin ? supabase.from('settings').select('*').single<Settings>() : Promise.resolve({ data: null }),
-  ])
+  const { data: w2s } = await w2Query
 
   return (
     <div className="px-4 pt-6 pb-4 max-w-lg mx-auto">
@@ -31,7 +28,6 @@ export default async function W2Page() {
         w2s={(w2s ?? []) as W2[]}
         role={profile?.role ?? 'employee'}
         userId={user.id}
-        settings={settings}
       />
     </div>
   )

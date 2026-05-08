@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -13,19 +12,18 @@ import { formatCurrency } from '@/lib/dates'
 import { toast } from 'sonner'
 import { Download, Mail } from 'lucide-react'
 import { PdfPreviewDialog } from '@/components/ui/pdf-preview-dialog'
-import type { W2, Settings, Role } from '@/lib/types'
+import type { W2, Role } from '@/lib/types'
 
 interface Props {
   w2s: W2[]
   role: Role
   userId: string
-  settings: Settings | null
 }
 
 const CURRENT_YEAR = new Date().getFullYear()
 const TAX_YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - 1 - i)
 
-export function W2View({ w2s, role, userId, settings }: Props) {
+export function W2View({ w2s, role, userId }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const isAdmin = role === 'admin'
