@@ -5,6 +5,7 @@ import { TaxRatesPanel } from '@/components/settings/TaxRatesPanel'
 import { PushNotificationsToggle } from '@/components/settings/PushNotificationsToggle'
 import { MfaSecurityCard } from '@/components/settings/MfaSecurityCard'
 import { MfaStatusPanel } from '@/components/settings/MfaStatusPanel'
+import { ChangePasswordCard } from '@/components/settings/ChangePasswordCard'
 import { getTaxRatesForYear } from '@/lib/tax'
 import type { Settings, Profile } from '@/lib/types'
 
@@ -35,6 +36,7 @@ export default async function SettingsPage() {
       <SettingsForm settings={settings} />
       <PushNotificationsToggle />
       <MfaSecurityCard />
+      <ChangePasswordCard />
       <MfaStatusPanel profiles={allProfiles ?? []} />
       <TaxRatesPanel rates={taxRates} requestedYear={currentYear} />
     </div>
