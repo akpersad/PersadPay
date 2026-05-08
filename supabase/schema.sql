@@ -139,6 +139,19 @@ create table public.onboarding_checklist (
   sort_order integer not null
 );
 
+-- ── year_end_checklist ───────────────────────────────────────────────────────
+create table public.year_end_checklist (
+  id         uuid primary key default gen_random_uuid(),
+  tax_year   integer not null,
+  label      text not null,
+  detail     text not null,
+  completed  boolean not null default false,
+  sort_order integer not null,
+  created_at timestamptz default now()
+);
+
+create unique index year_end_checklist_year_sort on public.year_end_checklist (tax_year, sort_order);
+
 -- ── w2s ─────────────────────────────────────────────────────────────────────
 create table public.w2s (
   id                    uuid primary key default uuid_generate_v4(),
@@ -345,6 +358,7 @@ alter table public.audit_log enable row level security;
 alter table public.signed_documents enable row level security;
 alter table public.withholding_forms enable row level security;
 alter table public.push_subscriptions enable row level security;
+alter table public.year_end_checklist enable row level security;
 
 -- Helper: is the current user an admin?
 create or replace function public.is_admin()
@@ -379,6 +393,10 @@ create policy "Admins full access to reminders" on public.reminders
 
 -- onboarding_checklist
 create policy "Admins full access to checklist" on public.onboarding_checklist
+  for all using (public.is_admin());
+
+-- year_end_checklist
+create policy "Admins full access to year_end_checklist" on public.year_end_checklist
   for all using (public.is_admin());
 
 -- w2s
@@ -558,6 +576,7 @@ grant select, insert, update, delete on public.paystubs to authenticated;
 grant select, insert, update, delete on public.settings to authenticated;
 grant select, insert, update, delete on public.reminders to authenticated;
 grant select, insert, update, delete on public.onboarding_checklist to authenticated;
+grant select, insert, update, delete on public.year_end_checklist to authenticated;
 grant select, insert, update, delete on public.w2s to authenticated;
 grant select, insert, update, delete on public.tax_rates to authenticated;
 grant select, insert, update, delete on public.filings to authenticated;

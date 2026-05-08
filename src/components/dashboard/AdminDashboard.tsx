@@ -5,13 +5,26 @@ import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { OnboardingChecklist } from './OnboardingChecklist'
+import { YearEndChecklist } from './YearEndChecklist'
 import { UpcomingDeadlines } from './UpcomingDeadlines'
 import { NextFilingCard } from './NextFilingCard'
 import { formatDateRange, formatCurrency, daysUntil } from '@/lib/dates'
 import { getCurrentQuarter, getQuarterDateRange, getQuarterDueDate } from '@/lib/filings'
 import { PlusCircle, CheckCircle2, AlertCircle, PiggyBank, AlertTriangle, TrendingUp } from 'lucide-react'
 import { computeCoverageWatch } from '@/lib/coverage'
-import type { Paystub, Reminder, OnboardingItem, Filing, Settings } from '@/lib/types'
+import type { Paystub, Reminder, OnboardingItem, YearEndItem, Filing, Settings } from '@/lib/types'
+
+// Fixed items seeded per tax year — label + detail only (id/year added at insert time).
+const YEAR_END_ITEMS = [
+  { label: 'Confirm all pay stubs for the year are generated', detail: 'Ensure every week worked has a stub — no gaps in the stubs list.' },
+  { label: 'Verify HYSA balance covers all Q4 taxes', detail: 'Check the HYSA ledger against Q4 tax obligations before filing.' },
+  { label: 'File NYS-45 Q4 (due Jan 31)', detail: 'File at nystax.gov. Pay UI tax + state withholding. See Reminders.' },
+  { label: 'Generate and send W-2 to employee (due Jan 31)', detail: 'Generate from the W-2 tab, then email to employee.' },
+  { label: 'File W-3 with SSA (due Jan 31)', detail: 'Submit W-3 transmittal to SSA. Download from the W-2 tab.' },
+  { label: 'File Schedule H with federal return (due ~Apr 15)', detail: 'Attach to Form 1040. Generate from Filings → Schedule H.' },
+  { label: 'Verify and update tax constants for the new year', detail: 'Review the Tax Rates panel in Settings and update if changed.' },
+  { label: 'Check updated SUTA rate notice from NY DOL (Jan/Feb)', detail: 'Update suta_rate in Settings when your NY DOL notice arrives.' },
+] as const
 
 export async function AdminDashboard() {
   const supabase = await createClient()
@@ -39,7 +52,7 @@ export async function AdminDashboard() {
   ] = await Promise.all([
     supabase
       .from('paystubs')
-      .select('gross_pay')
+      .select('gross_pay, employer_fica_ss, employer_fica_medicare, futa, suta')
       .gte('pay_date', yearStart),
     supabase
       .from('paystubs')
@@ -81,9 +94,54 @@ export async function AdminDashboard() {
     supabase.from('settings').select('hysa_actual_balance, hysa_actual_balance_at').single<Pick<Settings, 'hysa_actual_balance' | 'hysa_actual_balance_at'>>(),
   ])
 
+  // Year-end checklist: show in December (filing year) and January (prior year).
+  const currentMonth = now.getMonth() // 0-11
+  const isYearEndPeriod = currentMonth === 11 || currentMonth === 0
+  const yearEndTaxYear = currentMonth === 0 ? now.getFullYear() - 1 : now.getFullYear()
+
+  let yearEndItems: YearEndItem[] = []
+  if (isYearEndPeriod) {
+    const { data: existing } = await supabase
+      .from('year_end_checklist')
+      .select('*')
+      .eq('tax_year', yearEndTaxYear)
+      .order('sort_order', { ascending: true })
+
+    if (!existing?.length) {
+      await supabase.from('year_end_checklist').insert(
+        YEAR_END_ITEMS.map((item, i) => ({
+          tax_year: yearEndTaxYear,
+          label: item.label,
+          detail: item.detail,
+          sort_order: i + 1,
+        }))
+      )
+      const { data: seeded } = await supabase
+        .from('year_end_checklist')
+        .select('*')
+        .eq('tax_year', yearEndTaxYear)
+        .order('sort_order', { ascending: true })
+      yearEndItems = (seeded ?? []) as YearEndItem[]
+    } else {
+      yearEndItems = existing as YearEndItem[]
+    }
+  }
+
+  const allYearEndDone = yearEndItems.every(i => i.completed)
+
   const coverage = computeCoverageWatch((coverageStubs ?? []) as Paystub[], now)
 
   const ytdGross = (ytdStubs ?? []).reduce((sum, s) => sum + Number(s.gross_pay), 0)
+  const ytdEmployerCost = (ytdStubs ?? []).reduce(
+    (sum, s) =>
+      sum +
+      Number(s.gross_pay) +
+      Number(s.employer_fica_ss) +
+      Number(s.employer_fica_medicare) +
+      Number(s.futa) +
+      Number(s.suta),
+    0
+  )
   const stubCount = ytdStubs?.length ?? 0
 
   const hysaExpectedBalance = Math.round(
@@ -128,11 +186,17 @@ export async function AdminDashboard() {
       )}
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <Card>
           <CardContent className="pt-4 pb-3 px-3">
             <p className="text-xs text-muted-foreground">YTD Gross</p>
             <p className="text-lg font-semibold font-mono mt-0.5">{formatCurrency(ytdGross)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 px-3">
+            <p className="text-xs text-muted-foreground">Employer Cost YTD</p>
+            <p className="text-lg font-semibold font-mono mt-0.5">{formatCurrency(ytdEmployerCost)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -210,6 +274,11 @@ export async function AdminDashboard() {
 
       {/* Onboarding checklist */}
       {!allDone && <OnboardingChecklist items={checklistItems} />}
+
+      {/* Year-end task checklist — December and January only */}
+      {isYearEndPeriod && !allYearEndDone && yearEndItems.length > 0 && (
+        <YearEndChecklist items={yearEndItems} taxYear={yearEndTaxYear} />
+      )}
 
       {/* Recent stubs */}
       <section className="space-y-3">

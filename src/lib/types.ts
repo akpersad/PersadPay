@@ -86,6 +86,16 @@ export interface OnboardingItem {
   sort_order: number
 }
 
+export interface YearEndItem {
+  id: string
+  tax_year: number
+  label: string
+  detail: string
+  completed: boolean
+  sort_order: number
+  created_at: string
+}
+
 export interface W2 {
   id: string
   employee_id: string

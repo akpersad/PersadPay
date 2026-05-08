@@ -495,21 +495,13 @@ All other tokens (background, card, border, muted, etc.) stay neutral — only `
 
 ### Phase 10 — Dashboard & reminders upgrades
 
-**Status: PENDING.** Branch: `feature/phase10-dashboard-reminders` (create fresh).
+**Status: COMPLETE on 2026-05-07.** Branch: `feature/phase10-dashboard-reminders`. Migration `0017_phase10_year_end_checklist.sql` applied via MCP. Build green.
 
 **Goal:** surface employer cost visibility and tighten the reminder → filing workflow.
 
-- [ ] **Annual employer cost stat card** — 4th card in admin dashboard stats row; shows current-year total employer cost = sum of `gross_pay + employer_fica_ss + employer_fica_medicare + futa + suta` across all stubs in the current calendar year; label "Employer cost YTD"; `font-mono` currency value; same card style as existing 3 stats
-- [ ] **Reminder → filing linkage** — on each reminder card in `/reminders`, show the calculated amount due (using existing filing math already computed server-side in Phase 4b) and a "View Filing →" link/button that navigates to the relevant `/filings/...` route. Plain reminders (non-filing) show no amount. Match reminder title patterns to determine filing type + period.
-- [ ] **Year-end task checklist** — surfaces on admin dashboard in **December and January only** (check current month server-side); structured like the onboarding checklist (per-item checkbox, collapses when all checked). Persisted in a new `year_end_checklist` DB table OR stored as a set of boolean columns in settings — decide at implementation time based on complexity. Items:
-  1. Confirm all pay stubs for the year are generated
-  2. Verify HYSA balance covers all Q4 taxes
-  3. File NYS-45 Q4 (due Jan 31)
-  4. Generate and send W-2 to employee (due Jan 31)
-  5. File W-3 with SSA (due Jan 31)
-  6. File Schedule H with federal return (due ~Apr 15)
-  7. Verify and update tax constants for the new year in Settings
-  8. Check updated SUTA rate notice from NY DOL (usually published Jan/Feb)
+- [x] **Annual employer cost stat card** — 4th card in admin dashboard stats row; shows current-year total employer cost = sum of `gross_pay + employer_fica_ss + employer_fica_medicare + futa + suta` across all stubs in the current calendar year; label "Employer cost YTD"; `font-mono` currency value; stats grid changed to `grid-cols-2` (2×2) for mobile readability
+- [x] **Reminder → filing linkage** — "View Filing →" link added to each filing reminder card in `/reminders`; only appears when the title parses to a known filing route (NYS-45, Federal Estimated Tax, Schedule H). Plain reminders unaffected.
+- [x] **Year-end task checklist** — surfaces on admin dashboard in **December and January only**; `year_end_checklist` table (keyed on `tax_year`); auto-seeded on first render for the relevant year (no manual migration seed needed for future years); 8 items with internal links; collapses when all checked.
 
 **Commit grouping (guidance):**
 1. Employer cost stat card
