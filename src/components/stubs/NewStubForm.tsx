@@ -148,6 +148,30 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
 
   const stubNumber = initialStub?.stub_number ?? nextStubNumber
 
+  // In edit mode, lock to the stub's stored snapshot values rather than live
+  // settings. This preserves the intent of the original generation: if the admin
+  // changes the SUTA rate or coverage toggles after a stub is saved, editing
+  // that stub should not silently recalculate with the new rates.
+  const effectiveFederalWithholding = isEdit
+    ? Number(initialStub!.federal_withholding)
+    : Number(settings?.federal_withholding_per_period ?? 0)
+
+  const effectiveStateWithholding = isEdit
+    ? Number(initialStub!.state_withholding)
+    : Number(settings?.state_withholding_per_period ?? 0)
+
+  const effectiveSutaRate = isEdit
+    ? Number(initialStub!.suta_rate_at_generation ?? settings?.suta_rate ?? 0)
+    : Number(settings?.suta_rate ?? 0)
+
+  const effectiveDblCovered = isEdit
+    ? Boolean(initialStub!.dbl_covered_at_generation)
+    : Boolean(settings?.dbl_covered)
+
+  const effectivePflCovered = isEdit
+    ? Boolean(initialStub!.pfl_covered_at_generation)
+    : Boolean(settings?.pfl_covered)
+
   const datesInRange = useMemo(
     () => (periodStart && periodEnd ? getDatesInRange(periodStart, periodEnd) : []),
     [periodStart, periodEnd],
@@ -252,10 +276,11 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
       gross,
       ytdGrossBefore,
       ytdPflBefore,
-      federalWithholding: Number(settings.federal_withholding_per_period),
-      stateWithholding: Number(settings.state_withholding_per_period),
-      pflWaived: settings.pfl_waived,
-      sutaRate: Number(settings.suta_rate),
+      federalWithholding: effectiveFederalWithholding,
+      stateWithholding: effectiveStateWithholding,
+      dblCovered: effectiveDblCovered,
+      pflCovered: effectivePflCovered,
+      sutaRate: effectiveSutaRate,
     }, taxRates)
     setPreview(calc)
   }
@@ -288,6 +313,9 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
       state_withholding: preview.state_withholding,
       sdi: preview.sdi,
       pfl: preview.pfl,
+      dbl_covered_at_generation: effectiveDblCovered,
+      pfl_covered_at_generation: effectivePflCovered,
+      suta_rate_at_generation: effectiveSutaRate,
       employer_fica_ss: preview.employer_fica_ss,
       employer_fica_medicare: preview.employer_fica_medicare,
       futa: preview.futa,
@@ -378,7 +406,6 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
   const canPreview = hoursMode === 'daily'
     ? (!!rate && !!periodStart && !!periodEnd && !!payDate)
     : (!!hours && !!rate && !!periodStart && !!periodEnd && !!payDate)
-  const pflLabel = settings?.pfl_waived ? null : 'NY PFL'
 
   return (
     <div className="space-y-5">
@@ -637,8 +664,8 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
               {preview.state_withholding > 0 && (
                 <Row label="NY State Withholding" value={preview.state_withholding} />
               )}
-              <Row label="NY SDI" value={preview.sdi} />
-              {pflLabel && <Row label={pflLabel} value={preview.pfl} />}
+              {effectiveDblCovered && <Row label="NY SDI" value={preview.sdi} />}
+              {effectivePflCovered && <Row label="NY PFL" value={preview.pfl} />}
 
               {nonTaxableLineItems.length > 0 && (
                 <>

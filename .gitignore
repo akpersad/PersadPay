@@ -46,3 +46,7 @@ next-env.d.ts
 .mcp.json
 memory/
 skills-lock.json
+
+# scripts
+scripts/.totp-secret
+scripts/screenshots/

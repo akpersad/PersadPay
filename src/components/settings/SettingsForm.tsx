@@ -35,7 +35,8 @@ export function SettingsForm({ settings: initial }: Props) {
   const [hourlyRate, setHourlyRate] = useState(s.employee_hourly_rate?.toString() ?? '')
   const [federalWithholding, setFederalWithholding] = useState(s.federal_withholding_per_period?.toString() ?? '0')
   const [stateWithholding, setStateWithholding] = useState(s.state_withholding_per_period?.toString() ?? '0')
-  const [pflWaived, setPflWaived] = useState(s.pfl_waived ?? false)
+  const [pflCovered, setPflCovered] = useState(s.pfl_covered ?? false)
+  const [dblCovered, setDblCovered] = useState(s.dbl_covered ?? false)
   const [sutaRate, setSutaRate] = useState(s.suta_rate?.toString() ?? '0.041')
   const [additionalEmails, setAdditionalEmails] = useState<string[]>(s.additional_emails ?? [])
   const [replyToEmails, setReplyToEmails] = useState<string[]>(s.reply_to_emails ?? [])
@@ -57,7 +58,8 @@ export function SettingsForm({ settings: initial }: Props) {
       employee_hourly_rate: hourlyRate ? parseFloat(hourlyRate) : null,
       federal_withholding_per_period: parseFloat(federalWithholding || '0'),
       state_withholding_per_period: parseFloat(stateWithholding || '0'),
-      pfl_waived: pflWaived,
+      pfl_covered: pflCovered,
+      dbl_covered: dblCovered,
       suta_rate: parseFloat(sutaRate || '0.041'),
       additional_emails: additionalEmails,
       reply_to_emails: replyToEmails,
@@ -97,14 +99,27 @@ export function SettingsForm({ settings: initial }: Props) {
       </Section>
 
       <Section title="Withholding">
-        <Field label="Federal Withholding per Period ($)" value={federalWithholding} onChange={setFederalWithholding} onBlur={() => setFederalWithholding(formatCurrencyInput(federalWithholding))} inputMode="decimal" placeholder="0.00" />
-        <Field label="NY State Withholding per Period ($)" value={stateWithholding} onChange={setStateWithholding} onBlur={() => setStateWithholding(formatCurrencyInput(stateWithholding))} inputMode="decimal" placeholder="0.00" />
+        <div className="space-y-1.5">
+          <Field label="Federal Withholding per Period ($)" value={federalWithholding} onChange={setFederalWithholding} onBlur={() => setFederalWithholding(formatCurrencyInput(federalWithholding))} inputMode="decimal" placeholder="0.00" />
+          <p className="text-xs text-muted-foreground">Federal income tax withholding is <strong>voluntary</strong> for household employees. Default $0. Only set a value if you both agree and she has signed Form W-4. Most household employers settle federal tax via Schedule H + 1040-ES.</p>
+        </div>
+        <div className="space-y-1.5">
+          <Field label="NY State Withholding per Period ($)" value={stateWithholding} onChange={setStateWithholding} onBlur={() => setStateWithholding(formatCurrencyInput(stateWithholding))} inputMode="decimal" placeholder="0.00" />
+          <p className="text-xs text-muted-foreground">NY state income tax withholding is <strong>voluntary</strong> for household employees. Default $0. Only set a value after she has signed Form IT-2104. (Source: NY DTF — Hiring Household Help)</p>
+        </div>
         <div className="flex items-center justify-between py-1">
           <div>
-            <Label>PFL Waived</Label>
-            <p className="text-xs text-muted-foreground mt-0.5">Eligible if employee works &lt;20 hrs/week. Requires signed waiver.</p>
+            <Label>NY Paid Family Leave (PFL) coverage</Label>
+            <p className="text-xs text-muted-foreground mt-0.5">PFL covers domestic workers at 20+ hrs/wk OR reaching 175 days/52 wks. Default off — turn on only if she crosses either threshold (a separate PFL policy is then also required).</p>
           </div>
-          <Switch checked={pflWaived} onCheckedChange={setPflWaived} />
+          <Switch checked={pflCovered} onCheckedChange={setPflCovered} />
+        </div>
+        <div className="flex items-center justify-between py-1">
+          <div>
+            <Label>NY State Disability (DBL) coverage</Label>
+            <p className="text-xs text-muted-foreground mt-0.5">NY DBL covers domestic workers at 20+ hrs/wk in a private home. Default off — turn on only if she crosses that threshold (a DBL insurance policy is then also required; contact NYSIF or a private carrier).</p>
+          </div>
+          <Switch checked={dblCovered} onCheckedChange={setDblCovered} />
         </div>
         <div className="space-y-1.5">
           <Label>SUTA Rate</Label>

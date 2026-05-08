@@ -157,10 +157,6 @@ export interface ScheduleHData {
   futa_threshold_met: boolean
 }
 
-// 2026 thresholds per IRS Pub 926. Verify each January.
-const FICA_HOUSEHOLD_THRESHOLD_2026 = 2800
-const FUTA_QUARTERLY_THRESHOLD = 1000
-
 export interface FederalEstimatedTaxData {
   year: number
   quarter: Quarter
@@ -217,8 +213,12 @@ export function calculateScheduleH(
 ): ScheduleHData {
   const totalGross = yearStubs.reduce((sum, s) => sum + Number(s.gross_pay), 0)
 
-  // FICA trigger: $2,800+ in cash wages for the year.
-  const ficaThresholdMet = totalGross >= FICA_HOUSEHOLD_THRESHOLD_2026
+  // Thresholds from tax_rates table (IRS Pub 926, Table 1). Verify annually.
+  const ficaThreshold = Number(rates.fica_household_threshold)
+  const futaQuarterlyThreshold = Number(rates.futa_quarterly_threshold)
+
+  // FICA trigger: cash wages must meet the annual household-employee threshold.
+  const ficaThresholdMet = totalGross >= ficaThreshold
 
   // FUTA trigger: $1,000+ in cash wages in any single calendar quarter.
   const quarterTotals: Record<Quarter, number> = { 1: 0, 2: 0, 3: 0, 4: 0 }
@@ -227,7 +227,7 @@ export function calculateScheduleH(
     const q = Math.ceil(month / 3) as Quarter
     quarterTotals[q] += Number(stub.gross_pay)
   }
-  const futaThresholdMet = Object.values(quarterTotals).some(t => t >= FUTA_QUARTERLY_THRESHOLD)
+  const futaThresholdMet = Object.values(quarterTotals).some(t => t >= futaQuarterlyThreshold)
 
   // SS — capped at the SS wage base; combined rate (employee 6.2% + employer 6.2%)
   const ssWages = ficaThresholdMet ? Math.min(totalGross, Number(rates.ss_wage_base)) : 0

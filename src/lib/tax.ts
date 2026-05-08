@@ -22,6 +22,9 @@ export interface TaxRates {
   pfl_rate: number
   pfl_annual_cap: number
   irs_mileage_rate: number
+  // Household employer FICA/FUTA cash-wage thresholds (IRS Pub 926, Table 1)
+  fica_household_threshold: number
+  futa_quarterly_threshold: number
 }
 
 export interface TaxInputs {
@@ -30,7 +33,10 @@ export interface TaxInputs {
   ytdPflBefore: number
   federalWithholding: number
   stateWithholding: number
-  pflWaived: boolean
+  // dblCovered: NY DBL covers domestic workers at 20+ hrs/wk. Default false.
+  dblCovered: boolean
+  // pflCovered: NY PFL covers domestic workers at 20+ hrs/wk OR 175+ days/52 wks. Default false.
+  pflCovered: boolean
   sutaRate: number
 }
 
@@ -54,12 +60,13 @@ function taxableWagePortion(ytdBefore: number, current: number, cap: number): nu
   return Math.min(current, cap - ytdBefore)
 }
 
+// IEEE-754 safe rounding: adding EPSILON prevents 1.005 → 1.00 (banker's rounding artifact)
 function round(n: number): number {
-  return Math.round(n * 100) / 100
+  return Math.sign(n) * Math.round(Math.abs(n) * 100 + Number.EPSILON) / 100
 }
 
 export function calculateTaxes(inputs: TaxInputs, rates: TaxRates): TaxResult {
-  const { gross, ytdGrossBefore, ytdPflBefore, federalWithholding, stateWithholding, pflWaived, sutaRate } = inputs
+  const { gross, ytdGrossBefore, ytdPflBefore, federalWithholding, stateWithholding, dblCovered, pflCovered, sutaRate } = inputs
 
   if (gross === 0) {
     return {
@@ -82,13 +89,15 @@ export function calculateTaxes(inputs: TaxInputs, rates: TaxRates): TaxResult {
   const fica_ss = round(ssTaxable * Number(rates.fica_ss_rate))
   const fica_med = round(gross * Number(rates.fica_medicare_rate))
 
-  const sdi = Math.min(round(gross * Number(rates.sdi_rate)), Number(rates.sdi_weekly_cap))
+  // NY SDI: only applies when employee is covered (20+ hrs/wk). Default off.
+  const sdi = dblCovered ? Math.min(round(gross * Number(rates.sdi_rate)), Number(rates.sdi_weekly_cap)) : 0
 
+  // NY PFL: only applies when employee is covered (20+ hrs/wk or 175+ days/52 wks). Default off.
   let pfl = 0
-  if (!pflWaived) {
+  if (pflCovered) {
     const remainingCap = Math.max(0, Number(rates.pfl_annual_cap) - ytdPflBefore)
     pfl = Math.min(round(gross * Number(rates.pfl_rate)), remainingCap)
-    pfl = round(pfl)
+    // round() on the inner expression is sufficient; no double-round needed
   }
 
   const futaTaxable = taxableWagePortion(ytdGrossBefore, gross, Number(rates.futa_wage_base))
