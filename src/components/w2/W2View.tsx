@@ -158,7 +158,9 @@ export function W2View({ w2s, role, userId }: Props) {
       )}
 
       {!w2s.length && !isAdmin && (
-        <p className="text-sm text-muted-foreground">No W-2s available yet.</p>
+        <p className="text-sm text-muted-foreground">
+          No W-2s available yet. Your employer will generate your W-2 in January after year-end.
+        </p>
       )}
 
       {/* Admin: generate new W-2 */}
