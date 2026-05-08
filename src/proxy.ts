@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 const ADMIN_ONLY_PATHS = ['/stubs/new', '/reminders', '/settings']
-const PUBLIC_PATHS = ['/', '/manifest.webmanifest', '/sw.js']
+const PUBLIC_PATHS = ['/', '/manifest.webmanifest', '/sw.js', '/auth/reset-password']
 // MFA pages need authenticated session but are accessible before AAL2 is satisfied
 const MFA_PATHS = ['/auth/enroll-mfa', '/auth/verify-mfa']
 
