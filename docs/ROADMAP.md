@@ -451,6 +451,107 @@ All other tokens (background, card, border, muted, etc.) stay neutral — only `
 
 ---
 
+---
+
+### Phase 8 — UX audit: stubs & PDF improvements
+
+**Status: COMPLETE on 2026-05-07.** Merged as PR #14, commit `48ee889`.
+
+**Source:** Full app audit session (2026-05-07). The below items were chosen from a larger audit list — rejected items are documented at the bottom of this phase.
+
+- [x] Year filter on `/stubs` list — `StubYearFilter` client component pushes `?year=X` via `useRouter`; page server-filters displayed list; defaults to current year; "All years" option included; CSV export `defaultYear` stays in sync
+- [x] Inline PDF preview on stub detail — `PdfPreviewDialog` shared component (`src/components/ui/pdf-preview-dialog.tsx`); renders 95vw × 90vh iframe dialog + "Open in new tab" fallback; Preview + Download side by side; variant (admin/employee) auto-selected by role
+- [x] Inline PDF preview on W-2 detail — same `PdfPreviewDialog`; added to each saved W-2 card (W-2 + W-3 for admin)
+
+**Audit items REJECTED (with rationale — do not re-litigate):**
+
+| Item | Decision |
+|---|---|
+| Sick leave accrual balance tracker | Skipped — family offers unlimited unpaid sick leave; no accrual to track |
+| Wage base saturation alerts | Skipped — at $22/hr × 9hrs/wk, FUTA/SUTA/SS caps won't be reached; revisit if she goes full-time |
+| Coverage watch removal | Leave as-is — if employee stops working, app use will end naturally |
+| Sandbox email sender | Leave as-is — already in onboarding checklist; user handles when domain is ready |
+
+**Verified (no changes needed):**
+- `Email Paystub` button is fully hidden (not just disabled) when `payment_sent = false` ✅
+- W-2 regeneration confirmation dialog exists and fires correctly ✅
+- Reminder dismissal auto-creates next year's equivalent with correct year math ✅
+- SUTA wage base in `tax_rates` DB table = $13,000 (correct for NY 2026) ✅
+
+---
+
+### Phase 9 — Navigation & auth
+
+**Status: PENDING.** Branch: `feature/phase9-nav-auth` (create fresh).
+
+**Goal:** fix mobile nav crowding and give all users a self-service password path.
+
+- [ ] **Mobile nav "More" tab** — on small screens (`< md`), collapse W-2, Filings, Documents, Calendar, Settings into a 5th "More" tab; clicking opens a shadcn `Sheet` with `side="bottom"` listing the overflow items with icons. Desktop (`md+`) keeps all tabs visible as-is. Admin has 5 overflow items; employee has only 3 tabs total so no overflow needed.
+- [ ] **"Forgot password?" on login page** — link below the sign-in button; calls Supabase `auth.resetPasswordForEmail()`; shows a confirmation message "Check your email for a reset link"
+- [ ] **In-app change password (admin)** — new "Change Password" card in `/settings`; inputs for new password + confirm; calls `supabase.auth.updateUser({ password })`
+- [ ] **In-app change password (employee)** — same UI but surfaced in the employee's profile/account area (she has no Settings tab); accessible via a profile icon or similar on her dashboard
+
+**Commit grouping (guidance):**
+1. Mobile nav "More" tab (nav component + CSS only)
+2. Password reset + change (auth pages + settings)
+
+---
+
+### Phase 10 — Dashboard & reminders upgrades
+
+**Status: PENDING.** Branch: `feature/phase10-dashboard-reminders` (create fresh).
+
+**Goal:** surface employer cost visibility and tighten the reminder → filing workflow.
+
+- [ ] **Annual employer cost stat card** — 4th card in admin dashboard stats row; shows current-year total employer cost = sum of `gross_pay + employer_fica_ss + employer_fica_medicare + futa + suta` across all stubs in the current calendar year; label "Employer cost YTD"; `font-mono` currency value; same card style as existing 3 stats
+- [ ] **Reminder → filing linkage** — on each reminder card in `/reminders`, show the calculated amount due (using existing filing math already computed server-side in Phase 4b) and a "View Filing →" link/button that navigates to the relevant `/filings/...` route. Plain reminders (non-filing) show no amount. Match reminder title patterns to determine filing type + period.
+- [ ] **Year-end task checklist** — surfaces on admin dashboard in **December and January only** (check current month server-side); structured like the onboarding checklist (per-item checkbox, collapses when all checked). Persisted in a new `year_end_checklist` DB table OR stored as a set of boolean columns in settings — decide at implementation time based on complexity. Items:
+  1. Confirm all pay stubs for the year are generated
+  2. Verify HYSA balance covers all Q4 taxes
+  3. File NYS-45 Q4 (due Jan 31)
+  4. Generate and send W-2 to employee (due Jan 31)
+  5. File W-3 with SSA (due Jan 31)
+  6. File Schedule H with federal return (due ~Apr 15)
+  7. Verify and update tax constants for the new year in Settings
+  8. Check updated SUTA rate notice from NY DOL (usually published Jan/Feb)
+
+**Commit grouping (guidance):**
+1. Employer cost stat card
+2. Reminder → filing linkage
+3. Year-end task checklist (schema + UI together)
+
+---
+
+### Phase 11 — Full UI/UX visual review & polish
+
+**Status: PENDING.** Branch: `feature/phase11-ui-polish` (create fresh, branched off after Phase 10 is merged).
+
+**Goal:** ensure the app is visually polished and correct at both desktop and mobile before considering the product "done." This is a QA pass that fixes whatever it finds — not a feature phase.
+
+**Process:**
+1. Start dev server locally (`npm run dev`)
+2. Use Playwright to capture screenshots of every route at two viewports:
+   - **3840×2160** (4K desktop — maximum breathing room)
+   - **390×844** (iPhone 14 Pro — primary mobile target)
+3. Read and process every screenshot — check: layout, spacing, padding, margin, alignment, typography scale, component proportions, truncation/overflow, touch target sizes, empty states, loading states, dark mode if applicable
+4. Fix all issues found — both functional problems and visual polish (even things that "work" but look wrong)
+5. Re-screenshot fixed pages to verify and lock in final state
+
+**What "looks good" means for this phase:**
+- Spacing and padding is consistent and intentional throughout (no tight/cramped sections, no excessive whitespace)
+- Typography scale is correct — h1 > section labels > body > captions, consistent across all pages
+- Touch targets on mobile are at least 44×44pt
+- No text truncation or overflow at either viewport
+- Empty states are friendly and informative (not just "No data")
+- Status indicators and badges are legible at mobile size
+- Cards and lists have consistent internal padding
+- Bottom nav on mobile is correctly configured (More tab from Phase 9)
+- Desktop layout uses available width sensibly (not a narrow column on a 4K screen if it doesn't need to be)
+
+**Commit grouping:** by area (e.g., dashboard polish, stubs polish, filings polish, nav polish) — not one giant commit.
+
+---
+
 - Every tax / labor-law code change must include the source URL in the commit message. See `memory/feedback_tax_accuracy.md`.
 - Tax constants are tagged with the year they apply to in inline comments; verify each January.
 - Run `npm run lint` and `npm run build` before claiming a phase complete.
