@@ -17,6 +17,7 @@ import {
 import { formatDate, formatDateRange, formatCurrency } from '@/lib/dates'
 import { toast } from 'sonner'
 import { Download, Mail, Trash2, CheckCircle2, Pencil, Copy, PiggyBank } from 'lucide-react'
+import { PdfPreviewDialog } from '@/components/ui/pdf-preview-dialog'
 import { hysaAmountForStub } from '@/lib/tax'
 import { insertHysaDeposit, deleteHysaDepositForStub } from '@/lib/hysa'
 import { CopyValue } from '@/components/filings/CopyValue'
@@ -443,10 +444,17 @@ export function StubDetail({ stub, role, userId, settings, lineItems = [], ytdBy
 
       {/* Action buttons */}
       <div className="space-y-2 pt-2">
-        <Button variant="outline" className="w-full" onClick={downloadPDF}>
-          <Download className="h-4 w-4 mr-2" />
-          Download PDF
-        </Button>
+        <div className="flex gap-2">
+          <PdfPreviewDialog
+            url={`/api/pdf/stub?id=${stub.id}&variant=${isAdmin ? 'admin' : 'employee'}`}
+            title={`Stub #${stub.stub_number} — ${isAdmin ? 'Admin' : 'Employee'} copy`}
+            className="flex-1"
+          />
+          <Button variant="outline" className="flex-1" onClick={downloadPDF}>
+            <Download className="h-4 w-4 mr-2" />
+            Download
+          </Button>
+        </div>
 
         {isAdmin && (
           <Link

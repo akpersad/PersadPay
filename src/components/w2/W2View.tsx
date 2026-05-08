@@ -12,6 +12,7 @@ import {
 import { formatCurrency } from '@/lib/dates'
 import { toast } from 'sonner'
 import { Download, Mail } from 'lucide-react'
+import { PdfPreviewDialog } from '@/components/ui/pdf-preview-dialog'
 import type { W2, Settings, Role } from '@/lib/types'
 
 interface Props {
@@ -120,21 +121,37 @@ export function W2View({ w2s, role, userId, settings }: Props) {
                     <p className="text-sm font-medium">W-2 — Tax Year {w2.tax_year}</p>
                     <p className="text-xs text-muted-foreground">Wages: {formatCurrency(w2.wages_tips)}</p>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => window.open(`/api/pdf/w2?id=${w2.id}`, '_blank')}>
-                    <Download className="h-4 w-4 mr-1" />
-                    W-2
-                  </Button>
+                  <div className="flex gap-1.5">
+                    <PdfPreviewDialog
+                      url={`/api/pdf/w2?id=${w2.id}`}
+                      title={`W-2 — Tax Year ${w2.tax_year}`}
+                      size="sm"
+                    />
+                    <Button size="sm" variant="outline" onClick={() => window.open(`/api/pdf/w2?id=${w2.id}`, '_blank')}>
+                      <Download className="h-4 w-4 mr-1" />
+                      W-2
+                    </Button>
+                  </div>
                 </div>
                 {isAdmin && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => window.open(`/api/pdf/w3?id=${w2.id}`, '_blank')}
-                  >
-                    <Download className="h-4 w-4 mr-1" />
-                    W-3 transmittal (file with SSA)
-                  </Button>
+                  <div className="flex gap-1.5">
+                    <PdfPreviewDialog
+                      url={`/api/pdf/w3?id=${w2.id}`}
+                      title={`W-3 Transmittal — Tax Year ${w2.tax_year}`}
+                      buttonLabel="Preview W-3"
+                      className="flex-1"
+                      size="sm"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => window.open(`/api/pdf/w3?id=${w2.id}`, '_blank')}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      W-3 (SSA)
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
