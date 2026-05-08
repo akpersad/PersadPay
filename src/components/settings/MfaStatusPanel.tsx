@@ -4,16 +4,9 @@ import { ShieldCheck, ShieldOff } from 'lucide-react'
 import type { Profile } from '@/lib/types'
 
 export async function MfaStatusPanel({ profiles }: { profiles: Pick<Profile, 'id' | 'full_name' | 'role'>[] }) {
-  const supabase = await createAdminClient()
-  const { data } = await supabase.auth.admin.listUsers()
-  const users = data?.users ?? []
-
-  const enrollmentByUserId = new Map(
-    users.map(u => [
-      u.id,
-      (u.factors ?? []).some(f => f.status === 'verified'),
-    ])
-  )
+  const supabase = createAdminClient()
+  const { data: rows } = await supabase.rpc('get_verified_mfa_user_ids')
+  const enrolledIds = new Set((rows ?? []).map((r: { user_id: string }) => r.user_id))
 
   return (
     <Card>
@@ -22,7 +15,7 @@ export async function MfaStatusPanel({ profiles }: { profiles: Pick<Profile, 'id
       </CardHeader>
       <CardContent className="space-y-2">
         {profiles.map(p => {
-          const enrolled = enrollmentByUserId.get(p.id) ?? false
+          const enrolled = enrolledIds.has(p.id)
           return (
             <div key={p.id} className="flex items-center justify-between py-1">
               <div>

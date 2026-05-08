@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     }
   }
 
-  const supabase = await createAdminClient()
+  const supabase = createAdminClient()
 
   const [{ data: settings }, { data: reminders }] = await Promise.all([
     supabase.from('settings').select('*').single<Settings>(),
