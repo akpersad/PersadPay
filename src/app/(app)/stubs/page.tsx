@@ -7,9 +7,15 @@ import { cn } from '@/lib/utils'
 import { formatDateRange, formatCurrency } from '@/lib/dates'
 import { CheckCircle2, AlertCircle, PlusCircle, PiggyBank, CalendarDays } from 'lucide-react'
 import { ExportCsvButton } from '@/components/stubs/ExportCsvButton'
+import { StubYearFilter } from '@/components/stubs/StubYearFilter'
 import type { Paystub, Profile } from '@/lib/types'
 
-export default async function StubsPage() {
+interface Props {
+  searchParams: Promise<{ year?: string }>
+}
+
+export default async function StubsPage({ searchParams }: Props) {
+  const { year } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
@@ -31,13 +37,19 @@ export default async function StubsPage() {
 
   const { data: stubs } = await query
 
-  // Derive years available for CSV export (admin only) from the earliest stub.
   const currentYear = new Date().getFullYear()
-  const earliestYear = stubs?.length
-    ? Math.min(...stubs.map(s => parseInt((s as Paystub).pay_date.slice(0, 4))))
-    : currentYear
-  const availableYears: number[] = []
-  for (let y = currentYear; y >= earliestYear; y--) availableYears.push(y)
+  const selectedYear = year ?? String(currentYear)
+
+  // Derive available years from all fetched stubs
+  const availableYears = stubs?.length
+    ? [...new Set(stubs.map(s => parseInt((s as Paystub).pay_date.slice(0, 4))))]
+        .sort((a, b) => b - a)
+    : [currentYear]
+
+  // Filter displayed stubs by selected year
+  const filteredStubs = selectedYear === 'all'
+    ? (stubs as Paystub[] | null)
+    : (stubs as Paystub[] | null)?.filter(s => s.pay_date.startsWith(selectedYear))
 
   return (
     <div className="px-4 pt-6 pb-4 space-y-4 max-w-lg mx-auto">
@@ -57,17 +69,26 @@ export default async function StubsPage() {
         )}
       </div>
 
-      {profile?.role === 'admin' && stubs?.length ? (
-        <div className="flex justify-end">
-          <ExportCsvButton availableYears={availableYears} defaultYear={currentYear} />
+      {/* Year filter + CSV export row */}
+      {stubs?.length ? (
+        <div className="flex items-center justify-between">
+          <StubYearFilter years={availableYears} selected={selectedYear} />
+          {profile?.role === 'admin' && (
+            <ExportCsvButton
+              availableYears={availableYears}
+              defaultYear={selectedYear === 'all' ? currentYear : parseInt(selectedYear)}
+            />
+          )}
         </div>
       ) : null}
 
-      {!stubs?.length ? (
-        <p className="text-sm text-muted-foreground">No stubs yet.</p>
+      {!filteredStubs?.length ? (
+        <p className="text-sm text-muted-foreground">
+          {stubs?.length ? `No stubs for ${selectedYear}.` : 'No stubs yet.'}
+        </p>
       ) : (
         <div className="space-y-2">
-          {(stubs as Paystub[]).map(stub => (
+          {filteredStubs.map(stub => (
             <Link key={stub.id} href={`/stubs/${stub.id}`}>
               <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
                 <CardContent className="py-3 px-4 flex items-center justify-between">
