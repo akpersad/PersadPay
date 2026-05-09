@@ -99,7 +99,8 @@ export function StubDetail({ stub, role, userId, lineItems = [], ytdByLineType =
     const res = await fetch('/api/email/stub', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ stubId: stub.id }),
+      // force=true for resends (stub already sent once) to bypass idempotency check
+      body: JSON.stringify({ stubId: stub.id, force: stub.stub_sent }),
     })
     if (!res.ok) {
       let detail = ''
@@ -513,24 +514,16 @@ export function StubDetail({ stub, role, userId, lineItems = [], ytdByLineType =
               </Button>
             )}
 
-            {/* Deletion guard: once a stub has been emailed or its HYSA cash
-                moved, deleting it would corrupt the audit trail (SSA wage
-                records, IRS YTD reconciliation) and create gaps that match
-                no payment record. Block the action with an explanation. */}
-            {stub.stub_sent || stub.hysa_transferred ? (
+            {/* Deletion guard: once payment has been sent the stub is a legal
+                payroll record (NY § 195(3)(d) 6-year retention). Block
+                deletion entirely at that point. */}
+            {stub.payment_sent ? (
               <div className="rounded-md bg-muted/50 border px-3 py-2 text-xs text-muted-foreground">
                 <p className="font-medium text-foreground mb-0.5 flex items-center gap-1.5">
                   <Trash2 className="h-3.5 w-3.5" />
                   Cannot delete this stub
                 </p>
-                <p>
-                  {stub.stub_sent && stub.hysa_transferred
-                    ? 'Stub has been emailed and the HYSA cash has been moved.'
-                    : stub.stub_sent
-                      ? 'Stub has already been emailed to the babysitter.'
-                      : 'HYSA tax cash has already been moved.'}
-                  {' '}Deleting now would mismatch SSA / IRS wage records.
-                </p>
+                <p>Payment has been sent. This stub is a legal payroll record and cannot be deleted (NY § 195(3) — 6-year retention).</p>
               </div>
             ) : (
               <Button
