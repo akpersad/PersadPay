@@ -53,7 +53,7 @@ export default async function ScheduleHYearPage({ params }: { params: Promise<Pa
 
   if (!rates) {
     return (
-      <div className="px-4 pt-6 pb-4 max-w-lg md:max-w-3xl mx-auto">
+      <div className="px-4 pt-6 pb-4 max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
         <p className="text-sm text-yellow-700">No tax rates seeded for {year}.</p>
       </div>
     )
@@ -67,7 +67,7 @@ export default async function ScheduleHYearPage({ params }: { params: Promise<Pa
   const isFiled = !!filing?.filed_on
 
   return (
-    <div className="px-4 pt-4 pb-4 max-w-lg md:max-w-3xl mx-auto space-y-4">
+    <div className="px-4 pt-4 pb-4 max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto space-y-4">
       <Link href="/filings" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
         <ChevronLeft className="h-4 w-4 mr-1" />
         All filings
@@ -240,9 +240,9 @@ export default async function ScheduleHYearPage({ params }: { params: Promise<Pa
         rel="noopener noreferrer"
         className="block"
       >
-        <Button variant="outline" className="w-full">
-          <ExternalLink className="h-4 w-4 mr-2" />
-          IRS Publication 926 — Household Employer's Tax Guide
+        <Button variant="outline" className="w-full h-auto py-2 whitespace-normal text-center">
+          <ExternalLink className="h-4 w-4 mr-2 shrink-0" />
+          IRS Publication 926 — Household Employer&apos;s Tax Guide
         </Button>
       </a>
     </div>
