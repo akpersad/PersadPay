@@ -4,6 +4,19 @@ Source: `docs/PRELAUNCH_AUDIT_REPORT.md` | Babysitter starts: **May 11, 2026**
 
 ---
 
+## Out of scope (deliberately not fixing)
+_Audit items the user reviewed and decided not to address. Don't re-flag in future passes._
+
+- **B2 middleware never runs** — Wrong: Next.js 16 uses `src/proxy.ts` / `proxy()`. Build output confirms it registers correctly.
+- **B5 sick_hours not in gross_pay** — Sick leave is unpaid and unlimited at this household. Code is correct; the spec was wrong (now fixed in CLAUDE.md).
+- **7c FUTA $1K quarterly threshold** — Zero practical impact; Schedule H handles the threshold check.
+- **10e OT YTD column** — By design: each line shows its own YTD (regular wages YTD excludes OT premium).
+- **10f / 16c employee_id_display** — Single employee; no need for an ID display field.
+- **12f "Switch FROM address" checklist row** — User will check off manually.
+- **13.1 profiles WITH CHECK** — User will never elevate a user from employee to admin.
+
+---
+
 ## Phase 1 — Pre-launch blockers (ship before May 11) ✅ COMPLETE 2026-05-09
 _All of these must be done before the first stub is generated._
 _Two items deferred to Phase 2: 13c (schema grants tightening) and 11f (multi-recipient partial failure)._
