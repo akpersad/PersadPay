@@ -581,7 +581,7 @@ grant select, insert, update, delete on public.w2s to authenticated;
 grant select, insert, update, delete on public.tax_rates to authenticated;
 grant select, insert, update, delete on public.filings to authenticated;
 grant select, insert, update, delete on public.paystub_line_items to authenticated;
-grant select, insert on public.audit_log to authenticated;
+grant select on public.audit_log to authenticated;  -- INSERT revoked (migration 0025); writes via triggers only
 grant select, insert, update, delete on public.signed_documents to authenticated;
 grant select, insert, update, delete on public.withholding_forms to authenticated;
 grant select, insert, update, delete on public.push_subscriptions to authenticated;

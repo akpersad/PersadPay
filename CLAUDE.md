@@ -13,7 +13,7 @@ The app is a PWA (Progressive Web App) installable on iOS and Android as a pseud
 
 - **Framework:** Next.js (App Router)
 - **Database + Auth:** Supabase (Postgres + Supabase Auth + Row Level Security)
-- **Email:** Resend (free tier), sent from `payroll@persadpay.com`
+- **Email:** Resend (free tier), sent from `noreply@payroll.persadpay.com`
 - **PDF Generation:** `@react-pdf/renderer` — server-side only (Next.js API route or server action), never client-side
 - **UI:** Tailwind CSS + shadcn/ui
 - **Deployment:** Vercel (free tier)
@@ -111,9 +111,9 @@ Steps 6 and 7 are independent actions. The UI must disable "Email Paystub" until
 | pay_date | date | Tax year is determined by pay_date (IRS constructive receipt) |
 | hours_worked | numeric | Can be 0 (zero-hour week still generates a stub) |
 | overtime_hours | numeric | Hours above 40/week; triggers OT row on stub at 1.5× rate |
-| sick_hours | numeric | Paid sick hours used this period |
+| sick_hours | numeric | Sick hours used this period — informational only; sick leave is unpaid and unlimited |
 | hourly_rate | numeric | Copied from settings at generation time |
-| gross_pay | numeric | (hours_worked + sick_hours) × hourly_rate + overtime_hours × hourly_rate × 1.5 |
+| gross_pay | numeric | hours_worked × hourly_rate + overtime_hours × hourly_rate × 1.5 (sick leave is unpaid; sick_hours does not contribute to gross) |
 | federal_withholding | numeric | Flat dollar snapshot from settings; $0.00 if hours_worked = 0 |
 | fica_social_security | numeric | 6.2% of gross (capped at SS wage base) |
 | fica_medicare | numeric | 1.45% of gross (uncapped) |
@@ -335,7 +335,7 @@ Babysitter can view and download her own W-2s from her dashboard.
 All email triggered by explicit admin action. Nothing sends automatically.
 
 **Stub delivery** (triggered by "Email Paystub" button):
-- From: `Persad Pay <payroll@persadpay.com>`
+- From: `Persad Pay <noreply@payroll.persadpay.com>`
 - Reply-to: `settings.reply_to_emails`
 - To: `settings.employee_email` + each in `settings.additional_emails`
 - Each recipient gets a separate individual email — no CC or BCC
@@ -344,7 +344,7 @@ All email triggered by explicit admin action. Nothing sends automatically.
 - Body: Plain, professional text. No marketing language.
 
 **Reminder emails** (triggered by approaching due date):
-- From: `Persad Pay <payroll@persadpay.com>`
+- From: `Persad Pay <noreply@payroll.persadpay.com>`
 - To: all addresses in `settings.reminder_emails`
 - Subject: `Reminder: [filing name] due [date]`
 - Body: Plain text with filing name, due date, brief description

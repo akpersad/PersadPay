@@ -86,9 +86,7 @@ export function PaystubDocument({ stub, settings, variant, lineItems = [], ytdBy
             <Text style={styles.companyName}>{settings.employer_name ?? 'Employer'}</Text>
             <Text style={{ fontSize: 8, color: '#555', marginBottom: 1 }}>EIN: {settings.employer_ein ?? '—'}</Text>
             <Text style={{ fontSize: 8, color: '#555', marginBottom: 1 }}>{settings.employer_address ?? ''}</Text>
-            {settings.employer_phone && (
-              <Text style={{ fontSize: 8, color: '#555' }}>Phone: {settings.employer_phone}</Text>
-            )}
+            <Text style={{ fontSize: 8, color: '#555' }}>Phone: {settings.employer_phone ?? '(123) 456-7890'}</Text>
           </View>
           <View style={styles.headerRight}>
             <Text style={styles.stubTitle}>Earnings Statement</Text>

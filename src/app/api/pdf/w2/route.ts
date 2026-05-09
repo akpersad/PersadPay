@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { generateW2PDF } from '@/lib/pdf'
 import type { W2, Settings, W2Copy, Paystub } from '@/lib/types'
 
@@ -26,15 +26,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { data: settings } = await supabase.from('settings').select('*').single<Settings>()
+  // Use admin client for settings and paystubs: employees can't SELECT settings
+  // via RLS but data is only used for PDF rendering, not exposed to the user.
+  const adminClient = createAdminClient()
+  const [{ data: settings }, { data: stubRows }] = await Promise.all([
+    adminClient.from('settings').select('*').single<Settings>(),
+    adminClient
+      .from('paystubs')
+      .select('sdi, pfl')
+      .eq('employee_id', w2.employee_id)
+      .gte('pay_date', `${w2.tax_year}-01-01`)
+      .lte('pay_date', `${w2.tax_year}-12-31`),
+  ])
   if (!settings) return NextResponse.json({ error: 'Settings not configured' }, { status: 500 })
-
-  // Fetch sdi/pfl totals for Box 14 directly from paystubs for this tax year.
-  const { data: stubRows } = await supabase
-    .from('paystubs')
-    .select('sdi, pfl')
-    .gte('pay_date', `${w2.tax_year}-01-01`)
-    .lte('pay_date', `${w2.tax_year}-12-31`)
 
   const stubs = (stubRows ?? []) as Pick<Paystub, 'sdi' | 'pfl'>[]
   const sdiWithheld = stubs.reduce((sum, s) => sum + Number(s.sdi ?? 0), 0)

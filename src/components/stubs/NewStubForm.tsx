@@ -272,12 +272,14 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
 
   function generatePreview() {
     if (!settings) return
+    // Spec: flat voluntary withholdings are $0 on zero-hour weeks regardless of settings.
+    const hoursForWithholding = totalHoursNum
     const calc = calculateTaxes({
       gross,
       ytdGrossBefore,
       ytdPflBefore,
-      federalWithholding: effectiveFederalWithholding,
-      stateWithholding: effectiveStateWithholding,
+      federalWithholding: hoursForWithholding === 0 ? 0 : effectiveFederalWithholding,
+      stateWithholding: hoursForWithholding === 0 ? 0 : effectiveStateWithholding,
       dblCovered: effectiveDblCovered,
       pflCovered: effectivePflCovered,
       sutaRate: effectiveSutaRate,

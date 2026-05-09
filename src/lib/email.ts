@@ -4,49 +4,44 @@ import { formatDate, formatDateRange } from './dates'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-// TODO: switch to 'Persad Pay <payroll@persadpay.com>' once the persadpay.com
-// domain is purchased and verified in Resend (DNS SPF/DKIM records added).
-// Using Resend's sandbox sender as a temporary stand-in. The sandbox sender
-// only delivers to email addresses verified on the Resend account, which is
-// fine for dev/testing but won't reach the babysitter's real address.
-// Tracked in: onboarding checklist + /docs/ROADMAP.md User TODOs.
-const FROM = 'Persad Pay <onboarding@resend.dev>'
+const FROM = 'Persad Pay <noreply@payroll.persadpay.com>'
 
 // Resend's SDK returns { data, error } and does NOT throw on API errors
 // (unverified domain, invalid recipient, rate limits, etc.). If we don't
 // inspect `error` we get false positives — the email looks like it sent
 // when Resend actually rejected it.
-async function sendOne(payload: Parameters<typeof resend.emails.send>[0]): Promise<string | null> {
+async function sendOne(payload: Parameters<typeof resend.emails.send>[0]): Promise<{ error: string | null; messageId: string | null }> {
   try {
-    const { error } = await resend.emails.send(payload)
+    const { data, error } = await resend.emails.send(payload)
     if (error) {
       console.error('[resend] send failed:', error)
-      return error.message ?? JSON.stringify(error)
+      return { error: error.message ?? JSON.stringify(error), messageId: null }
     }
-    return null
+    return { error: null, messageId: data?.id ?? null }
   } catch (err) {
     console.error('[resend] threw:', err)
-    return err instanceof Error ? err.message : String(err)
+    return { error: err instanceof Error ? err.message : String(err), messageId: null }
   }
 }
 
-async function sendAll(payloads: Parameters<typeof resend.emails.send>[0][]): Promise<{ success: boolean; error?: string }> {
+async function sendAll(payloads: Parameters<typeof resend.emails.send>[0][]): Promise<{ success: boolean; error?: string; messageId?: string }> {
   if (!process.env.RESEND_API_KEY) {
     console.error('[resend] RESEND_API_KEY is not set')
     return { success: false, error: 'RESEND_API_KEY is not configured' }
   }
-  const errors = (await Promise.all(payloads.map(sendOne))).filter((e): e is string => !!e)
+  const results = await Promise.all(payloads.map(sendOne))
+  const errors = results.filter(r => r.error !== null).map(r => r.error!)
   if (errors.length) {
     return { success: false, error: errors.join('; ') }
   }
-  return { success: true }
+  return { success: true, messageId: results[0]?.messageId ?? undefined }
 }
 
 export async function sendStubEmail(
   stub: PaystubWithYTD,
   settings: Settings,
   pdfBuffer: Buffer,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; messageId?: string }> {
   const subject = `Your pay stub for ${formatDateRange(stub.pay_period_start, stub.pay_period_end)}`
   const body = `Hi ${settings.employee_name ?? 'there'},\n\nPlease find your pay stub attached for the pay period ${formatDateRange(stub.pay_period_start, stub.pay_period_end)}.\n\nNet Pay: $${Number(stub.net_pay).toFixed(2)}\n\nIf you have any questions, please reply to this email.\n\nPersad Pay`
 
