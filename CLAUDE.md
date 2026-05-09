@@ -126,7 +126,7 @@ Steps 6 and 7 are independent actions. The UI must disable "Email Paystub" until
 | employer_fica_ss | numeric | Employer only — 6.2% of gross (capped at SS wage base) |
 | employer_fica_medicare | numeric | Employer only — 1.45% of gross |
 | futa | numeric | Employer only — 0.6% of gross up to $7,000 annual wage base |
-| suta | numeric | Employer only — suta_rate_at_generation × gross up to $13,000 annual wage base |
+| suta | numeric | Employer only — suta_rate_at_generation × gross up to $17,600 annual wage base |
 | net_pay | numeric | gross minus all employee-side deductions; always $0.00 on zero-hour stubs |
 | payment_sent | boolean | Default false. True when admin marks payment sent. |
 | zelle_transaction_id | text | Free text. Admin only. Nullable. |
@@ -216,7 +216,7 @@ Current 2026 values (verified 2026-05-05 — source URLs in `/docs/COMPLIANCE_RE
 | `ss_wage_base` | 184500 | Caps both employee and employer FICA SS |
 | `futa_rate` | 0.006 | 0.6% net of full NY state credit — verify annually against DOL credit-reduction list |
 | `futa_wage_base` | 7000 | Unchanged since 1983 |
-| `suta_wage_base` | 13000 | NY 2026 — update each January from NY DOL notice |
+| `suta_wage_base` | 17600 | NY 2026 — 18% of state average annual wage (permanent formula from 2026, per NYS-50). Update each January from NY DOL notice. |
 | `sdi_rate` | 0.005 | 0.5% NY DBL — only applies when `dbl_covered = true` |
 | `sdi_weekly_cap` | 0.60 | $0.60/week hard cap |
 | `pfl_rate` | 0.00432 | 0.432% NY PFL — only applies when `pfl_covered = true` |
