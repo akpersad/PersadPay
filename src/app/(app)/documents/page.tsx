@@ -25,7 +25,7 @@ const DOCS: DocSpec[] = [
     type: 'ein_confirmation',
     title: 'EIN Confirmation Letter',
     description: 'IRS CP575 or 147C letter confirming your Employer Identification Number. Needed for W-2s, NYS-45, and Schedule H.',
-    externalHref: 'https://www.irs.gov/businesses/small-businesses-self-employed/lost-or-misplaced-your-ein',
+    externalHref: 'https://www.irs.gov/businesses/employer-identification-number',
     externalLabel: 'Request 147C replacement',
     requiresSignature: false,
   },
@@ -47,7 +47,7 @@ const DOCS: DocSpec[] = [
     type: 'ls59',
     title: 'LS-59 Wage Notice',
     description: 'NY § 195(1) WTPA notice. Required at hire, in English plus the employee\'s primary language. Retain 6 years.',
-    externalHref: 'https://dol.ny.gov/system/files/documents/2022/02/ls59.pdf',
+    externalHref: 'https://dol.ny.gov/LS59-doc',
     externalLabel: 'Open NY DOL form',
   },
   {
@@ -76,14 +76,14 @@ const DOCS: DocSpec[] = [
     type: 'sexual_harassment_policy',
     title: 'Sexual Harassment Prevention Policy',
     description: 'NY Labor Law § 201-g requires all employers to adopt and distribute a sexual harassment prevention policy at hire and annually. Use the NYS model policy or a compliant equivalent. Do NOT mail — retain signed acknowledgement.',
-    externalHref: 'https://www.ny.gov/combating-sexual-harassment-workplace',
+    externalHref: 'https://www.ny.gov/programs/combating-sexual-harassment-workplace',
     externalLabel: 'NYS model policy',
   },
   {
     type: 'sexual_harassment_training_certificate',
     title: 'Sexual Harassment Prevention Training Certificate',
     description: 'Annual interactive training required by NY Labor Law § 201-g. Free NYS training at ny.gov. Complete at hire and every calendar year. Retain certificate.',
-    externalHref: 'https://www.ny.gov/sexual-harassment-prevention-employees',
+    externalHref: 'https://www.ny.gov/combating-sexual-harassment-workplace/employees',
     externalLabel: 'Free NYS training',
     requiresSignature: false,
   },
@@ -96,7 +96,7 @@ const DOCS: DocSpec[] = [
     type: 'posters_bundle',
     title: 'Workplace Posters (required)',
     description: 'NY and federal law require certain posters to be accessible to the employee. Print and post in kitchen/work area: NYS Domestic Workers Bill of Rights, NYS Sexual Harassment Prevention Notice, NYS Minimum Wage, Federal FLSA, Federal EEO/USERRA/Polygraph Protection.',
-    externalHref: 'https://dol.ny.gov/required-workplace-posters',
+    externalHref: 'https://dol.ny.gov/posting-requirements',
     externalLabel: 'NY DOL poster page',
     requiresSignature: false,
   },
@@ -145,7 +145,7 @@ export default async function DocumentsPage() {
   }
 
   return (
-    <div className="px-4 pt-6 pb-4 space-y-5 max-w-lg md:max-w-3xl mx-auto">
+    <div className="px-4 pt-6 pb-4 space-y-5 max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
       <div>
         <h1 className="text-lg font-semibold">Documents</h1>
         <p className="text-xs text-muted-foreground mt-0.5">

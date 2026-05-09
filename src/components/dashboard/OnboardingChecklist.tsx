@@ -60,15 +60,15 @@ const ITEM_LINKS: Record<string, LinkDef> = {
     external: true,
   },
   'Adopt and distribute Sexual Harassment Prevention Policy': {
-    href: 'https://www.ny.gov/combating-sexual-harassment-workplace',
+    href: 'https://www.ny.gov/programs/combating-sexual-harassment-workplace',
     external: true,
   },
   'Complete annual interactive harassment-prevention training': {
-    href: 'https://www.ny.gov/sexual-harassment-prevention-employees',
+    href: 'https://www.ny.gov/combating-sexual-harassment-workplace/employees',
     external: true,
   },
   'Print and post required workplace posters': {
-    href: 'https://dol.ny.gov/required-workplace-posters',
+    href: 'https://dol.ny.gov/posting-requirements',
     external: true,
   },
   'Confirm quarterly reminders are seeded in Reminders tab': {
