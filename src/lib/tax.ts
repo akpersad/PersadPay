@@ -85,9 +85,20 @@ export function calculateTaxes(inputs: TaxInputs, rates: TaxRates): TaxResult {
     }
   }
 
-  const ssTaxable = taxableWagePortion(ytdGrossBefore, gross, Number(rates.ss_wage_base))
+  // FICA household threshold (IRS Pub 926): FICA doesn't apply until cumulative
+  // annual cash wages reach the threshold. Only the portion of current gross that
+  // takes YTD wages above the threshold is FICA-eligible.
+  const ficaThreshold = Number(rates.fica_household_threshold)
+  const ficaTaxableGross = Math.max(0, gross - Math.max(0, ficaThreshold - ytdGrossBefore))
+
+  const ssTaxable = taxableWagePortion(ytdGrossBefore, ficaTaxableGross, Number(rates.ss_wage_base))
   const fica_ss = round(ssTaxable * Number(rates.fica_ss_rate))
-  const fica_med = round(gross * Number(rates.fica_medicare_rate))
+  const fica_med = round(ficaTaxableGross * Number(rates.fica_medicare_rate))
+
+  // Employer FICA uses the same taxable base. Computed independently rather than
+  // aliased to employee values — any future rate asymmetry will be explicit.
+  const employer_fica_ss = round(ssTaxable * Number(rates.fica_ss_rate))
+  const employer_fica_medicare = round(ficaTaxableGross * Number(rates.fica_medicare_rate))
 
   // NY SDI: only applies when employee is covered (20+ hrs/wk). Default off.
   const sdi = dblCovered ? Math.min(round(gross * Number(rates.sdi_rate)), Number(rates.sdi_weekly_cap)) : 0
@@ -95,9 +106,9 @@ export function calculateTaxes(inputs: TaxInputs, rates: TaxRates): TaxResult {
   // NY PFL: only applies when employee is covered (20+ hrs/wk or 175+ days/52 wks). Default off.
   let pfl = 0
   if (pflCovered) {
-    const remainingCap = Math.max(0, Number(rates.pfl_annual_cap) - ytdPflBefore)
+    // Round remainingCap to avoid IEEE-754 artifact: 411.91 - 411.81 = 0.0999... not 0.10
+    const remainingCap = round(Math.max(0, Number(rates.pfl_annual_cap) - ytdPflBefore))
     pfl = Math.min(round(gross * Number(rates.pfl_rate)), remainingCap)
-    // round() on the inner expression is sufficient; no double-round needed
   }
 
   const futaTaxable = taxableWagePortion(ytdGrossBefore, gross, Number(rates.futa_wage_base))
@@ -117,8 +128,8 @@ export function calculateTaxes(inputs: TaxInputs, rates: TaxRates): TaxResult {
     state_withholding: stateWithholding,
     sdi,
     pfl,
-    employer_fica_ss: fica_ss,
-    employer_fica_medicare: fica_med,
+    employer_fica_ss,
+    employer_fica_medicare,
     futa,
     suta,
     net_pay,

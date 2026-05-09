@@ -45,27 +45,35 @@ export default async function NewStubPage({
     sourceLineItems = (dupLineItems ?? []) as PaystubLineItem[]
   }
 
-  const currentYear = new Date().getFullYear()
-
-  const [
-    { data: settings },
-    { data: employee },
-    { data: lastStub },
-    { data: ytdStubs },
-    taxRates,
-  ] = await Promise.all([
-    supabase.from('settings').select('*').single<Settings>(),
-    supabase.from('profiles').select('id').eq('role', 'employee').single<Pick<Profile, 'id'>>(),
+  // Fetch last stub and employee first: both are needed to compute the correct
+  // pay year before querying YTD totals.
+  const [{ data: lastStub }, { data: employee }] = await Promise.all([
     supabase
       .from('paystubs')
       .select('stub_number, pay_period_end')
       .order('stub_number', { ascending: false })
       .limit(1)
       .single<Pick<Paystub, 'stub_number' | 'pay_period_end'>>(),
-    supabase
-      .from('paystubs')
-      .select('gross_pay, pfl')
-      .gte('pay_date', `${currentYear}-01-01`),
+    supabase.from('profiles').select('id').eq('role', 'employee').single<Pick<Profile, 'id'>>(),
+  ])
+
+  // Derive the expected pay year from the suggested pay date, not the server
+  // clock — a stub generated on Dec 30 for a Jan 2 pay date must use next
+  // year's YTD and tax rates.
+  const suggestedPayDate = lastStub?.pay_period_end
+    ? addDays(lastStub.pay_period_end, 7)
+    : new Date().toISOString().slice(0, 10)
+  const currentYear = parseInt(suggestedPayDate.substring(0, 4))
+
+  const [
+    { data: settings },
+    { data: ytdStubs },
+    taxRates,
+  ] = await Promise.all([
+    supabase.from('settings').select('*').single<Settings>(),
+    employee?.id
+      ? supabase.from('paystubs').select('gross_pay, pfl').eq('employee_id', employee.id).gte('pay_date', `${currentYear}-01-01`)
+      : Promise.resolve({ data: [] as Pick<Paystub, 'gross_pay' | 'pfl'>[] }),
     getTaxRatesForYear(supabase, currentYear),
   ])
 
