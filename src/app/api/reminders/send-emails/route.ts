@@ -35,16 +35,16 @@ export async function GET(request: Request) {
   for (const reminder of reminders as Reminder[]) {
     const days = daysUntil(reminder.due_date)
 
-    // First notice: 20 days out, only if not already sent
-    if (days === REMINDER_LEAD_DAYS && !reminder.email_sent) {
+    // First notice: ±1 day window around 20 days out, only if not already sent.
+    // Window prevents a skipped cron run from permanently missing the trigger.
+    if (days >= REMINDER_LEAD_DAYS - 1 && days <= REMINDER_LEAD_DAYS + 1 && !reminder.email_sent) {
       const result = await sendReminderEmail(settings, reminder)
       if (result.success) {
         await supabase.from('reminders').update({ email_sent: true }).eq('id', reminder.id)
       }
       results.push({ title: reminder.title, trigger: '20-day', ...result })
-      // Mirror the email with a push to both roles so admins/employee see it
-      // on their phones too. Pushes silently skip users without subscriptions.
-      await sendPushToRoles(supabase, ['admin', 'employee'], {
+      // Filing reminders are admin-only — employees don't file taxes.
+      await sendPushToRoles(supabase, ['admin'], {
         title: `${reminder.title}`,
         body: `Due ${formatDate(reminder.due_date)} — ${reminder.description.slice(0, 80)}`,
         url: '/reminders',
@@ -52,11 +52,15 @@ export async function GET(request: Request) {
       })
     }
 
-    // Follow-up: 10 days out, always send if not dismissed
-    if (days === REMINDER_FOLLOWUP_DAYS) {
+    // Follow-up: ±1 day window around 10 days out, only if not already sent.
+    // followup_email_sent guards against repeat sends within the window.
+    if (days >= REMINDER_FOLLOWUP_DAYS - 1 && days <= REMINDER_FOLLOWUP_DAYS + 1 && !reminder.followup_email_sent) {
       const result = await sendReminderEmail(settings, reminder)
+      if (result.success) {
+        await supabase.from('reminders').update({ followup_email_sent: true }).eq('id', reminder.id)
+      }
       results.push({ title: reminder.title, trigger: '10-day', ...result })
-      await sendPushToRoles(supabase, ['admin', 'employee'], {
+      await sendPushToRoles(supabase, ['admin'], {
         title: `${reminder.title} — 10 days`,
         body: `Due ${formatDate(reminder.due_date)}`,
         url: '/reminders',

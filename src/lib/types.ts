@@ -70,6 +70,8 @@ export interface Paystub {
   payment_sent: boolean
   zelle_transaction_id: string | null
   stub_sent: boolean
+  stub_sent_at: string | null
+  resend_message_id: string | null
   hysa_transferred: boolean
   hysa_transferred_at: string | null
   hysa_notes: string | null
@@ -84,6 +86,7 @@ export interface Reminder {
   description: string
   dismissed: boolean
   email_sent: boolean
+  followup_email_sent: boolean
   created_at: string
 }
 

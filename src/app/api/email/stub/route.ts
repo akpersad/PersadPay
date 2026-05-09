@@ -14,11 +14,18 @@ export async function POST(request: Request) {
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { stubId } = await request.json()
+  // force=true is sent by the "Resend Email" button (stub already sent once).
+  // Without force, a second identical request within the same session is a
+  // double-click and should be rejected to prevent duplicate emails.
+  const { stubId, force } = await request.json()
 
   const { data: stub } = await supabase.from('paystubs').select('*').eq('id', stubId).single<Paystub>()
   if (!stub) return NextResponse.json({ error: 'Stub not found' }, { status: 404 })
   if (!stub.payment_sent) return NextResponse.json({ error: 'Payment not yet marked as sent' }, { status: 400 })
+
+  if (stub.stub_sent && !force) {
+    return NextResponse.json({ error: 'Stub has already been emailed. Use Resend Email to send again.' }, { status: 409 })
+  }
 
   const { data: settings } = await supabase.from('settings').select('*').single<Settings>()
   if (!settings) return NextResponse.json({ error: 'Settings not configured' }, { status: 500 })
@@ -28,6 +35,7 @@ export async function POST(request: Request) {
   const { data: ytdStubs } = await supabase
     .from('paystubs')
     .select('*')
+    .eq('employee_id', stub.employee_id)
     .gte('pay_date', `${payYear}-01-01`)
     .lte('pay_date', `${payYear}-12-31`)
 
@@ -99,10 +107,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: result.error }, { status: 500 })
   }
 
-  await supabase.from('paystubs').update({ stub_sent: true }).eq('id', stubId)
+  const { error: updateError } = await supabase
+    .from('paystubs')
+    .update({
+      stub_sent: true,
+      stub_sent_at: new Date().toISOString(),
+      resend_message_id: result.messageId ?? null,
+    })
+    .eq('id', stubId)
 
-  // Push the employee a notification mirroring the email — if she's
-  // subscribed on her phone she'll see it instantly.
+  if (updateError) {
+    console.error('[email/stub] stub record update failed after send:', updateError)
+    return NextResponse.json({ error: 'Email sent but failed to update stub record. Check logs.' }, { status: 500 })
+  }
+
   await sendPushToUsers(supabase, [stub.employee_id], {
     title: 'New paystub from PersadPay',
     body: `${formatDateRange(stub.pay_period_start, stub.pay_period_end)} · Net ${formatCurrency(Number(stub.net_pay))}`,
