@@ -60,7 +60,9 @@ Two roles only. No middle tier.
 - Views employee PDF variant (no employer taxes, no transaction ID, no payment status)
 - Download employee PDF variant
 - View and download her own W-2s by year
-- No access to settings, reminders, dashboard stats, or admin views
+- View her own sick-leave summary
+- Manage her own account settings (push notifications, 2FA, change password) via `/settings`
+- No access to admin settings, reminders, filings, dashboard stats, or any admin views
 
 ---
 
@@ -102,28 +104,34 @@ Steps 6 and 7 are independent actions. The UI must disable "Email Paystub" until
 | Column | Type | Notes |
 |---|---|---|
 | id | uuid | Primary key |
-| stub_number | integer | Always MAX(stub_number) + 1. Never recalculates gaps. |
+| stub_number | integer | Assigned atomically by DB trigger (MAX+1 under exclusive lock). UNIQUE constraint. Never recalculates gaps. |
 | employee_id | uuid | References profiles |
 | pay_period_start | date | |
 | pay_period_end | date | |
-| pay_date | date | |
+| pay_date | date | Tax year is determined by pay_date (IRS constructive receipt) |
 | hours_worked | numeric | Can be 0 (zero-hour week still generates a stub) |
+| overtime_hours | numeric | Hours above 40/week; triggers OT row on stub at 1.5× rate |
+| sick_hours | numeric | Paid sick hours used this period |
 | hourly_rate | numeric | Copied from settings at generation time |
-| gross_pay | numeric | hours_worked x hourly_rate |
-| federal_withholding | numeric | Flat dollar copied from settings at generation time; $0.00 if hours_worked = 0 |
-| fica_social_security | numeric | 6.2% of gross |
-| fica_medicare | numeric | 1.45% of gross |
-| state_withholding | numeric | Flat dollar copied from settings at generation time; $0.00 if hours_worked = 0 |
-| sdi | numeric | 0.5% of gross, hard-capped at $0.60 |
-| pfl | numeric | 0.432% of gross if not waived, else $0.00 |
-| employer_fica_ss | numeric | Employer only — 6.2% of gross |
+| gross_pay | numeric | (hours_worked + sick_hours) × hourly_rate + overtime_hours × hourly_rate × 1.5 |
+| federal_withholding | numeric | Flat dollar snapshot from settings; $0.00 if hours_worked = 0 |
+| fica_social_security | numeric | 6.2% of gross (capped at SS wage base) |
+| fica_medicare | numeric | 1.45% of gross (uncapped) |
+| state_withholding | numeric | Flat dollar snapshot from settings; $0.00 if hours_worked = 0 |
+| sdi | numeric | 0.5% of gross capped at $0.60/wk — only if dbl_covered_at_generation = true, else $0 |
+| pfl | numeric | 0.432% of gross up to annual cap — only if pfl_covered_at_generation = true, else $0 |
+| dbl_covered_at_generation | boolean | Snapshot of settings.dbl_covered at time of generation |
+| pfl_covered_at_generation | boolean | Snapshot of settings.pfl_covered at time of generation |
+| suta_rate_at_generation | numeric | Snapshot of settings.suta_rate at time of generation |
+| employer_fica_ss | numeric | Employer only — 6.2% of gross (capped at SS wage base) |
 | employer_fica_medicare | numeric | Employer only — 1.45% of gross |
 | futa | numeric | Employer only — 0.6% of gross up to $7,000 annual wage base |
-| suta | numeric | Employer only — settings rate up to $17,600 annual wage base |
+| suta | numeric | Employer only — suta_rate_at_generation × gross up to $13,000 annual wage base |
 | net_pay | numeric | gross minus all employee-side deductions; always $0.00 on zero-hour stubs |
 | payment_sent | boolean | Default false. True when admin marks payment sent. |
 | zelle_transaction_id | text | Free text. Admin only. Nullable. |
 | stub_sent | boolean | Default false. True when admin clicks Email Paystub. |
+| hysa_transferred | boolean | Default false. True when admin logs the tax-reserve HYSA transfer. |
 | created_at | timestamptz | Store in UTC, display in America/New_York |
 | created_by | uuid | References profiles (admin who generated) |
 
@@ -134,20 +142,26 @@ Single-row table. Only one record ever exists.
 |---|---|---|
 | id | uuid | |
 | employer_name | text | e.g. "Persad Family" |
-| employer_ein | text | e.g. "12-3456789" — shown on pay stub header |
-| employer_address | text | Shown on pay stub header |
+| employer_ein | text | e.g. "12-3456789" — shown on pay stub and W-2 Box b |
+| employer_address | text | Shown on pay stub header and W-2 Box c |
 | employer_phone | text | Required by NY § 195(3) — appears on pay stub header |
-| employee_name | text | Babysitter's full name |
+| employer_ny_state_id | text | NY DTF employer registration number — W-2 Box 15. Nullable until registered. |
+| employee_name | text | Babysitter's full name (legacy single-string field) |
+| employee_name_first | text | Used on W-2 Box e |
+| employee_name_middle_initial | text | Nullable |
+| employee_name_last | text | Used on W-2 Box e |
+| employee_address | text | Used on W-2 Box f. Nullable until populated. |
 | employee_id_display | text | Human-readable ID shown on stub e.g. "EMP-001" |
 | employee_email | text | Primary stub delivery address |
 | employee_hourly_rate | numeric | Pre-fills stub generation form |
-| federal_withholding_per_period | numeric | Flat dollar from her W-4. May be $0. |
-| state_withholding_per_period | numeric | Flat dollar from her IT-2104 |
-| pfl_waived | boolean | If true, PFL row is omitted from stub entirely |
-| suta_rate | numeric | From annual NY UI rate notice. Default: 0.041 |
+| federal_withholding_per_period | numeric | Voluntary flat dollar from her W-4. Default $0. |
+| state_withholding_per_period | numeric | Voluntary flat dollar from her IT-2104. Default $0. |
+| dbl_covered | boolean | NY DBL (SDI) coverage. Default false — only true if she works 20+ hrs/wk. |
+| pfl_covered | boolean | NY PFL coverage. Default false — only true if she works 20+ hrs/wk or 175+ days/52 wks. |
+| suta_rate | numeric | From annual NY UI rate notice. Default: 0.041. Update each January. |
 | additional_emails | text[] | Extra stub delivery recipients. Each gets a separate email. |
 | reply_to_emails | text[] | Admin personal email(s) set as reply-to on all outbound emails |
-| reminder_emails | text[] | Recipients for filing reminder notification emails. Add/remove individually. Pre-seeded with Persad.household@gmail.com. |
+| reminder_emails | text[] | Recipients for filing reminder emails. Pre-seeded with Persad.household@gmail.com. |
 | updated_at | timestamptz | |
 
 ### `reminders`
@@ -191,36 +205,36 @@ Single-row table. Only one record ever exists.
 
 ## Tax Calculations
 
-All tax rate constants must be defined as named exports at the top of `lib/tax.ts`. Never use inline magic numbers. Comment each with the year and a note to verify annually.
+Tax rates live in the `tax_rates` Postgres table, keyed by `effective_year`. `src/lib/tax.ts` reads them via `getTaxRatesForYear(supabase, year)` — never hardcode rates inline. The in-app "Verify tax constants" December reminder is the trigger to add next year's row.
 
-Constants live in `src/lib/tax.ts`. They are the literal source of truth — `CLAUDE.md` reflects the values but the code is canonical. Each constant has the year it applies to and a source URL in inline comments. Verify every constant in January.
+Current 2026 values (verified 2026-05-05 — source URLs in `/docs/COMPLIANCE_REMEDIATION_PLAN.md`):
 
-Current 2026 values (verified 2026-05-05 — see `/docs/ROADMAP.md` for source URLs):
-
-| Constant | Value | Notes |
+| Column | Value | Notes |
 |---|---|---|
-| `FICA_SS_RATE` | 0.062 | 6.2% employee + 6.2% employer |
-| `FICA_MEDICARE_RATE` | 0.0145 | 1.45% employee + 1.45% employer |
-| `SS_WAGE_BASE` | 184500 | 2026 SS wage base — caps both sides of FICA SS |
-| `FUTA_RATE` | 0.006 | 0.6% net of full NY state credit (no 2026 NY credit reduction) |
-| `FUTA_WAGE_BASE` | 7000 | Unchanged since 1983 |
-| `SUTA_WAGE_BASE` | **13000** | NY 2026 (corrected from prior $17,600 spec value) |
-| `SDI_RATE` | 0.005 | 0.5% NY State Disability employee withholding |
-| `SDI_WEEKLY_CAP` | 0.60 | $0.60/week hard cap (annual max $31.20) |
-| `PFL_RATE` | 0.00432 | 0.432% NY Paid Family Leave employee contribution |
-| `PFL_ANNUAL_CAP` | 411.91 | NY 2026 max annual PFL employee contribution |
-| `IRS_MILEAGE_RATE` | 0.725 | 72.5¢/mi business use (used for non-taxable mileage reimbursement) |
+| `fica_ss_rate` | 0.062 | 6.2% employee + 6.2% employer |
+| `fica_medicare_rate` | 0.0145 | 1.45% employee + 1.45% employer (uncapped) |
+| `ss_wage_base` | 184500 | Caps both employee and employer FICA SS |
+| `futa_rate` | 0.006 | 0.6% net of full NY state credit — verify annually against DOL credit-reduction list |
+| `futa_wage_base` | 7000 | Unchanged since 1983 |
+| `suta_wage_base` | 13000 | NY 2026 — update each January from NY DOL notice |
+| `sdi_rate` | 0.005 | 0.5% NY DBL — only applies when `dbl_covered = true` |
+| `sdi_weekly_cap` | 0.60 | $0.60/week hard cap |
+| `pfl_rate` | 0.00432 | 0.432% NY PFL — only applies when `pfl_covered = true` |
+| `pfl_annual_cap` | 411.91 | NY 2026 annual max employee PFL contribution |
+| `irs_mileage_rate` | 0.725 | 72.5¢/mi (non-taxable mileage reimbursement) |
+| `fica_household_threshold` | 3000 | IRS Pub 926 — FICA applies only if annual cash wages ≥ this amount |
+| `futa_quarterly_threshold` | 1000 | FUTA applies only if any single quarter's cash wages ≥ this amount |
 
 ### Employee-Side Deductions (withheld from gross, shown on stub)
 
 | Tax | Calculation |
 |---|---|
-| FICA - Social Security | gross x FICA_SS_RATE |
-| FICA - Medicare | gross x FICA_MEDICARE_RATE |
-| Federal Income Tax | flat dollar from settings (may be $0) |
-| NY State Income Tax | flat dollar from settings |
-| NY SDI | MIN(gross x SDI_RATE, SDI_WEEKLY_CAP) |
-| NY PFL | if pfl_waived then $0, else gross x PFL_RATE |
+| FICA - Social Security | gross × fica_ss_rate (capped at ss_wage_base YTD) |
+| FICA - Medicare | gross × fica_medicare_rate (uncapped) |
+| Federal Income Tax | flat dollar snapshot from settings (voluntary — default $0) |
+| NY State Income Tax | flat dollar snapshot from settings (voluntary — default $0) |
+| NY SDI | if dbl_covered: MIN(gross × sdi_rate, sdi_weekly_cap), else $0 — omit row when $0 |
+| NY PFL | if pfl_covered: MIN(gross × pfl_rate, remaining annual cap), else $0 — omit row when $0 |
 
 ### Employer-Side Taxes (admin view only, not withheld from gross)
 
@@ -263,13 +277,18 @@ Built with `@react-pdf/renderer` server-side. Accepts `variant: 'admin' | 'emplo
 - Columns: Description | Rate | Hours | Total | YTD
 - One row: "Regular Earnings" (or "No Hours — Week Off" if hours = 0)
 
+**Earnings Table extras**
+- OT rate note above the table: `Overtime rate (after 40 hrs/wk): $X.XX/hr` (hourlyRate × 1.5) — always shown per NY § 195(3)
+- Earnings row for OT only appears when overtime_hours > 0
+- "Allowances claimed: None" disclosure per NY § 195(3)
+
 **Taxes / Deductions Table**
 - Federal Withholding — Current | YTD
 - FICA - Social Security — Current | YTD
 - FICA - Medicare — Current | YTD
 - NY State Withholding — Current | YTD
-- NY SDI — Current | YTD
-- NY PFL — Current | YTD (omit row entirely if pfl_waived = true)
+- NY SDI — Current | YTD (omit row entirely if dbl_covered_at_generation = false)
+- NY PFL — Current | YTD (omit row entirely if pfl_covered_at_generation = false)
 - **Employer Taxes** — admin variant only, fully omitted from employee variant:
   - Employer FICA - SS — Current | YTD
   - Employer FICA - Medicare — Current | YTD
@@ -345,11 +364,12 @@ All email triggered by explicit admin action. Nothing sends automatically.
 
 Bottom tab bar for all authenticated users. Mobile-first, touch-friendly, no hover dependencies.
 
-**Admin tabs:** Dashboard | Pay Stubs | Reminders | W-2 | Documents | Settings
+**Admin tabs (mobile):** Dashboard | Stubs | Reminders | HYSA | More (sheet: W-2, Filings, Documents, Calendar, Settings)
+**Admin tabs (desktop md+):** All tabs visible inline — no overflow sheet.
 
-**Employee tabs:** Dashboard | Pay Stubs | W-2
+**Employee tabs:** Dashboard | Pay Stubs | W-2 | Settings
 
-Sign out accessible from Settings page (admin) or a profile/menu icon (employee).
+Sign out accessible from the Settings page for both roles. Employee also has a profile icon in the top header that opens a quick account dialog.
 
 ---
 
@@ -383,8 +403,9 @@ Minimal. One job: answer "was I paid and for how much?"
 1. **Most recent pay stub card** — shows pay period, pay date, gross pay, and net pay. Tapping navigates to `/stubs/[id]`.
 2. **"View All Pay Stubs"** button — links to `/stubs`.
 3. **"View W-2s"** button — links to `/w2`.
+4. **"View Sick Leave Summary"** button — links to `/documents/sick-leave-summary` (employee sees only her own data per NY § 196-b(4)).
 
-No stats, no actions, nothing admin-facing.
+No stats, no actions, nothing admin-facing. Account management (2FA, password, push notifications) lives in the employee's Settings tab, not here.
 
 ---
 
@@ -436,32 +457,34 @@ Dashboard shows badge with pending reminder count.
 
 ## Stub Numbering
 
-```ts
-const getNextStubNumber = async (supabase) => {
-  const { data } = await supabase
-    .from('paystubs')
-    .select('stub_number')
-    .order('stub_number', { ascending: false })
-    .limit(1);
-  return data?.[0]?.stub_number ? data[0].stub_number + 1 : 1;
-};
-```
+`stub_number` is assigned by a Postgres `BEFORE INSERT` trigger (`paystubs_assign_stub_number`) that acquires an exclusive table lock and computes `MAX(stub_number) + 1` atomically. Any value the client sends is overwritten. A `UNIQUE` constraint enforces no duplicates even under concurrent inserts.
 
-Gaps from deletions are never backfilled. Always increment from the current MAX, regardless of gaps.
+Gaps from deletions are never backfilled. The trigger always increments from the current MAX regardless of gaps.
 
 ---
 
 ## Route Structure
 
 ```
-/                    Public only — Login page
-/dashboard           Auth — Role-aware
-/stubs               Auth — Stub list, role-aware rendering
-/stubs/new           Admin only — Generation form + preview
-/stubs/[id]          Auth — Stub detail, role-aware variant
-/reminders           Admin only
-/w2                  Auth — Role-aware W-2 section
-/settings            Admin only
+/                              Public only — Login page
+/dashboard                     Auth — Role-aware (admin stats vs. employee pay summary)
+/stubs                         Auth — Stub list, role-aware rendering
+/stubs/new                     Admin only — Generation form + live preview
+/stubs/[id]                    Auth — Stub detail, role-aware PDF variant
+/reminders                     Admin only
+/filings                       Admin only — NYS-45, Schedule H, 1040-ES hub
+/filings/nys-45/[year]/[q]     Admin only — Quarterly NYS-45 summary
+/filings/schedule-h/[year]     Admin only — Annual Schedule H summary
+/filings/federal-estimated-tax/[year]/[q]  Admin only — 1040-ES quarterly
+/filings/year-end/[year]       Admin only — Year-end checklist
+/hysa                          Admin only — Tax reserve HYSA tracking
+/calendar                      Admin only — Filing deadline calendar
+/documents                     Admin only — Signed document vault
+/documents/sick-leave-policy   Admin only — Printable sick-leave policy PDF
+/documents/sick-leave-summary  Auth — Admin sees all; employee sees own data only
+/w2                            Auth — Role-aware W-2 section
+/settings                      Auth — Role-aware: admin payroll config; employee account settings
+/api/auth/sign-out             Internal — Signs out and redirects to / (handles profile-less loop)
 ```
 
 ---
@@ -499,14 +522,19 @@ Enforced at the database level, not just the UI.
 
 ## Settings Page Requirements
 
-Settings must be filled out before the app is functional. The page should render gracefully with empty/null values rather than crashing. Fields:
+The `/settings` page is **role-aware**:
+- **Admin** sees the full payroll configuration form below, plus their own account management (push notifications, 2FA, change password).
+- **Employee** sees only their own account management (push notifications, 2FA, change password). No payroll data exposed.
 
-- Employer name, EIN, address
-- Employee name, display ID, email, hourly rate
-- Federal withholding per period (from W-4 — may be $0)
-- State withholding per period (from IT-2104)
-- PFL waiver toggle (with inline note explaining <20hrs/week eligibility)
-- SUTA rate (with note: update annually from NY UI rate notice)
+Admin settings must be filled out before the app is functional. Render gracefully with empty/null values. Fields:
+
+- Employer name, EIN, address, phone, NY state ID (for W-2 Box 15)
+- Employee first/middle/last name (for W-2 Box e), display ID, email, home address (for W-2 Box f), hourly rate
+- Federal withholding per period (voluntary — inline note: "voluntary for household employees; default $0; requires signed W-4")
+- State withholding per period (voluntary — inline note: "voluntary; default $0; requires signed IT-2104")
+- NY DBL (SDI) coverage toggle — default off; help text: "covers domestic workers at 20+ hrs/wk; DBL insurance policy also required if on"
+- NY PFL coverage toggle — default off; help text: "covers domestic workers at 20+ hrs/wk OR 175+ days/52 wks"
+- SUTA rate (note: update annually from NY UI rate notice)
 - Additional stub recipient emails (add/remove individually)
 - Reply-to emails (add/remove individually)
 - Reminder notification emails (add/remove individually; pre-seeded with Persad.household@gmail.com)
@@ -546,11 +574,14 @@ All in `.env.local`. Never hardcode.
 
 - TypeScript throughout — no `any` types
 - Tailwind CSS + shadcn/ui for all UI
-- `lib/tax.ts` — all tax constants and calculation functions
-- `lib/pdf.ts` — PDF generation utilities (pay stub + W-2)
-- `lib/email.ts` — all Resend calls
-- `lib/dates.ts` — timezone-aware date formatting
-- `BRAND_COLOR` constant defined in one place — TBD, neutral placeholder for now
-- No sign-up page
+- `src/lib/tax.ts` — `calculateTaxes()` (pure function), `getTaxRatesForYear()` (DB fetch). Rates live in `tax_rates` table, not hardcoded.
+- `src/lib/filings.ts` — `calculateNYS45()`, `calculateScheduleH()`, `calculateFederalEstimatedTax()`
+- `src/lib/pdf/` — `PaystubDocument.tsx`, `W2Document.tsx`, `W3Document.tsx`, `constants.ts` (BRAND_COLOR)
+- `src/lib/email.ts` — all Resend calls
+- `src/lib/dates.ts` — NY-timezone-aware helpers: `formatNYDate()`, `todayNY()`, `daysUntil()`, `formatDateRange()`, `nextBusinessDay()`, `addDays()`
+- `src/proxy.ts` — middleware (not `middleware.ts`). See `AGENTS.md` note about Next.js naming.
+- `BRAND_COLOR = '#a53005'` defined in `src/lib/pdf/constants.ts`
+- No sign-up page — all accounts created manually in Supabase
 - Keep components small and composable — owner will maintain this codebase
-- Comment all tax logic with the year the rate applies and a reminder to verify annually
+- Tests: `npm test` runs Vitest. Test files live alongside source (`*.test.ts`). Cover all tax calc logic.
+- When adding a new tax rate or changing a threshold: update the `tax_rates` DB row (via migration), not a hardcoded constant
