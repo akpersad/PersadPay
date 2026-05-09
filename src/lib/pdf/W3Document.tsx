@@ -1,5 +1,5 @@
 import React from 'react'
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { Document, Page, Text, View, StyleSheet, Link } from '@react-pdf/renderer'
 import { BRAND_COLOR, BRAND_COLOR_LIGHT } from './constants'
 import { formatCurrency } from '@/lib/dates'
 import type { W2, Settings } from '@/lib/types'
@@ -46,7 +46,8 @@ export function W3Document({ w2, settings }: Props) {
             File with SSA alongside W-2 Copy A. Box b checked &quot;Hshld. emp.&quot; per IRS Pub 926.
             For paper filing, mail to SSA per the W-3 instructions. For electronic filing, BSO
             (Business Services Online) generates a W-3 automatically from your W-2 upload — paper
-            W-3 not required when filing through BSO.
+            W-3 not required when filing through BSO.{'\n'}
+            Reference: <Link src="https://www.irs.gov/publications/p926" style={{ color: '#1a56db' }}>IRS Publication 926 — Household Employer's Tax Guide</Link>
           </Text>
         </View>
 

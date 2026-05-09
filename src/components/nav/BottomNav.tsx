@@ -30,6 +30,7 @@ const employeeTabs = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/stubs', label: 'Pay Stubs', icon: FileText },
   { href: '/w2', label: 'W-2', icon: FileSpreadsheet },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
 function isActive(href: string, pathname: string) {

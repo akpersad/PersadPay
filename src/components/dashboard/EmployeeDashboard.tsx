@@ -5,9 +5,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { formatDateRange, formatCurrency, formatDate } from '@/lib/dates'
-import { PushNotificationsToggle } from '@/components/settings/PushNotificationsToggle'
-import { MfaSecurityCard } from '@/components/settings/MfaSecurityCard'
-import { ChangePasswordCard } from '@/components/settings/ChangePasswordCard'
 import type { Paystub } from '@/lib/types'
 
 export async function EmployeeDashboard() {
@@ -71,9 +68,6 @@ export async function EmployeeDashboard() {
         </Link>
       </div>
 
-      <PushNotificationsToggle />
-      <MfaSecurityCard />
-      <ChangePasswordCard />
     </div>
   )
 }

@@ -49,4 +49,6 @@ skills-lock.json
 
 # scripts
 scripts/.totp-secret
+scripts/.employee-totp-secret
 scripts/screenshots/
+scripts/screenshots-employee/

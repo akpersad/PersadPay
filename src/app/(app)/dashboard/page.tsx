@@ -15,7 +15,7 @@ export default async function DashboardPage() {
     .eq('id', user.id)
     .single<Profile>()
 
-  if (!profile) redirect('/')
+  if (!profile) redirect('/api/auth/sign-out')
 
   return profile.role === 'admin' ? <AdminDashboard /> : <EmployeeDashboard />
 }

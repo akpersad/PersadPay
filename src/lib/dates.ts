@@ -35,13 +35,15 @@ export function formatDateRange(start: string, end: string): string {
   return `${startStr} – ${endStr}`
 }
 
-/** Days between today and a future date (negative if past) */
+/** Days between today (in NY timezone) and a target date (negative if past) */
 export function daysUntil(dateStr: string): number {
-  const [y, m, d] = dateStr.split('-').map(Number)
-  const target = new Date(y, m - 1, d)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+  // Compare ISO date strings so the answer is independent of the process timezone.
+  const todayStr = todayNY()
+  const [ty, tm, td] = todayStr.split('-').map(Number)
+  const [vy, vm, vd] = dateStr.split('-').map(Number)
+  const todayMs = Date.UTC(ty, tm - 1, td)
+  const targetMs = Date.UTC(vy, vm - 1, vd)
+  return Math.round((targetMs - todayMs) / (1000 * 60 * 60 * 24))
 }
 
 /** Get today's date as YYYY-MM-DD in NY timezone */

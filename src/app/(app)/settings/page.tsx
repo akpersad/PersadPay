@@ -20,7 +20,18 @@ export default async function SettingsPage() {
     .eq('id', user.id)
     .single<Pick<Profile, 'role'>>()
 
-  if (profile?.role !== 'admin') redirect('/dashboard')
+  if (!profile) redirect('/api/auth/sign-out')
+
+  if (profile.role === 'employee') {
+    return (
+      <div className="px-4 pt-6 pb-4 max-w-lg md:max-w-3xl mx-auto space-y-4">
+        <h1 className="text-lg font-semibold">Settings</h1>
+        <PushNotificationsToggle />
+        <MfaSecurityCard />
+        <ChangePasswordCard />
+      </div>
+    )
+  }
 
   const currentYear = new Date().getFullYear()
 

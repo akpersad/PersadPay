@@ -5,7 +5,11 @@ import { LoginForm } from '@/components/auth/LoginForm'
 export default async function LoginPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (user) redirect('/dashboard')
+  if (user) {
+    const { data: profile } = await supabase.from('profiles').select('id').eq('id', user.id).single()
+    if (!profile) redirect('/api/auth/sign-out')
+    redirect('/dashboard')
+  }
   return (
     <main className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-6">

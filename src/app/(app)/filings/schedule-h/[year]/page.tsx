@@ -233,6 +233,18 @@ export default async function ScheduleHYearPage({ params }: { params: Promise<Pa
           About Schedule H on irs.gov
         </Button>
       </a>
+
+      <a
+        href="https://www.irs.gov/publications/p926"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block"
+      >
+        <Button variant="outline" className="w-full">
+          <ExternalLink className="h-4 w-4 mr-2" />
+          IRS Publication 926 — Household Employer's Tax Guide
+        </Button>
+      </a>
     </div>
   )
 }
