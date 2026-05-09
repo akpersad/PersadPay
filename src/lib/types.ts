@@ -234,6 +234,8 @@ export interface Filing {
   filed_on: string | null
   confirmation: string | null
   notes: string | null
+  not_applicable: boolean
+  not_applicable_reason: string | null
   created_at: string
   created_by: string | null
 }
