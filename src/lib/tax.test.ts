@@ -20,12 +20,13 @@ const rates2026: TaxRates = {
   futa_quarterly_threshold: 1000,
 }
 
-// Base inputs: ytdGrossBefore=3000 means the $3K household threshold has just
-// been met, so FICA applies to the full gross of this stub.
+// Base inputs: first stub of the year (YTD=0). FICA applies from the first
+// dollar — the $3,000 household threshold gates Schedule H *reporting*, not
+// per-stub withholding. See the rationale block in src/lib/tax.ts.
 function inputs(overrides: Partial<TaxInputs> = {}): TaxInputs {
   return {
     gross: 198,
-    ytdGrossBefore: 3000,
+    ytdGrossBefore: 0,
     ytdPflBefore: 0,
     federalWithholding: 0,
     stateWithholding: 0,
@@ -36,7 +37,7 @@ function inputs(overrides: Partial<TaxInputs> = {}): TaxInputs {
   }
 }
 
-describe('calculateTaxes — happy path (9 hrs × $22 = $198, YTD past $3K threshold)', () => {
+describe('calculateTaxes — happy path (9 hrs × $22 = $198, first stub of year)', () => {
   it('FICA SS: 6.2% of gross', () => {
     const r = calculateTaxes(inputs(), rates2026)
     expect(r.fica_social_security).toBe(12.28)
@@ -68,35 +69,58 @@ describe('calculateTaxes — happy path (9 hrs × $22 = $198, YTD past $3K thres
     expect(r.futa).toBe(1.19)
   })
 
+  it('SUTA: 4.1% of gross when YTD < wage base', () => {
+    const r = calculateTaxes(inputs(), rates2026)
+    expect(r.suta).toBe(8.12)
+  })
+
   it('net pay = gross − FICA SS − FICA Medicare (no other deductions)', () => {
     const r = calculateTaxes(inputs(), rates2026)
     expect(r.net_pay).toBe(182.85)
   })
 })
 
-describe('calculateTaxes — FICA household threshold ($3,000)', () => {
-  it('FICA = $0 when YTD has not yet reached the threshold', () => {
-    // First stub of the year: YTD=0, gross=198 → cumulative $198 < $3,000
-    const r = calculateTaxes(inputs({ ytdGrossBefore: 0 }), rates2026)
-    expect(r.fica_social_security).toBe(0)
-    expect(r.fica_medicare).toBe(0)
-    expect(r.employer_fica_ss).toBe(0)
-    expect(r.employer_fica_medicare).toBe(0)
-  })
-
-  it('FICA applies only to the excess above the threshold on the crossing stub', () => {
-    // YTD=$2,900, gross=$198 → only $98 is above the $3,000 threshold
-    const r = calculateTaxes(inputs({ ytdGrossBefore: 2900 }), rates2026)
-    // FICA SS: round(98 × 0.062) = round(6.076) = 6.08
-    expect(r.fica_social_security).toBe(6.08)
-    // FICA Medicare: round(98 × 0.0145) = round(1.421) = 1.42
-    expect(r.fica_medicare).toBe(1.42)
-  })
-
-  it('FICA applies to full gross once YTD is at or above threshold', () => {
-    const r = calculateTaxes(inputs({ ytdGrossBefore: 3000 }), rates2026)
+describe('calculateTaxes — FICA withholds from $1 (Pub 926 / Topic 756)', () => {
+  // Once a household employee earns ≥ $3,000 in a year, FICA is owed on ALL
+  // wages paid that year, including wages before the threshold was met.
+  // For a household certain to cross (annualized 9 hrs/wk × $22 ≈ $10K),
+  // withholding from week 1 is correct. Schedule H year-end (lib/filings.ts)
+  // is what reconciles the threshold for actual liability.
+  it('FICA SS applies on the very first stub (YTD=0)', () => {
+    const r = calculateTaxes(inputs({ gross: 198, ytdGrossBefore: 0 }), rates2026)
     expect(r.fica_social_security).toBe(12.28)
     expect(r.fica_medicare).toBe(2.87)
+    expect(r.employer_fica_ss).toBe(12.28)
+    expect(r.employer_fica_medicare).toBe(2.87)
+  })
+
+  it('FICA applies on full gross at every YTD level below the SS wage base', () => {
+    // YTD=$2,900 → no special threshold-crossing math; full $198 is FICA-eligible.
+    const r = calculateTaxes(inputs({ gross: 198, ytdGrossBefore: 2900 }), rates2026)
+    expect(r.fica_social_security).toBe(12.28)
+    expect(r.fica_medicare).toBe(2.87)
+  })
+})
+
+describe('calculateTaxes — verified rate-table for Persad household (regression)', () => {
+  // Locks in the numbers presented to the babysitter. If any of these break,
+  // either rates changed (update tax_rates DB row first) or the calc drifted.
+  it.each([
+    ['$22.00/hr', 22.00, { fica_ss: 12.28, fica_med: 2.87, futa: 1.19, suta: 8.12, net: 182.85 }],
+    ['$22.50/hr', 22.50, { fica_ss: 12.56, fica_med: 2.94, futa: 1.22, suta: 8.30, net: 187.00 }],
+    ['$23.00/hr', 23.00, { fica_ss: 12.83, fica_med: 3.00, futa: 1.24, suta: 8.49, net: 191.17 }],
+  ])('9 hrs @ %s', (_label, hourlyRate, expected) => {
+    const gross = Math.round(9 * hourlyRate * 100) / 100
+    const r = calculateTaxes(inputs({ gross }), rates2026)
+    expect(r.gross_pay).toBe(gross)
+    expect(r.fica_social_security).toBe(expected.fica_ss)
+    expect(r.fica_medicare).toBe(expected.fica_med)
+    expect(r.futa).toBe(expected.futa)
+    expect(r.suta).toBe(expected.suta)
+    expect(r.net_pay).toBe(expected.net)
+    // Employer FICA mirrors employee FICA at symmetric rates
+    expect(r.employer_fica_ss).toBe(expected.fica_ss)
+    expect(r.employer_fica_medicare).toBe(expected.fica_med)
   })
 })
 
