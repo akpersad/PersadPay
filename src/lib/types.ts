@@ -5,6 +5,7 @@ export interface Profile {
   full_name: string
   email: string
   role: Role
+  is_test: boolean
   created_at: string
 }
 

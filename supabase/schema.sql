@@ -10,6 +10,7 @@ create table public.profiles (
   full_name   text not null,
   email       text not null,
   role        text not null check (role in ('admin', 'employee')),
+  is_test     boolean not null default false,
   created_at  timestamptz not null default now()
 );
 
