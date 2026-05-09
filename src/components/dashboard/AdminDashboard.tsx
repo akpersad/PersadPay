@@ -158,7 +158,9 @@ export async function AdminDashboard() {
 
   const currentQuarterStubCount = currentQuarterStubs?.length ?? 0
   const currentQuarterGross = (currentQuarterStubs ?? []).reduce((sum, s) => sum + Number(s.gross_pay), 0)
-  const currentQuarterFiled = !!currentQuarterFiling?.filed_on
+  // Treat both Filed and Not Applicable as "handled" — either one means the
+  // admin has resolved this quarter and the urgency card should disappear.
+  const currentQuarterFiled = !!currentQuarterFiling?.filed_on || !!currentQuarterFiling?.not_applicable
   const showFilingCard = currentQuarterStubCount > 0 || daysUntil(getQuarterDueDate(currentYear, currentQuarter)) <= 20
 
   return (

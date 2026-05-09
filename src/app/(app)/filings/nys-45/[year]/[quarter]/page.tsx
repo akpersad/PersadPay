@@ -84,6 +84,7 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
   const daysUntilDue = daysUntil(dueDateEffective)
   const daysUntilFileBy = daysUntil(fileBy)
   const isFiled = !!filing?.filed_on
+  const isNotApplicable = !!filing?.not_applicable
 
   return (
     <div className="px-4 pt-4 pb-4 max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto space-y-4">
@@ -96,11 +97,12 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
         <h1 className="text-lg font-semibold flex items-center gap-2">
           NYS-45 · Q{q} {year}
           {isFiled && <Badge className="bg-green-600 hover:bg-green-600">Filed</Badge>}
+          {isNotApplicable && <Badge variant="outline" className="text-muted-foreground">Not applicable</Badge>}
         </h1>
         <p className="text-xs text-muted-foreground">
           {formatDate(data.date_range.start)} – {formatDate(data.date_range.end)}
         </p>
-        {!isFiled && (
+        {!isFiled && !isNotApplicable && (
           <div className="text-xs space-y-0.5">
             <p>
               <span className="font-medium text-foreground">File by</span>{' '}

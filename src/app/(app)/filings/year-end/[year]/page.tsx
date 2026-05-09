@@ -83,6 +83,7 @@ export default async function YearEndPage({ params }: { params: Promise<Params> 
   const schedHFileByDays = daysUntil(schedHFileBy)
 
   const isFiled = !!schedHFiling?.filed_on
+  const isNotApplicable = !!schedHFiling?.not_applicable
   const w2Ready = !!w2
 
   return (
@@ -166,6 +167,7 @@ export default async function YearEndPage({ params }: { params: Promise<Params> 
           <CardTitle className="text-sm flex items-center justify-between">
             <span>Schedule H · {year}</span>
             {isFiled && <Badge className="bg-green-600 hover:bg-green-600">Filed</Badge>}
+            {isNotApplicable && <Badge variant="outline" className="text-muted-foreground">Not applicable</Badge>}
           </CardTitle>
         </CardHeader>
         <CardContent className="pb-4 space-y-2 text-sm">
@@ -173,7 +175,12 @@ export default async function YearEndPage({ params }: { params: Promise<Params> 
             <span className="text-muted-foreground">Total household employment taxes</span>
             <span className="font-medium">{formatCurrency(scheduleHData.total_household_employment_taxes)}</span>
           </div>
-          {!isFiled ? (
+          {isNotApplicable ? (
+            <p className="text-xs text-muted-foreground">
+              Marked not applicable.
+              {schedHFiling?.not_applicable_reason ? ` ${schedHFiling.not_applicable_reason}` : ''}
+            </p>
+          ) : !isFiled ? (
             <div className="text-xs space-y-0.5">
               <p>
                 <span className="font-medium text-foreground">File by</span>{' '}

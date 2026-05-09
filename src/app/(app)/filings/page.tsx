@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ChevronRight, CheckCircle2 } from 'lucide-react'
+import { ChevronRight, CheckCircle2, MinusCircle } from 'lucide-react'
 import { formatDate, formatCurrency, daysUntil } from '@/lib/dates'
 import {
   getCurrentQuarter,
@@ -193,18 +193,25 @@ function FilingRow({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium">{title}</p>
-              {filed?.filed_on
+              {filed?.not_applicable
                 ? (
-                  <Badge variant="default" className="bg-green-600 hover:bg-green-600">
-                    <CheckCircle2 className="h-3 w-3 mr-1" />
-                    Filed {formatDate(filed.filed_on)}
+                  <Badge variant="outline" className="text-muted-foreground">
+                    <MinusCircle className="h-3 w-3 mr-1" />
+                    Not applicable
                   </Badge>
                 )
-                : days <= 0
-                  ? <Badge variant="destructive">Overdue</Badge>
-                  : days <= threshold
-                    ? <Badge variant="secondary">Due in {days}d</Badge>
-                    : null
+                : filed?.filed_on
+                  ? (
+                    <Badge variant="default" className="bg-green-600 hover:bg-green-600">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Filed {formatDate(filed.filed_on)}
+                    </Badge>
+                  )
+                  : days <= 0
+                    ? <Badge variant="destructive">Overdue</Badge>
+                    : days <= threshold
+                      ? <Badge variant="secondary">Due in {days}d</Badge>
+                      : null
               }
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -229,18 +236,25 @@ function ScheduleHRow({ year, filing }: { year: number; filing: Filing | null })
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium">Schedule H {year}</p>
-              {filing?.filed_on
+              {filing?.not_applicable
                 ? (
-                  <Badge variant="default" className="bg-green-600 hover:bg-green-600">
-                    <CheckCircle2 className="h-3 w-3 mr-1" />
-                    Filed
+                  <Badge variant="outline" className="text-muted-foreground">
+                    <MinusCircle className="h-3 w-3 mr-1" />
+                    Not applicable
                   </Badge>
                 )
-                : days <= 0
-                  ? <Badge variant="destructive">Overdue</Badge>
-                  : days <= 30
-                    ? <Badge variant="secondary">Due in {days}d</Badge>
-                    : null
+                : filing?.filed_on
+                  ? (
+                    <Badge variant="default" className="bg-green-600 hover:bg-green-600">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Filed
+                    </Badge>
+                  )
+                  : days <= 0
+                    ? <Badge variant="destructive">Overdue</Badge>
+                    : days <= 30
+                      ? <Badge variant="secondary">Due in {days}d</Badge>
+                      : null
               }
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
