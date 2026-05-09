@@ -47,7 +47,7 @@ export function W3Document({ w2, settings }: Props) {
             For paper filing, mail to SSA per the W-3 instructions. For electronic filing, BSO
             (Business Services Online) generates a W-3 automatically from your W-2 upload — paper
             W-3 not required when filing through BSO.{'\n'}
-            Reference: <Link src="https://www.irs.gov/publications/p926" style={{ color: '#1a56db' }}>IRS Publication 926 — Household Employer's Tax Guide</Link>
+            Reference: <Link src="https://www.irs.gov/publications/p926" style={{ color: "#1a56db" }}>IRS Publication 926 {"—"} Household Employer{"’"}s Tax Guide</Link>
           </Text>
         </View>
 

@@ -94,7 +94,7 @@ export default async function HYSAPage() {
     : null
 
   return (
-    <div className="px-4 pt-6 pb-4 space-y-5 max-w-lg md:max-w-3xl mx-auto">
+    <div className="px-4 pt-6 pb-4 space-y-5 max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold flex items-center gap-2">
           <PiggyBank className="h-5 w-5" />

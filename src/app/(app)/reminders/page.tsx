@@ -85,7 +85,7 @@ export default async function RemindersPage() {
   }
 
   return (
-    <div className="px-4 pt-6 pb-4 max-w-lg md:max-w-3xl mx-auto">
+    <div className="px-4 pt-6 pb-4 max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
       <h1 className="text-lg font-semibold mb-4">Reminders</h1>
       <RemindersView reminders={(reminders ?? []) as Reminder[]} amounts={amounts} />
     </div>

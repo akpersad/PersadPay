@@ -21,18 +21,17 @@ import { PdfPreviewDialog } from '@/components/ui/pdf-preview-dialog'
 import { hysaAmountForStub } from '@/lib/tax'
 import { insertHysaDeposit, deleteHysaDepositForStub } from '@/lib/hysa'
 import { CopyValue } from '@/components/filings/CopyValue'
-import type { PaystubWithYTD, Settings, Role, PaystubLineItem } from '@/lib/types'
+import type { PaystubWithYTD, Role, PaystubLineItem } from '@/lib/types'
 
 interface Props {
   stub: PaystubWithYTD
   role: Role
   userId: string
-  settings: Settings | null
   lineItems?: PaystubLineItem[]
   ytdByLineType?: Record<string, number>
 }
 
-export function StubDetail({ stub, role, userId, settings, lineItems = [], ytdByLineType = {} }: Props) {
+export function StubDetail({ stub, role, userId, lineItems = [], ytdByLineType = {} }: Props) {
   const taxableLineItems = lineItems.filter(i =>
     !i.informational_only && (i.taxable_fed || i.taxable_fica || i.taxable_ny || i.w2_box1)
   )
@@ -189,7 +188,7 @@ export function StubDetail({ stub, role, userId, settings, lineItems = [], ytdBy
   }
 
   return (
-    <div className="px-4 pt-6 pb-4 space-y-4 max-w-lg md:max-w-3xl mx-auto">
+    <div className="px-4 pt-6 pb-4 space-y-4 max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>

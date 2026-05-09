@@ -52,7 +52,7 @@ export default async function StubsPage({ searchParams }: Props) {
     : (stubs as Paystub[] | null)?.filter(s => s.pay_date.startsWith(selectedYear))
 
   return (
-    <div className="px-4 pt-6 pb-4 space-y-4 max-w-lg md:max-w-3xl mx-auto">
+    <div className="px-4 pt-6 pb-4 space-y-4 max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Pay Stubs</h1>
         {profile?.role === 'admin' && (

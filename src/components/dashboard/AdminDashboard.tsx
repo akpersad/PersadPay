@@ -162,7 +162,7 @@ export async function AdminDashboard() {
   const showFilingCard = currentQuarterStubCount > 0 || daysUntil(getQuarterDueDate(currentYear, currentQuarter)) <= 20
 
   return (
-    <div className="px-4 pt-6 pb-4 space-y-8 max-w-lg md:max-w-3xl mx-auto">
+    <div className="px-4 pt-6 pb-4 space-y-8 max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
       {/* DBL/PFL coverage threshold watch — only renders when triggered */}
       {coverage.status !== 'ok' && (
         <Card className={coverage.status === 'exceeded' ? 'border-destructive' : 'border-yellow-500'}>

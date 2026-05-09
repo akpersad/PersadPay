@@ -1,7 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { StubDetail } from '@/components/stubs/StubDetail'
-import type { Paystub, Profile, PaystubWithYTD, Settings, PaystubLineItem } from '@/lib/types'
+import type { Paystub, Profile, PaystubWithYTD, PaystubLineItem } from '@/lib/types'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -84,8 +84,7 @@ export default async function StubDetailPage({ params }: Props) {
 
   const stubIdsInYear = (ytdStubs ?? []).map(s => s.id)
 
-  const [{ data: settings }, { data: lineItems }, { data: ytdLineItemRows }] = await Promise.all([
-    supabase.from('settings').select('*').single<Settings>(),
+  const [{ data: lineItems }, { data: ytdLineItemRows }] = await Promise.all([
     supabase
       .from('paystub_line_items')
       .select('*')
@@ -110,7 +109,6 @@ export default async function StubDetailPage({ params }: Props) {
       stub={stubWithYTD}
       role={profile?.role ?? 'employee'}
       userId={user.id}
-      settings={settings}
       lineItems={(lineItems ?? []) as PaystubLineItem[]}
       ytdByLineType={ytdByLineType}
     />

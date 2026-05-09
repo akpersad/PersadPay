@@ -48,7 +48,7 @@ export default async function CalendarPage({
     .order('pay_period_start', { ascending: true })
 
   return (
-    <div className="px-4 pt-6 pb-4 max-w-lg md:max-w-5xl mx-auto">
+    <div className="px-4 pt-6 pb-4 max-w-lg md:max-w-4xl lg:max-w-5xl xl:max-w-6xl mx-auto">
       <CalendarView stubs={(stubs ?? []) as CalendarStub[]} year={year} month={monthNum} />
     </div>
   )
