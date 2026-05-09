@@ -139,7 +139,7 @@ async function testAdminRedirects(page: PwPage): Promise<{ pass: number; fail: n
     const landed = new URL(page.url()).pathname
     const ok = landed === '/dashboard'
     console.log(`  ${ok ? '✅' : '❌'} ${route} → landed at ${landed}`)
-    ok ? pass++ : fail++
+    if (ok) pass++; else fail++
   }
 
   return { pass, fail }
