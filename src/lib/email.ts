@@ -4,13 +4,7 @@ import { formatDate, formatDateRange } from './dates'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-// TODO: switch to 'Persad Pay <payroll@persadpay.com>' once the persadpay.com
-// domain is purchased and verified in Resend (DNS SPF/DKIM records added).
-// Using Resend's sandbox sender as a temporary stand-in. The sandbox sender
-// only delivers to email addresses verified on the Resend account, which is
-// fine for dev/testing but won't reach the babysitter's real address.
-// Tracked in: onboarding checklist + /docs/ROADMAP.md User TODOs.
-const FROM = 'Persad Pay <onboarding@resend.dev>'
+const FROM = 'Persad Pay <noreply@payroll.persadpay.com>'
 
 // Resend's SDK returns { data, error } and does NOT throw on API errors
 // (unverified domain, invalid recipient, rate limits, etc.). If we don't
