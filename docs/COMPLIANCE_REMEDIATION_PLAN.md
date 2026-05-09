@@ -44,7 +44,7 @@
 | 9 hrs/week × 52 = 468 hrs/yr ≈ 52 days/yr | NY PFL does NOT cover (<20 hrs/wk AND <175 days/52 wks) → no PFL deduction |
 | <40 hrs/week live-out | Workers' Comp not required (voluntary, user has chosen no) |
 | Nassau County | Not NYC, not Yonkers, not in MCTMT employer threshold (~$312,500/qtr); none of those taxes apply |
-| Annual gross ~$10,296 | Above FICA household threshold ($3,000 in 2026); above FUTA quarterly threshold ($1,000); below SS wage base ($184,500); will hit FUTA wage base ($7,000) mid-year; below SUTA wage base ($13,000) |
+| Annual gross ~$10,296 | Above FICA household threshold ($3,000 in 2026); above FUTA quarterly threshold ($1,000); below SS wage base ($184,500); will hit FUTA wage base ($7,000) mid-year; below SUTA wage base ($17,600) |
 
 ---
 
@@ -79,7 +79,7 @@ These were independently confirmed by the audit against primary sources. Don't c
 | FUTA rate (NY) | 0.6% — NY not on 2025 final list, not on 2026 potential list | DOL FUTA credit-reduction page |
 | FUTA wage base | $7,000 | IRS Pub 926 (2026) |
 | FUTA quarterly trigger | $1,000+ in any quarter | IRS Pub 926 (2026), Table 1 |
-| **NY SUTA wage base 2026 = $13,000** | Confirmed against multiple sources (EY tax news, Bloomberg Tax, NY DOL); a $17,600 figure appears in some projections but is NOT the actual 2026 figure | EY 2026 SUI wage bases summary |
+| **NY SUTA wage base 2026 = $17,600** | Per NYS-50 (tax.ny.gov/forms/publications/wt/nys50.htm). Permanent formula change from 2026: 18% of state average annual wage. NY's historical wage bases never reached $13,000 (2025 = $12,800, 2024 = $12,500); the $13,000 figure that briefly appeared in earlier docs was a misread caught by pre-launch audit B1 (Agent 21). | NYS-50 publication |
 | **IRS standard mileage rate 2026 = $0.725** | Confirmed; up 2.5¢ from 2025's $0.70 | IRS Notice 2026-10 |
 | NY PFL rate 2026 | 0.432% (rate when covered) | paidfamilyleave.ny.gov/2026 |
 | NY PFL annual cap 2026 | $411.91 | paidfamilyleave.ny.gov/2026 |
@@ -602,7 +602,7 @@ Useful for tracing "did I really dismiss this reminder?" disputes later.
    - SDI cap: when `dblCovered = true`, gross ≥ $120 → SDI = $0.60 exactly
    - PFL cap: when `pflCovered = true`, ytdPflBefore = $411.81 (cap − $0.10), gross $198 → PFL = $0.10
    - FUTA wage base crossover: YTD $6,802, gross $198 → FUTA on $198; YTD $6,900, gross $198 → FUTA on $100; YTD $7,100 → FUTA = 0
-   - SUTA wage base crossover at $13,000 (same shape)
+   - SUTA wage base crossover at $17,600 (same shape)
    - SS wage base crossover at $184,500 (synthetic high-gross)
    - `round(1.005)` returns `1.01` (post-Phase-12.8)
 5. **`src/lib/filings.test.ts`** test cases:

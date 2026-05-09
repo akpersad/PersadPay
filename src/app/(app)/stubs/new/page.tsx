@@ -47,6 +47,12 @@ export default async function NewStubPage({
 
   // Fetch last stub and employee first: both are needed to compute the correct
   // pay year before querying YTD totals.
+  //
+  // Employee lookup prefers a real (non-test) employee but falls back to the
+  // dev/CI Test Employee when none exists. Ordering by is_test ASC puts
+  // non-test profiles first so the limit(1) picks the real babysitter once
+  // she's been invited via Supabase. Pre-invite, Test Employee keeps the dev
+  // flow working. Returns null only if neither exists.
   const [{ data: lastStub }, { data: employee }] = await Promise.all([
     supabase
       .from('paystubs')
@@ -54,7 +60,13 @@ export default async function NewStubPage({
       .order('stub_number', { ascending: false })
       .limit(1)
       .single<Pick<Paystub, 'stub_number' | 'pay_period_end'>>(),
-    supabase.from('profiles').select('id').eq('role', 'employee').single<Pick<Profile, 'id'>>(),
+    supabase
+      .from('profiles')
+      .select('id')
+      .eq('role', 'employee')
+      .order('is_test', { ascending: true })
+      .limit(1)
+      .maybeSingle<Pick<Profile, 'id'>>(),
   ])
 
   // Derive the expected pay year from the suggested pay date, not the server
@@ -81,7 +93,11 @@ export default async function NewStubPage({
   const ytdGrossBefore = (ytdStubs ?? []).reduce((sum, s) => sum + Number(s.gross_pay), 0)
   const ytdPflBefore = (ytdStubs ?? []).reduce((sum, s) => sum + Number(s.pfl ?? 0), 0)
 
-  const settingsIncomplete = !settings?.employee_email || !settings?.employer_name || !employee?.id
+  // Two distinct blocking states: missing employer/employee config in Settings,
+  // and "the real babysitter hasn't been invited via Supabase yet" (employee=null).
+  // Surface them separately so the admin knows which thing to fix.
+  const employeeMissing = !employee?.id
+  const settingsFieldsMissing = !settings?.employee_email || !settings?.employer_name
 
   if (!taxRates) {
     return (
@@ -98,9 +114,15 @@ export default async function NewStubPage({
   return (
     <div className="px-4 pt-6 pb-4 max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
       <h1 className="text-lg font-semibold mb-4">New Pay Stub</h1>
-      {settingsIncomplete && (
+      {employeeMissing && (
         <div className="mb-4 rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-          Settings are incomplete. Please fill out employer info, employee info, and create the employee account before generating stubs.
+          No employee account found. Invite your babysitter via the Supabase dashboard
+          (Authentication → Users → Add user, with role &quot;employee&quot;), then return here.
+        </div>
+      )}
+      {!employeeMissing && settingsFieldsMissing && (
+        <div className="mb-4 rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+          Settings are incomplete. Please fill out employer name and employee email in Settings before generating stubs.
         </div>
       )}
       <NewStubForm

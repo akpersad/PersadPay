@@ -31,7 +31,7 @@ Every value below was verified against primary sources on 2026-05-05. Re-verify 
 | NY SDI weekly cap | $0.60 (annual max $31.20) | NY DFS / WCB |
 | NY PFL rate | 0.432% | DFS 2026 PFL rate decision |
 | NY PFL annual cap | **$411.91** | DFS 2026 PFL rate decision |
-| NY SUTA wage base | **$13,000** (NOT $17,600 as originally specced) | NY DOL 2026 UI rate notice |
+| NY SUTA wage base | **$17,600** | NY DTF NYS-50 (18% of state average annual wage, permanent formula from 2026; reverted from earlier $13,000 misread per pre-launch audit B1) |
 | Social Security wage base | $184,500 | IRS Topic 751 |
 | IRS standard mileage | 72.5¢/mi | IRS Notice 2026-10 |
 
@@ -476,7 +476,7 @@ All other tokens (background, card, border, muted, etc.) stay neutral — only `
 - `Email Paystub` button is fully hidden (not just disabled) when `payment_sent = false` ✅
 - W-2 regeneration confirmation dialog exists and fires correctly ✅
 - Reminder dismissal auto-creates next year's equivalent with correct year math ✅
-- SUTA wage base in `tax_rates` DB table = $13,000 (correct for NY 2026) ✅
+- SUTA wage base in `tax_rates` DB table = $17,600 (correct for NY 2026 per NYS-50) ✅
 
 ---
 

@@ -5,6 +5,7 @@ export interface Profile {
   full_name: string
   email: string
   role: Role
+  is_test: boolean
   created_at: string
 }
 
@@ -233,6 +234,8 @@ export interface Filing {
   filed_on: string | null
   confirmation: string | null
   notes: string | null
+  not_applicable: boolean
+  not_applicable_reason: string | null
   created_at: string
   created_by: string | null
 }

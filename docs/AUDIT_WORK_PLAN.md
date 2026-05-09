@@ -24,7 +24,7 @@ _Two items deferred to Phase 2: 13c (schema grants tightening) and 11f (multi-re
 ### Calculations & data
 - [x] B1: Migration — SUTA wage base $13,000 → $17,600; update CLAUDE.md
 - [x] 7a: Employer FICA SS/Medicare — explicit calc instead of aliasing employee values
-- [x] 7b: FICA $3K household threshold — don't apply FICA until YTD gross ≥ $3,000
+- [x] 7b: ~~FICA $3K household threshold — don't apply FICA until YTD gross ≥ $3,000~~ **REVERSED 2026-05-09:** withhold FICA from the first dollar (`src/lib/tax.ts` threshold gate removed). Per IRS Topic 756 / Pub 926, once a household employee crosses $3,000 in a year, FICA is owed on ALL wages — including pre-threshold ones. At 9 hrs/wk × $22+ × ~33 weeks remaining of 2026, the babysitter will demonstrably cross $3,000, so withholding from $1 avoids mid-year catch-up withholding or out-of-pocket employer reimbursement. Schedule H year-end calc (`lib/filings.ts`) keeps the threshold check correctly — if the employee leaves before crossing, no FICA is reported on the form.
 - [x] 7d: YTD year derived from `payDate` field, not server clock
 - [x] 7e: YTD stub query — add `employee_id` filter
 - [x] 7f: Zero-hour guard — withholdings pass $0 when `hours_worked === 0`
@@ -75,7 +75,7 @@ _Q1 NYS-45 is already past due. Fix filings and stub display issues._
 - [ ] 8g: Add safe-harbor surface, YTD payment tracking, annualized projection
 
 ### Filings cards (`/filings`)
-- [ ] Add "Mark Not Applicable" action alongside "Mark Filed" — Q1 NYS-45 / Q1 1040-ES are overdue but irrelevant since babysitter started May 11 2026; user shouldn't have to lie and mark them filed. Needs DB column (e.g. `not_applicable` boolean on `filings` row, or a separate dismissal table) and UI button.
+- [x] Add "Mark Not Applicable" action alongside "Mark Filed" — landed on branch `fix/audit-followups` (migration 0027 adds `filings.not_applicable` + reason with mutual-exclusivity check; `MarkFiledForm` becomes a tri-state status card; "Not applicable" badge in `/filings` list + 4 detail pages + year-end view; `AdminDashboard.NextFilingCard` treats N/A as handled; HYSA withdrawal sync deletes any prior withdrawal when a filing flips to N/A).
 
 ### Stub display / compliance
 - [ ] 10c: Sick leave summary — show "Unlimited" for accrued balance

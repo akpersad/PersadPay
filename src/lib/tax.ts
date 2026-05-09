@@ -85,20 +85,25 @@ export function calculateTaxes(inputs: TaxInputs, rates: TaxRates): TaxResult {
     }
   }
 
-  // FICA household threshold (IRS Pub 926): FICA doesn't apply until cumulative
-  // annual cash wages reach the threshold. Only the portion of current gross that
-  // takes YTD wages above the threshold is FICA-eligible.
-  const ficaThreshold = Number(rates.fica_household_threshold)
-  const ficaTaxableGross = Math.max(0, gross - Math.max(0, ficaThreshold - ytdGrossBefore))
-
-  const ssTaxable = taxableWagePortion(ytdGrossBefore, ficaTaxableGross, Number(rates.ss_wage_base))
+  // FICA on full gross from the first dollar. IRS Pub 926 / Topic 756: once
+  // cumulative annual cash wages cross the household threshold ($3,000 in 2026),
+  // FICA is owed on ALL wages paid that year — including wages paid before the
+  // threshold was met. For a single-household app where annual wages will
+  // demonstrably exceed the threshold (9 hrs/wk × $22+ × ~33 weeks ≫ $3,000),
+  // withholding from $1 is the correct approach: the alternative is doubling-up
+  // withholding mid-year or paying the employee's share from the employer's own
+  // pocket (which itself becomes taxable wages). Schedule H year-end calc
+  // (lib/filings.ts) keeps the threshold check — if for some reason the
+  // employee leaves before crossing $3,000, no FICA is reported on the form
+  // and the employer can refund the employee's withheld amounts directly.
+  const ssTaxable = taxableWagePortion(ytdGrossBefore, gross, Number(rates.ss_wage_base))
   const fica_ss = round(ssTaxable * Number(rates.fica_ss_rate))
-  const fica_med = round(ficaTaxableGross * Number(rates.fica_medicare_rate))
+  const fica_med = round(gross * Number(rates.fica_medicare_rate))
 
   // Employer FICA uses the same taxable base. Computed independently rather than
   // aliased to employee values — any future rate asymmetry will be explicit.
   const employer_fica_ss = round(ssTaxable * Number(rates.fica_ss_rate))
-  const employer_fica_medicare = round(ficaTaxableGross * Number(rates.fica_medicare_rate))
+  const employer_fica_medicare = round(gross * Number(rates.fica_medicare_rate))
 
   // NY SDI: only applies when employee is covered (20+ hrs/wk). Default off.
   const sdi = dblCovered ? Math.min(round(gross * Number(rates.sdi_rate)), Number(rates.sdi_weekly_cap)) : 0

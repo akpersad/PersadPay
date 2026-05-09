@@ -10,6 +10,7 @@ create table public.profiles (
   full_name   text not null,
   email       text not null,
   role        text not null check (role in ('admin', 'employee')),
+  is_test     boolean not null default false,
   created_at  timestamptz not null default now()
 );
 
@@ -295,18 +296,23 @@ create table public.withholding_forms (
 -- Permanent record of NYS-45 quarterly and Schedule H annual submissions.
 -- Created when admin marks a filing as "filed" from the filings detail view.
 create table public.filings (
-  id            uuid primary key default uuid_generate_v4(),
-  filing_type   text not null check (filing_type in ('NYS-45', 'Schedule H', 'Federal Estimated Tax')),
-  tax_year      integer not null,
-  quarter       integer check (quarter is null or quarter between 1 and 4),
-  filed_on      date,
-  confirmation  text,
-  notes         text,
-  created_at    timestamptz not null default now(),
-  created_by    uuid references public.profiles(id),
+  id                       uuid primary key default uuid_generate_v4(),
+  filing_type              text not null check (filing_type in ('NYS-45', 'Schedule H', 'Federal Estimated Tax')),
+  tax_year                 integer not null,
+  quarter                  integer check (quarter is null or quarter between 1 and 4),
+  filed_on                 date,
+  confirmation             text,
+  notes                    text,
+  not_applicable           boolean not null default false,
+  not_applicable_reason    text,
+  created_at               timestamptz not null default now(),
+  created_by               uuid references public.profiles(id),
   constraint filings_quarter_consistency check (
     (filing_type = 'Schedule H' and quarter is null) or
     (filing_type in ('NYS-45', 'Federal Estimated Tax') and quarter is not null)
+  ),
+  constraint filings_status_exclusivity check (
+    not (filed_on is not null and not_applicable = true)
   )
 );
 

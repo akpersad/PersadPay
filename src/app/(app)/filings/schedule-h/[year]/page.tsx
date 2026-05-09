@@ -65,6 +65,7 @@ export default async function ScheduleHYearPage({ params }: { params: Promise<Pa
   const daysUntilDue = daysUntil(dueDateEffective)
   const daysUntilFileBy = daysUntil(fileBy)
   const isFiled = !!filing?.filed_on
+  const isNotApplicable = !!filing?.not_applicable
 
   return (
     <div className="px-4 pt-4 pb-4 max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto space-y-4">
@@ -77,11 +78,12 @@ export default async function ScheduleHYearPage({ params }: { params: Promise<Pa
         <h1 className="text-lg font-semibold flex items-center gap-2">
           Schedule H · {year}
           {isFiled && <Badge className="bg-green-600 hover:bg-green-600">Filed</Badge>}
+          {isNotApplicable && <Badge variant="outline" className="text-muted-foreground">Not applicable</Badge>}
         </h1>
         <p className="text-xs text-muted-foreground">
           Files with federal Form 1040
         </p>
-        {!isFiled && (
+        {!isFiled && !isNotApplicable && (
           <div className="text-xs space-y-0.5">
             <p>
               <span className="font-medium text-foreground">File by</span>{' '}
