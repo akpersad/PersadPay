@@ -22,7 +22,7 @@ export function EmployeeHeader({ name }: { name: string }) {
 
   return (
     <>
-      <header className="flex items-center justify-between px-4 pt-5 pb-1 max-w-lg md:max-w-3xl mx-auto w-full">
+      <header className="flex items-center justify-between px-4 pt-5 pb-1 max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto w-full">
         <span className="text-sm font-medium text-muted-foreground">{name}</span>
         <button onClick={() => setOpen(true)} aria-label="Account menu">
           <UserCircle className="h-6 w-6 text-muted-foreground" />

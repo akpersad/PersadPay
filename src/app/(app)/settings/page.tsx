@@ -24,7 +24,7 @@ export default async function SettingsPage() {
 
   if (profile.role === 'employee') {
     return (
-      <div className="px-4 pt-6 pb-4 max-w-lg md:max-w-3xl mx-auto space-y-4">
+      <div className="px-4 pt-6 pb-4 max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto space-y-4">
         <h1 className="text-lg font-semibold">Settings</h1>
         <PushNotificationsToggle />
         <MfaSecurityCard />
@@ -42,7 +42,7 @@ export default async function SettingsPage() {
   ])
 
   return (
-    <div className="px-4 pt-6 pb-4 max-w-lg md:max-w-3xl mx-auto space-y-4">
+    <div className="px-4 pt-6 pb-4 max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto space-y-4">
       <h1 className="text-lg font-semibold">Settings</h1>
       <SettingsForm settings={settings} />
       <PushNotificationsToggle />
