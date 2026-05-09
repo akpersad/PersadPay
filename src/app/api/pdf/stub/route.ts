@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { generateStubPDF } from '@/lib/pdf'
 import type { Paystub, Settings, PaystubWithYTD, Profile, PaystubLineItem } from '@/lib/types'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const id = searchParams.get('id')
-  const variantParam = searchParams.get('variant') ?? 'employee'
-  const variant = variantParam === 'admin' ? 'admin' : 'employee'
 
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
@@ -21,8 +19,8 @@ export async function GET(request: Request) {
     .eq('id', user.id)
     .single<Pick<Profile, 'role'>>()
 
-  // Only admins can get the admin variant
-  const effectiveVariant = profile?.role === 'admin' ? variant : 'employee'
+  // Variant is derived from role only — the ?variant query param is not accepted.
+  const effectiveVariant: 'admin' | 'employee' = profile?.role === 'admin' ? 'admin' : 'employee'
 
   const { data: stub } = await supabase.from('paystubs').select('*').eq('id', id).single<Paystub>()
   if (!stub) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -75,8 +73,11 @@ export async function GET(request: Request) {
 
   const stubIdsInYear = ((ytdStubs ?? []) as Paystub[]).map(s => s.id)
 
+  // Use admin client for settings: employees can't SELECT settings via RLS
+  // but settings data is only used for PDF rendering, not exposed to the user.
+  const adminClient = createAdminClient()
   const [{ data: settings }, { data: lineItems }, { data: ytdLineItemRows }] = await Promise.all([
-    supabase.from('settings').select('*').single<Settings>(),
+    adminClient.from('settings').select('*').single<Settings>(),
     supabase
       .from('paystub_line_items')
       .select('*')

@@ -104,9 +104,25 @@ export default async function StubDetailPage({ params }: Props) {
     ytdByLineType[row.line_type] = (ytdByLineType[row.line_type] ?? 0) + Number(row.amount)
   }
 
+  // Strip employer-side financials and Zelle data for employee users.
+  // The UI already hides these behind {isAdmin && ...} but the full object is
+  // serialized into the React flight payload and visible in DevTools → Network.
+  const safeStub: PaystubWithYTD = profile?.role === 'employee' ? {
+    ...stubWithYTD,
+    employer_fica_ss: 0,
+    employer_fica_medicare: 0,
+    futa: 0,
+    suta: 0,
+    ytd_employer_fica_ss: 0,
+    ytd_employer_fica_medicare: 0,
+    ytd_futa: 0,
+    ytd_suta: 0,
+    zelle_transaction_id: null,
+  } : stubWithYTD
+
   return (
     <StubDetail
-      stub={stubWithYTD}
+      stub={safeStub}
       role={profile?.role ?? 'employee'}
       userId={user.id}
       lineItems={(lineItems ?? []) as PaystubLineItem[]}
