@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .eq('id', user.id)
     .single<Profile>()
 
-  if (!profile) redirect('/')
+  if (!profile) redirect('/api/auth/sign-out')
 
   return (
     <div className="flex flex-col min-h-screen">
