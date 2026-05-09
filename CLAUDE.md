@@ -528,8 +528,14 @@ Settings must be filled out before the app is functional. The page should render
 ```
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-SUPABASE_SECRET_KEY
+NEXT_PUBLIC_SUPABASE_ANON_KEY       # alias for PUBLISHABLE_KEY in some Supabase setups
+SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_PROJECT_REF
 RESEND_API_KEY
+CRON_SECRET                         # Vercel cron Bearer auth
+NEXT_PUBLIC_VAPID_PUBLIC_KEY        # web push public key
+VAPID_PRIVATE_KEY                   # web push private key
+VAPID_SUBJECT                       # mailto: address for push registration
 ```
 
 All in `.env.local`. Never hardcode.
