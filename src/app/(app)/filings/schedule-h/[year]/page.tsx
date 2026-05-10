@@ -6,11 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ChevronLeft, ExternalLink } from 'lucide-react'
 import { formatDate, formatCurrency, daysUntil, shiftedDeadline, selfImposedDeadline } from '@/lib/dates'
-import { calculateScheduleH } from '@/lib/filings'
+import { calculateScheduleH, type Quarter } from '@/lib/filings'
 import { getTaxRatesForYear } from '@/lib/tax'
 import { CopyValue } from '@/components/filings/CopyValue'
 import { MarkFiledForm } from '@/components/filings/MarkFiledForm'
-import type { Profile, Paystub, Filing } from '@/lib/types'
+import type { Profile, Paystub, Settings, Filing } from '@/lib/types'
 
 interface Params { year: string }
 
@@ -33,16 +33,25 @@ export default async function ScheduleHYearPage({ params }: { params: Promise<Pa
 
   const [
     rates,
+    { data: settings },
     { data: yearStubs },
+    { data: priorYearStubs },
     { data: filing },
   ] = await Promise.all([
     getTaxRatesForYear(supabase, year),
+    supabase.from('settings').select('suta_rate').single<Pick<Settings, 'suta_rate'>>(),
     supabase
       .from('paystubs')
       .select('*')
       .gte('pay_date', `${year}-01-01`)
       .lte('pay_date', `${year}-12-31`)
       .order('pay_date', { ascending: true }),
+    // Prior-year stubs needed to check FUTA threshold (IRS Pub 926: checks prior year too)
+    supabase
+      .from('paystubs')
+      .select('pay_date, gross_pay')
+      .gte('pay_date', `${year - 1}-01-01`)
+      .lte('pay_date', `${year - 1}-12-31`),
     supabase
       .from('filings')
       .select('*')
@@ -59,7 +68,25 @@ export default async function ScheduleHYearPage({ params }: { params: Promise<Pa
     )
   }
 
-  const data = calculateScheduleH((yearStubs ?? []) as Paystub[], rates, year)
+  // Determine if any prior-year calendar quarter had $1,000+ in wages (8d)
+  const priorQuarterTotals: Record<Quarter, number> = { 1: 0, 2: 0, 3: 0, 4: 0 }
+  for (const stub of (priorYearStubs ?? []) as Pick<Paystub, 'pay_date' | 'gross_pay'>[]) {
+    const month = parseInt(stub.pay_date.slice(5, 7), 10)
+    const q = Math.ceil(month / 3) as Quarter
+    priorQuarterTotals[q] += Number(stub.gross_pay)
+  }
+  const priorYearFutaThresholdMet = Object.values(priorQuarterTotals).some(
+    t => t >= Number(rates.futa_quarterly_threshold),
+  )
+
+  const sutaRate = Number(settings?.suta_rate ?? 0)
+  const data = calculateScheduleH(
+    (yearStubs ?? []) as Paystub[],
+    rates,
+    year,
+    sutaRate,
+    priorYearFutaThresholdMet,
+  )
   const { effective: dueDateEffective, shifted } = shiftedDeadline(data.due_date)
   const fileBy = selfImposedDeadline(dueDateEffective)
   const daysUntilDue = daysUntil(dueDateEffective)
@@ -116,83 +143,122 @@ export default async function ScheduleHYearPage({ params }: { params: Promise<Pa
               <CardContent className="py-3 px-4 text-xs space-y-1">
                 {!data.fica_threshold_met && (
                   <p className="text-yellow-700">
-                    FICA threshold ({formatCurrency(Number(rates.fica_household_threshold))}/yr per IRS Pub 926) not met — Lines 1a–2b will be $0.
+                    FICA threshold ({formatCurrency(Number(rates.fica_household_threshold))}/yr per IRS Pub 926) not met — Lines 1–4 will be $0.
                   </p>
                 )}
                 {!data.futa_threshold_met && (
                   <p className="text-yellow-700">
-                    FUTA threshold ($1,000/quarter per IRS Pub 926) not met — Lines 7–8 will be $0.
+                    FUTA threshold ($1,000/quarter per IRS Pub 926) not met — Lines 15–16 will be $0.
                   </p>
                 )}
               </CardContent>
             </Card>
           )}
 
-          {/* Social Security */}
+          {/* Part I — Social Security, Medicare, and Federal Income Tax */}
           <Card>
             <CardHeader className="pb-2 pt-4">
-              <CardTitle className="text-sm">Social Security</CardTitle>
+              <CardTitle className="text-sm">Part I — Social Security</CardTitle>
             </CardHeader>
             <CardContent className="pb-4 space-y-2">
-              <LineRow line="1a" label="Cash wages subject to social security tax" value={data.ss_wages} />
+              <LineRow line="1" label="Cash wages subject to social security tax" value={data.ss_wages} />
               <LineRow
-                line="1b"
-                label="Social security tax (Line 1a × 12.4%)"
+                line="2"
+                label="Social security taxes (Line 1 × 12.4%)"
                 value={data.ss_tax}
                 hint="Combined employee 6.2% + employer 6.2%"
               />
             </CardContent>
           </Card>
 
-          {/* Medicare */}
           <Card>
             <CardHeader className="pb-2 pt-4">
-              <CardTitle className="text-sm">Medicare</CardTitle>
+              <CardTitle className="text-sm">Part I — Medicare</CardTitle>
             </CardHeader>
             <CardContent className="pb-4 space-y-2">
-              <LineRow line="2a" label="Cash wages subject to Medicare tax" value={data.medicare_wages} />
+              <LineRow line="3" label="Cash wages subject to Medicare tax" value={data.medicare_wages} />
               <LineRow
-                line="2b"
-                label="Medicare tax (Line 2a × 2.9%)"
+                line="4"
+                label="Medicare taxes (Line 3 × 2.9%)"
                 value={data.medicare_tax}
                 hint="Combined employee 1.45% + employer 1.45%"
               />
             </CardContent>
           </Card>
 
-          {/* Federal Income Tax + subtotal */}
           <Card>
             <CardHeader className="pb-2 pt-4">
-              <CardTitle className="text-sm">Federal Income Tax</CardTitle>
+              <CardTitle className="text-sm">Part I — Additional Medicare Tax</CardTitle>
             </CardHeader>
             <CardContent className="pb-4 space-y-2">
-              <LineRow line="5" label="Federal income tax withheld" value={data.fed_income_tax_withheld} />
+              <LineRow
+                line="5"
+                label="Wages subject to Additional Medicare Tax"
+                value={data.additional_medicare_tax_wages}
+                hint="Applies only to wages above $200,000 paid to any single employee — $0 for this household"
+              />
               <LineRow
                 line="6"
-                label="Total social security, Medicare, and income taxes"
-                value={data.line_6_total}
-                hint="Lines 1b + 2b + 5"
+                label="Additional Medicare Tax (Line 5 × 0.9%)"
+                value={data.additional_medicare_tax}
               />
             </CardContent>
           </Card>
 
-          {/* FUTA */}
+          {/* Federal Income Tax + Part I subtotal */}
           <Card>
             <CardHeader className="pb-2 pt-4">
-              <CardTitle className="text-sm">Federal Unemployment (Section A)</CardTitle>
+              <CardTitle className="text-sm">Part I — Federal Income Tax &amp; Subtotal</CardTitle>
+            </CardHeader>
+            <CardContent className="pb-4 space-y-2">
+              <LineRow line="7" label="Federal income tax withheld" value={data.fed_income_tax_withheld} />
+              <LineRow
+                line="8"
+                label="Total social security, Medicare, and income taxes"
+                value={data.line_8_total}
+                hint="Lines 2 + 4 + 6 + 7"
+              />
+            </CardContent>
+          </Card>
+
+          {/* Part II — State unemployment (SUTA) — informational */}
+          <Card>
+            <CardHeader className="pb-2 pt-4">
+              <CardTitle className="text-sm">Part II — State Unemployment (NY SUTA)</CardTitle>
             </CardHeader>
             <CardContent className="pb-4 space-y-2">
               <LineRow
-                line="7"
+                line="13"
+                label="Cash wages subject to state unemployment tax"
+                value={data.suta_wages}
+                hint={`Capped at $${Number(rates.suta_wage_base).toLocaleString()} NY SUTA wage base`}
+              />
+              <LineRow
+                line="14"
+                label="State unemployment tax paid (SUTA)"
+                value={data.suta_paid}
+                hint={`Paid via NYS-45 · rate ${(sutaRate * 100).toFixed(2)}%`}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Part II — FUTA */}
+          <Card>
+            <CardHeader className="pb-2 pt-4">
+              <CardTitle className="text-sm">Part II — Federal Unemployment (FUTA)</CardTitle>
+            </CardHeader>
+            <CardContent className="pb-4 space-y-2">
+              <LineRow
+                line="15"
                 label="Cash wages subject to FUTA tax"
                 value={data.futa_wages}
                 hint={`Capped at $${Number(rates.futa_wage_base).toLocaleString()}`}
               />
               <LineRow
-                line="8"
-                label="FUTA tax (Line 7 × 0.6%)"
+                line="16"
+                label="FUTA tax (Line 15 × 0.6%)"
                 value={data.futa_tax}
-                hint="Single-state employer (NY, paid SUTA)"
+                hint="Single-state employer (NY, paid SUTA in full) — net rate 0.6%"
               />
             </CardContent>
           </Card>
@@ -204,10 +270,10 @@ export default async function ScheduleHYearPage({ params }: { params: Promise<Pa
             </CardHeader>
             <CardContent className="pb-4">
               <LineRow
-                line="9"
+                line="26"
                 label="Total household employment taxes"
                 value={data.total_household_employment_taxes}
-                hint="Add to Form 1040 line for other taxes"
+                hint="Lines 8 + 16 · Add to Form 1040 line for other taxes"
                 emphasized
               />
             </CardContent>

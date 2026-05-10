@@ -78,7 +78,7 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
     .reduce((sum, s) => sum + Number(s.gross_pay), 0)
 
   const sutaRate = Number(settings?.suta_rate ?? 0)
-  const data = calculateNYS45(stubsInQuarter, ytdGrossBeforeQuarter, rates, sutaRate, year, q)
+  const data = calculateNYS45(stubsInQuarter, ytdGrossBeforeQuarter, rates, sutaRate, year, q, stubsForYear)
   const { effective: dueDateEffective, shifted } = shiftedDeadline(data.due_date)
   const fileBy = selfImposedDeadline(dueDateEffective)
   const daysUntilDue = daysUntil(dueDateEffective)
@@ -140,10 +140,41 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
               <BoxRow box="4" label="UI taxable wages" value={data.ui_taxable_wages} />
               <BoxRow
                 box="5"
-                label="UI tax due"
+                label="UI contributions due"
                 value={data.ui_tax_due}
                 hint={`Wage base $${Number(rates.suta_wage_base).toLocaleString()} · rate ${(sutaRate * 100).toFixed(2)}%`}
               />
+              <BoxRow
+                box="6"
+                label="Re-employment Service Fund (RSF) contribution"
+                value={data.rsf}
+                hint={`Box 4 × ${(Number(rates.rsf_rate ?? 0.00075) * 100).toFixed(3)}%`}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Part A — Employee counts */}
+          <Card>
+            <CardHeader className="pb-2 pt-4">
+              <CardTitle className="text-sm">Part A — Covered Employees (12th of each month)</CardTitle>
+            </CardHeader>
+            <CardContent className="pb-4 space-y-2">
+              {data.employee_counts_by_month.map((count, i) => {
+                const monthNum = (q - 1) * 3 + 1 + i
+                const monthName = new Date(year, monthNum - 1, 1).toLocaleString('en-US', { month: 'long' })
+                return (
+                  <BoxRow
+                    key={i}
+                    box=""
+                    label={`${monthName} — employees on the 12th`}
+                    value={count}
+                    mono={false}
+                  />
+                )
+              })}
+              <p className="text-[11px] text-muted-foreground pt-1">
+                Count of covered employees who worked during (or received pay for) the pay period that includes the 12th of each month.
+              </p>
             </CardContent>
           </Card>
 
