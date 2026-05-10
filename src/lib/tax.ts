@@ -25,6 +25,8 @@ export interface TaxRates {
   // Household employer FICA/FUTA cash-wage thresholds (IRS Pub 926, Table 1)
   fica_household_threshold: number
   futa_quarterly_threshold: number
+  // NY Re-employment Service Fund surcharge (Part A of NYS-45). Verify annually.
+  rsf_rate: number
 }
 
 export interface TaxInputs {
