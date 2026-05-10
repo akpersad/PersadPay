@@ -95,38 +95,55 @@ export default function EnrollMfaPage() {
           </p>
         </div>
 
+        {/* Mobile tip — can't scan a QR code on the same screen */}
+        <div className="md:hidden rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-3 py-2.5 text-sm">
+          <p className="font-medium text-amber-900 dark:text-amber-200">Setting up on your phone?</p>
+          <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
+            Copy the setup key below, open your authenticator app, choose <strong>Enter a setup key</strong>, and paste it. The QR code is for scanning from a second device.
+          </p>
+        </div>
+
         <Card>
           <CardHeader className="pb-2 pt-4">
-            <CardTitle className="text-base">1. Scan QR code</CardTitle>
+            <CardTitle className="text-base">1. Add to authenticator app</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {qrCode ? (
-              <div className="flex justify-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={qrCode} alt="TOTP QR code" className="h-44 w-44 rounded border bg-white p-1" />
-              </div>
-            ) : (
-              <div className="h-44 w-44 mx-auto rounded border bg-muted animate-pulse" />
-            )}
-
-            {secret && (
-              <div className="space-y-1.5">
-                <CardDescription className="text-xs">Can&apos;t scan? Enter this key manually:</CardDescription>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 rounded bg-muted px-3 py-1.5 text-xs font-mono break-all">{secret}</code>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 flex-shrink-0"
-                    onClick={copySecret}
-                    aria-label="Copy secret"
-                  >
-                    {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-                  </Button>
+            {/* On mobile: key first (more useful), QR second. On desktop: QR first. */}
+            <div className="flex flex-col-reverse md:flex-col gap-3">
+              {secret && (
+                <div className="space-y-1.5">
+                  <CardDescription className="text-xs">
+                    <span className="md:hidden">Setup key — copy into your authenticator app:</span>
+                    <span className="hidden md:inline">Can&apos;t scan? Enter this key manually:</span>
+                  </CardDescription>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 rounded bg-muted px-3 py-1.5 text-xs font-mono break-all">{secret}</code>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 flex-shrink-0"
+                      onClick={copySecret}
+                      aria-label="Copy secret"
+                    >
+                      {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
+              )}
+
+              <div>
+                <CardDescription className="text-xs mb-2 md:hidden">Or scan from a second device:</CardDescription>
+                {qrCode ? (
+                  <div className="flex justify-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={qrCode} alt="TOTP QR code" className="h-44 w-44 rounded border bg-white p-1" />
+                  </div>
+                ) : (
+                  <div className="h-44 w-44 mx-auto rounded border bg-muted animate-pulse" />
+                )}
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
 
