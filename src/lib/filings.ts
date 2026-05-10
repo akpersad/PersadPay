@@ -254,7 +254,6 @@ export function calculateScheduleH(
   yearStubs: Paystub[],
   rates: TaxRates,
   taxYear: number,
-  sutaRate: number = 0,
   priorYearFutaThresholdMet: boolean = false,
 ): ScheduleHData {
   const totalGross = yearStubs.reduce((sum, s) => sum + Number(s.gross_pay), 0)

@@ -8,9 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
+import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { formatCurrency } from '@/lib/dates'
 import { toast } from 'sonner'
-import { Download, Mail } from 'lucide-react'
+import { Download, Mail, Lock, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { PdfPreviewDialog } from '@/components/ui/pdf-preview-dialog'
 import type { W2, Role } from '@/lib/types'
 
@@ -23,6 +25,8 @@ interface Props {
 const CURRENT_YEAR = new Date().getFullYear()
 const TAX_YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - 1 - i)
 
+const SSN_WARNING = 'Before distributing this W-2, hand-write the employee\'s SSN in Box a on every copy (B, C, 2, D). SSN is never stored in this app.'
+
 export function W2View({ w2s, role, userId }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -32,7 +36,13 @@ export function W2View({ w2s, role, userId }: Props) {
   const [preview, setPreview] = useState<W2 | null>(null)
   const [loading, setLoading] = useState(false)
   const [regenerateWarning, setRegenerateWarning] = useState(false)
+  const [ssaWarning, setSsaWarning] = useState<W2 | null>(null)
   const [emailPending, setEmailPending] = useState(false)
+  const [ssaFilingId, setSsaFilingId] = useState<string | null>(null)
+  const [ssaFilingPending, setSsaFilingPending] = useState(false)
+
+  // SSN alert dialog: shown before download/email so admin knows to hand-write SSN
+  const [ssnAlert, setSsnAlert] = useState<{ action: 'download' | 'email' | 'preview-download'; w2Id?: string } | null>(null)
 
   async function generatePreview() {
     if (!selectedYear) return
@@ -50,7 +60,9 @@ export function W2View({ w2s, role, userId }: Props) {
 
   function startGenerate() {
     const existing = w2s.find(w => w.tax_year === parseInt(selectedYear))
-    if (existing) {
+    if (existing?.filed_with_ssa) {
+      setSsaWarning(existing)
+    } else if (existing) {
       setRegenerateWarning(true)
     } else {
       generatePreview()
@@ -73,7 +85,7 @@ export function W2View({ w2s, role, userId }: Props) {
     const saved = await res.json()
     toast.success('W-2 saved.')
     startTransition(() => router.refresh())
-    window.open(`/api/pdf/w2?id=${saved.id}`, '_blank')
+    setSsnAlert({ action: 'download', w2Id: saved.id })
     setLoading(false)
   }
 
@@ -92,18 +104,48 @@ export function W2View({ w2s, role, userId }: Props) {
     }
     const saved = await saveRes.json()
     startTransition(() => router.refresh())
+    setSsnAlert({ action: 'email', w2Id: saved.id })
+    setEmailPending(false)
+  }
 
-    const emailRes = await fetch('/api/email/w2', {
+  async function proceedAfterSsnAlert() {
+    if (!ssnAlert?.w2Id) { setSsnAlert(null); return }
+    const { action, w2Id } = ssnAlert
+    setSsnAlert(null)
+
+    if (action === 'download' || action === 'preview-download') {
+      window.open(`/api/pdf/w2?id=${w2Id}`, '_blank')
+    } else if (action === 'email') {
+      setEmailPending(true)
+      const emailRes = await fetch('/api/email/w2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ w2Id }),
+      })
+      if (!emailRes.ok) {
+        toast.error('W-2 saved but email failed. Use the retry button on the record.')
+      } else {
+        toast.success('W-2 saved and emailed.')
+      }
+      setEmailPending(false)
+    }
+  }
+
+  async function markFiledWithSSA(w2Id: string) {
+    setSsaFilingPending(true)
+    const res = await fetch('/api/w2/mark-filed-ssa', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ w2Id: saved.id }),
+      body: JSON.stringify({ w2Id }),
     })
-    if (!emailRes.ok) {
-      toast.error('W-2 saved but email failed. Use the retry button on the record.')
+    if (!res.ok) {
+      toast.error('Failed to mark as filed.')
     } else {
-      toast.success('W-2 saved and emailed.')
+      toast.success('Marked as filed with SSA.')
+      startTransition(() => router.refresh())
     }
-    setEmailPending(false)
+    setSsaFilingId(null)
+    setSsaFilingPending(false)
   }
 
   return (
@@ -116,7 +158,15 @@ export function W2View({ w2s, role, userId }: Props) {
               <CardContent className="py-3 px-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium">W-2 — Tax Year {w2.tax_year}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium">W-2 — Tax Year {w2.tax_year}</p>
+                      {w2.filed_with_ssa && (
+                        <Badge variant="default" className="bg-green-600 hover:bg-green-600 text-xs">
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Filed with SSA
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">Wages: {formatCurrency(w2.wages_tips)}</p>
                   </div>
                   <div className="flex gap-1.5">
@@ -125,14 +175,24 @@ export function W2View({ w2s, role, userId }: Props) {
                       title={`W-2 — Tax Year ${w2.tax_year}`}
                       size="sm"
                     />
-                    <Button size="sm" variant="outline" onClick={() => window.open(`/api/pdf/w2?id=${w2.id}`, '_blank')}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        if (isAdmin) {
+                          setSsnAlert({ action: 'preview-download', w2Id: w2.id })
+                        } else {
+                          window.open(`/api/pdf/w2?id=${w2.id}`, '_blank')
+                        }
+                      }}
+                    >
                       <Download className="h-4 w-4 mr-1" />
-                      W-2
+                      W-2 Packet
                     </Button>
                   </div>
                 </div>
                 {isAdmin && (
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-1.5 flex-wrap">
                     <PdfPreviewDialog
                       url={`/api/pdf/w3?id=${w2.id}`}
                       title={`W-3 Transmittal — Tax Year ${w2.tax_year}`}
@@ -149,6 +209,23 @@ export function W2View({ w2s, role, userId }: Props) {
                       <Download className="h-4 w-4 mr-1" />
                       W-3 (SSA)
                     </Button>
+                    {!w2.filed_with_ssa && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 text-green-700 border-green-300 hover:bg-green-50"
+                        onClick={() => setSsaFilingId(w2.id)}
+                      >
+                        <CheckCircle2 className="h-4 w-4 mr-1" />
+                        Mark Filed w/ SSA
+                      </Button>
+                    )}
+                    {w2.filed_with_ssa && (
+                      <div className="flex items-center gap-1.5 flex-1 px-3 py-1.5 rounded-md bg-green-50 border border-green-200">
+                        <Lock className="h-3.5 w-3.5 text-green-700 flex-shrink-0" />
+                        <span className="text-xs text-green-700">Locked — filed with SSA. Regenerating will replace the saved record.</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -203,7 +280,11 @@ export function W2View({ w2s, role, userId }: Props) {
             <W2Row label="Box 6 — Medicare Tax Withheld" value={preview.medicare_tax_withheld} />
             <W2Row label="Box 16 — State Wages" value={preview.state_wages} />
             <W2Row label="Box 17 — State Tax Withheld" value={preview.state_tax_withheld} />
-            <div className="flex gap-2 pt-2">
+            <Alert className="border-amber-300 bg-amber-50">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-xs text-amber-800">{SSN_WARNING}</AlertDescription>
+            </Alert>
+            <div className="flex gap-2 pt-1">
               <Button className="flex-1" disabled={loading} onClick={saveAndDownload}>
                 <Download className="h-4 w-4 mr-1" />
                 {loading ? 'Saving…' : 'Save & Download'}
@@ -229,6 +310,62 @@ export function W2View({ w2s, role, userId }: Props) {
           <DialogFooter>
             <Button variant="outline" onClick={() => setRegenerateWarning(false)}>Cancel</Button>
             <Button onClick={() => { setRegenerateWarning(false); generatePreview() }}>Regenerate</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* SSA filed — block regeneration warning */}
+      <Dialog open={!!ssaWarning} onOpenChange={() => setSsaWarning(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>W-2 {ssaWarning?.tax_year} already filed with SSA</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground py-2">
+            This W-2 has been marked as filed with the SSA. Regenerating will replace the saved record — you would need to file a corrected W-2c with the SSA if the numbers change. Are you sure you want to regenerate?
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSsaWarning(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => { setSsaWarning(null); generatePreview() }}>Regenerate Anyway</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* SSN alert — shown before download or email */}
+      <Dialog open={!!ssnAlert} onOpenChange={() => setSsnAlert(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Hand-write SSN before distributing</DialogTitle>
+          </DialogHeader>
+          <Alert className="border-amber-300 bg-amber-50">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-sm text-amber-800">{SSN_WARNING}</AlertDescription>
+          </Alert>
+          <DialogFooter className="mt-2">
+            <Button variant="outline" onClick={() => setSsnAlert(null)}>Cancel</Button>
+            <Button onClick={proceedAfterSsnAlert}>
+              {ssnAlert?.action === 'email' ? 'Understood — Send Email' : 'Understood — Download'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mark filed with SSA confirmation */}
+      <Dialog open={!!ssaFilingId} onOpenChange={() => setSsaFilingId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mark W-2 as filed with SSA?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground py-2">
+            Once marked as filed, the app will warn before allowing regeneration. You can still regenerate if needed — a W-2c would then be required with the SSA.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSsaFilingId(null)}>Cancel</Button>
+            <Button
+              disabled={ssaFilingPending}
+              onClick={() => ssaFilingId && markFiledWithSSA(ssaFilingId)}
+            >
+              {ssaFilingPending ? 'Saving…' : 'Mark as Filed'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
