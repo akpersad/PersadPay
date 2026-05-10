@@ -1,6 +1,8 @@
 // Reminder email lead times — verify these feel right each year
 export const REMINDER_LEAD_DAYS = 20
 export const REMINDER_FOLLOWUP_DAYS = 10
+// Cron schedule: vercel.json "0 14 * * *" UTC = 9 AM EST / 10 AM EDT.
+// There is a 1-hour DST drift (acceptable — no filing deadlines depend on exact send time).
 
 const NY_TZ = 'America/New_York'
 

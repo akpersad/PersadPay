@@ -1,7 +1,7 @@
 import { renderToBuffer, type DocumentProps } from '@react-pdf/renderer'
 import React from 'react'
 import { PaystubDocument } from './PaystubDocument'
-import { W2Document } from './W2Document'
+import { W2Document, W2PacketDocument } from './W2Document'
 import { W3Document } from './W3Document'
 import { YearEndPacketDocument } from './YearEndPacketDocument'
 import type { PaystubWithYTD, Settings, W2, PaystubLineItem, Paystub, W2Copy } from '@/lib/types'
@@ -25,6 +25,17 @@ export async function generateW2PDF(
   pflWithheld = 0,
 ): Promise<Buffer> {
   const doc = React.createElement(W2Document, { w2, settings, copy, sdiWithheld, pflWithheld }) as React.ReactElement<DocumentProps>
+  return Buffer.from(await renderToBuffer(doc))
+}
+
+// Generates Copy B + C + 2 as a single 3-page PDF for employee distribution
+export async function generateW2PacketPDF(
+  w2: W2,
+  settings: Settings,
+  sdiWithheld = 0,
+  pflWithheld = 0,
+): Promise<Buffer> {
+  const doc = React.createElement(W2PacketDocument, { w2, settings, sdiWithheld, pflWithheld }) as React.ReactElement<DocumentProps>
   return Buffer.from(await renderToBuffer(doc))
 }
 

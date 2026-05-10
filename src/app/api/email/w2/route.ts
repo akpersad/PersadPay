@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendW2Email } from '@/lib/email'
-import { generateW2PDF } from '@/lib/pdf'
-import type { W2, Settings } from '@/lib/types'
+import { generateW2PacketPDF } from '@/lib/pdf'
+import type { W2, Settings, Paystub } from '@/lib/types'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -22,7 +22,18 @@ export async function POST(request: Request) {
   if (!w2) return NextResponse.json({ error: 'W-2 not found' }, { status: 404 })
   if (!settings) return NextResponse.json({ error: 'Settings not configured' }, { status: 500 })
 
-  const pdfBuffer = await generateW2PDF(w2, settings)
+  const { data: stubRows } = await supabase
+    .from('paystubs')
+    .select('sdi, pfl')
+    .eq('employee_id', w2.employee_id)
+    .gte('pay_date', `${w2.tax_year}-01-01`)
+    .lte('pay_date', `${w2.tax_year}-12-31`)
+
+  const stubs = (stubRows ?? []) as Pick<Paystub, 'sdi' | 'pfl'>[]
+  const sdiWithheld = stubs.reduce((sum, s) => sum + Number(s.sdi ?? 0), 0)
+  const pflWithheld = stubs.reduce((sum, s) => sum + Number(s.pfl ?? 0), 0)
+
+  const pdfBuffer = await generateW2PacketPDF(w2, settings, sdiWithheld, pflWithheld)
   const result = await sendW2Email(w2, settings, pdfBuffer)
 
   if (!result.success) {

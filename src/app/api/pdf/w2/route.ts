@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { generateW2PDF } from '@/lib/pdf'
+import { generateW2PDF, generateW2PacketPDF } from '@/lib/pdf'
 import type { W2, Settings, W2Copy, Paystub } from '@/lib/types'
 
 const VALID_COPIES: W2Copy[] = ['B', 'C', '2', 'D', 'worksheet']
@@ -10,8 +10,9 @@ export async function GET(request: Request) {
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
-  const rawCopy = searchParams.get('copy') ?? 'B'
-  const copy: W2Copy = VALID_COPIES.includes(rawCopy as W2Copy) ? (rawCopy as W2Copy) : 'B'
+  const rawCopy = searchParams.get('copy') ?? 'packet'
+  const isPacket = rawCopy === 'packet'
+  const copy: W2Copy = (!isPacket && VALID_COPIES.includes(rawCopy as W2Copy)) ? (rawCopy as W2Copy) : 'B'
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -44,13 +45,18 @@ export async function GET(request: Request) {
   const sdiWithheld = stubs.reduce((sum, s) => sum + Number(s.sdi ?? 0), 0)
   const pflWithheld = stubs.reduce((sum, s) => sum + Number(s.pfl ?? 0), 0)
 
-  const pdfBuffer = await generateW2PDF(w2, settings, copy, sdiWithheld, pflWithheld)
-  const copyLabel = copy === 'worksheet' ? 'worksheet' : `copy-${copy.toLowerCase()}`
+  const pdfBuffer = isPacket
+    ? await generateW2PacketPDF(w2, settings, sdiWithheld, pflWithheld)
+    : await generateW2PDF(w2, settings, copy, sdiWithheld, pflWithheld)
+
+  const filename = isPacket
+    ? `w2-${w2.tax_year}-copies-b-c-2.pdf`
+    : copy === 'worksheet' ? `w2-${w2.tax_year}-worksheet.pdf` : `w2-${w2.tax_year}-copy-${copy.toLowerCase()}.pdf`
 
   return new Response(new Uint8Array(pdfBuffer), {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="w2-${w2.tax_year}-${copyLabel}.pdf"`,
+      'Content-Disposition': `attachment; filename="${filename}"`,
     },
   })
 }

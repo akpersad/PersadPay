@@ -107,7 +107,7 @@ function YearSection({
   return (
     <section className="space-y-2">
       <h2 className="text-sm font-semibold text-muted-foreground">{year}</h2>
-      <div className="space-y-1.5">
+      <div className="space-y-5">
         {quarters.map(q => {
           const data = stubsByQuarter[`${year}-${q}`]
           const nysFiling = filingMap.get(`nys45-${year}-${q}`)
@@ -115,25 +115,29 @@ function YearSection({
           const range = getQuarterDateRange(year, q)
 
           return (
-            <div key={q} className="space-y-1.5">
-              <FilingRow
-                href={`/filings/nys-45/${year}/${q}`}
-                title={`Q${q} NYS-45`}
-                subtitle={`${formatDate(range.start)} – ${formatDate(range.end)} · NY State`}
-                rangeText={data ? `${data.count} stubs · ${formatCurrency(data.gross)} gross` : 'No stubs'}
-                dueDate={getQuarterDueDate(year, q)}
-                filed={nysFiling}
-                threshold={20}
-              />
-              <FilingRow
-                href={`/filings/federal-estimated-tax/${year}/${q}`}
-                title={`Q${q} Federal Estimated Tax (1040-ES)`}
-                subtitle={`${formatDate(range.start)} – ${formatDate(range.end)} · IRS`}
-                rangeText={data ? `${data.count} stubs covered` : 'No stubs'}
-                dueDate={getFederalEstimatedTaxDueDate(year, q)}
-                filed={fedFiling}
-                threshold={30}
-              />
+            <div key={q}>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Q{q} · {formatDate(range.start)} – {formatDate(range.end)}</p>
+              <div>
+                <FilingRow
+                  href={`/filings/nys-45/${year}/${q}`}
+                  title="NYS-45"
+                  subtitle="NY State quarterly unemployment"
+                  rangeText={data ? `${data.count} stubs · ${formatCurrency(data.gross)} gross` : 'No stubs'}
+                  dueDate={getQuarterDueDate(year, q)}
+                  filed={nysFiling}
+                  threshold={20}
+                />
+                <FilingRow
+                  href={`/filings/federal-estimated-tax/${year}/${q}`}
+                  title="1040-ES"
+                  subtitle="Federal estimated tax · IRS"
+                  rangeText={data ? `${data.count} stubs covered` : 'No stubs'}
+                  dueDate={getFederalEstimatedTaxDueDate(year, q)}
+                  filed={fedFiling}
+                  threshold={30}
+                  className="mt-2"
+                />
+              </div>
             </div>
           )
         })}
@@ -176,6 +180,7 @@ function FilingRow({
   dueDate,
   filed,
   threshold,
+  className,
 }: {
   href: string
   title: string
@@ -184,11 +189,12 @@ function FilingRow({
   dueDate: string
   filed: Filing | undefined
   threshold: number
+  className?: string
 }) {
   const days = daysUntil(dueDate)
   return (
     <Link href={href}>
-      <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+      <Card className={`hover:bg-muted/50 transition-colors cursor-pointer${className ? ` ${className}` : ''}`}>
         <CardContent className="py-3 px-4 flex items-center gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">

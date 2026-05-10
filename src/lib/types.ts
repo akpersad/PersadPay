@@ -121,6 +121,8 @@ export interface W2 {
   medicare_tax_withheld: number
   state_wages: number
   state_tax_withheld: number
+  filed_with_ssa: boolean
+  filed_with_ssa_at: string | null
   generated_at: string
   generated_by: string
 }
