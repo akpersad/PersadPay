@@ -14,20 +14,26 @@ interface Props {
   uploaderId: string
   uploadLabel?: string
   successLabel?: string
+  multi?: boolean
 }
 
 const ACCEPTED = '.pdf,.png,.jpg,.jpeg'
-const MAX_BYTES = 10 * 1024 * 1024  // 10 MB — sane ceiling for scans
+const MAX_BYTES = 10 * 1024 * 1024
 
-export function UploadDocumentButton({ documentType, hasExisting, uploaderId, uploadLabel = 'Upload signed copy', successLabel = 'Signed copy uploaded.' }: Props) {
+export function UploadDocumentButton({
+  documentType,
+  hasExisting,
+  uploaderId,
+  uploadLabel = 'Upload signed copy',
+  successLabel = 'Signed copy uploaded.',
+  multi = false,
+}: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [uploading, setUploading] = useState(false)
 
-  function pick() {
-    inputRef.current?.click()
-  }
+  function pick() { inputRef.current?.click() }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -40,45 +46,73 @@ export function UploadDocumentButton({ documentType, hasExisting, uploaderId, up
 
     setUploading(true)
     const supabase = createClient()
-
-    // Stable path keyed on document_type so re-upload overwrites cleanly.
     const ext = (file.name.split('.').pop() ?? 'bin').toLowerCase()
-    const path = `${documentType}.${ext}`
 
-    const { error: uploadErr } = await supabase
-      .storage
-      .from('signed-documents')
-      .upload(path, file, { upsert: true, contentType: file.type })
+    if (multi) {
+      // Each upload is a distinct file — never overwrites a previous one.
+      const uid = crypto.randomUUID()
+      const path = `${documentType}/${uid}.${ext}`
 
-    if (uploadErr) {
-      toast.error(`Upload failed: ${uploadErr.message}`)
-      setUploading(false)
-      e.target.value = ''
-      return
-    }
+      const { error: uploadErr } = await supabase.storage
+        .from('signed-documents')
+        .upload(path, file, { contentType: file.type })
 
-    // Upsert the signed_documents row. Keyed on document_type which is unique
-    // so this replaces any prior version's metadata in lockstep with the file.
-    const { error: dbErr } = await supabase
-      .from('signed_documents')
-      .upsert(
-        {
-          document_type: documentType,
-          file_path: path,
-          file_name: file.name,
-          file_size_bytes: file.size,
-          mime_type: file.type || null,
-          uploaded_at: new Date().toISOString(),
-          uploaded_by: uploaderId,
-        },
-        { onConflict: 'document_type' },
-      )
+      if (uploadErr) {
+        toast.error(`Upload failed: ${uploadErr.message}`)
+        setUploading(false)
+        e.target.value = ''
+        return
+      }
 
-    if (dbErr) {
-      toast.error(`Saved file but record failed: ${dbErr.message}`)
-      setUploading(false)
-      e.target.value = ''
-      return
+      const { error: dbErr } = await supabase.from('signed_documents').insert({
+        document_type: documentType,
+        file_path: path,
+        file_name: file.name,
+        file_size_bytes: file.size,
+        mime_type: file.type || null,
+        uploaded_at: new Date().toISOString(),
+        uploaded_by: uploaderId,
+      })
+
+      if (dbErr) {
+        toast.error(`Saved file but record failed: ${dbErr.message}`)
+        setUploading(false)
+        e.target.value = ''
+        return
+      }
+    } else {
+      // Single-copy: delete old record + file, then insert fresh.
+      const path = `${documentType}.${ext}`
+
+      const { error: uploadErr } = await supabase.storage
+        .from('signed-documents')
+        .upload(path, file, { upsert: true, contentType: file.type })
+
+      if (uploadErr) {
+        toast.error(`Upload failed: ${uploadErr.message}`)
+        setUploading(false)
+        e.target.value = ''
+        return
+      }
+
+      await supabase.from('signed_documents').delete().eq('document_type', documentType)
+
+      const { error: dbErr } = await supabase.from('signed_documents').insert({
+        document_type: documentType,
+        file_path: path,
+        file_name: file.name,
+        file_size_bytes: file.size,
+        mime_type: file.type || null,
+        uploaded_at: new Date().toISOString(),
+        uploaded_by: uploaderId,
+      })
+
+      if (dbErr) {
+        toast.error(`Saved file but record failed: ${dbErr.message}`)
+        setUploading(false)
+        e.target.value = ''
+        return
+      }
     }
 
     toast.success(successLabel)
@@ -97,13 +131,13 @@ export function UploadDocumentButton({ documentType, hasExisting, uploaderId, up
         onChange={handleFile}
       />
       <Button
-        variant={hasExisting ? 'outline' : 'default'}
+        variant={hasExisting && !multi ? 'outline' : 'default'}
         size="sm"
         disabled={uploading}
         onClick={pick}
       >
         <Upload className="h-3.5 w-3.5 mr-1.5" />
-        {uploading ? 'Uploading…' : hasExisting ? 'Replace' : uploadLabel}
+        {uploading ? 'Uploading…' : hasExisting && !multi ? 'Replace' : uploadLabel}
       </Button>
     </>
   )

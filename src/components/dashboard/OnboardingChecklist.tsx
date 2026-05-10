@@ -28,7 +28,7 @@ const ITEM_LINKS: Record<string, LinkDef> = {
     external: true,
   },
   'Provide signed LS-59 Wage Notice to employee': {
-    href: 'https://dol.ny.gov/form-ls-59-exempt-employees',
+    href: 'https://dol.ny.gov/LS59-doc',
     external: true,
   },
   'Have employee complete Federal W-4': {
@@ -64,8 +64,8 @@ const ITEM_LINKS: Record<string, LinkDef> = {
     external: true,
   },
   'Adopt and distribute Sexual Harassment Prevention Policy': {
-    href: 'https://www.ny.gov/programs/combating-sexual-harassment-workplace',
-    external: true,
+    href: '/documents/sexual-harassment-policy',
+    external: false,
   },
   'Complete annual interactive harassment-prevention training': {
     href: 'https://www.ny.gov/combating-sexual-harassment-workplace/employees',
@@ -77,6 +77,10 @@ const ITEM_LINKS: Record<string, LinkDef> = {
   },
   'Confirm quarterly reminders are seeded in Reminders tab': {
     href: '/reminders',
+    external: false,
+  },
+  'Print, sign, and file the Sick Leave Policy': {
+    href: '/documents/sick-leave-policy',
     external: false,
   },
 }
