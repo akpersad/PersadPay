@@ -584,12 +584,12 @@ grant all privileges on all sequences in schema public to service_role;
 
 grant select, insert, update, delete on public.profiles to authenticated;
 grant select, insert, update, delete on public.paystubs to authenticated;
-grant select, update on public.settings to authenticated;           -- INSERT/DELETE revoked (migration 0028): single-row table
-grant select, insert, update on public.reminders to authenticated;  -- DELETE revoked: reminders are dismissed, not deleted
-grant select, update on public.onboarding_checklist to authenticated; -- INSERT/DELETE revoked (migration 0028): pre-seeded items
+grant select, update on public.settings to authenticated;           -- INSERT/DELETE revoked (migration 0029): single-row table
+grant select, insert, update on public.reminders to authenticated;  -- DELETE revoked (migration 0029): reminders are dismissed, not deleted
+grant select, update on public.onboarding_checklist to authenticated; -- INSERT/DELETE revoked (migration 0029): pre-seeded items
 grant select, insert, update, delete on public.year_end_checklist to authenticated;
 grant select, insert, update, delete on public.w2s to authenticated;
-grant select on public.tax_rates to authenticated;                  -- INSERT/UPDATE/DELETE revoked (migration 0028): updated only via migrations
+grant select on public.tax_rates to authenticated;                  -- INSERT/UPDATE/DELETE revoked (migration 0029): updated only via migrations
 grant select, insert, update, delete on public.filings to authenticated;
 grant select, insert, update, delete on public.paystub_line_items to authenticated;
 grant select on public.audit_log to authenticated;  -- INSERT revoked (migration 0025); writes via triggers only
