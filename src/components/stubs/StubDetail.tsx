@@ -249,7 +249,7 @@ export function StubDetail({ stub, role, userId, lineItems = [], ytdByLineType =
                 <div className="grid grid-cols-3 text-sm">
                   <span>Overtime ({overtimeHours}h @ {formatCurrency(hourlyRate * 1.5)} · 1.5×)</span>
                   <span className="text-right">{formatCurrency(overtimePay)}</span>
-                  <span className="text-right">—</span>
+                  <span className="text-right">{formatCurrency(stub.ytd_overtime_wages)}</span>
                 </div>
               )}
               {taxableLineItems.map(item => (

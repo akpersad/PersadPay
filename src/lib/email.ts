@@ -24,24 +24,51 @@ async function sendOne(payload: Parameters<typeof resend.emails.send>[0]): Promi
   }
 }
 
-async function sendAll(payloads: Parameters<typeof resend.emails.send>[0][]): Promise<{ success: boolean; error?: string; messageId?: string }> {
+// Sends to all recipients. The first entry in payloads is the primary
+// recipient (employee); subsequent entries are additional recipients.
+// Returns success=true if the primary send succeeds, even if additional
+// recipients fail (partial failure). Failed additional recipients are
+// logged and returned in partialErrors for UI display. Returns
+// success=false only if the primary recipient send fails entirely.
+async function sendAll(payloads: Parameters<typeof resend.emails.send>[0][]): Promise<{
+  success: boolean
+  error?: string
+  messageId?: string
+  partialErrors?: string[]
+}> {
   if (!process.env.RESEND_API_KEY) {
     console.error('[resend] RESEND_API_KEY is not set')
     return { success: false, error: 'RESEND_API_KEY is not configured' }
   }
+  if (payloads.length === 0) return { success: true }
+
   const results = await Promise.all(payloads.map(sendOne))
-  const errors = results.filter(r => r.error !== null).map(r => r.error!)
-  if (errors.length) {
-    return { success: false, error: errors.join('; ') }
+  const [primaryResult, ...additionalResults] = results
+
+  if (primaryResult.error) {
+    return { success: false, error: primaryResult.error }
   }
-  return { success: true, messageId: results[0]?.messageId ?? undefined }
+
+  const failedAdditional = additionalResults
+    .map((r, i) => (r.error ? `recipient ${i + 2}: ${r.error}` : null))
+    .filter(Boolean) as string[]
+
+  if (failedAdditional.length) {
+    console.warn('[resend] partial failure — primary sent but some additional recipients failed:', failedAdditional)
+  }
+
+  return {
+    success: true,
+    messageId: primaryResult.messageId ?? undefined,
+    partialErrors: failedAdditional.length > 0 ? failedAdditional : undefined,
+  }
 }
 
 export async function sendStubEmail(
   stub: PaystubWithYTD,
   settings: Settings,
   pdfBuffer: Buffer,
-): Promise<{ success: boolean; error?: string; messageId?: string }> {
+): Promise<{ success: boolean; error?: string; messageId?: string; partialErrors?: string[] }> {
   const subject = `Your pay stub for ${formatDateRange(stub.pay_period_start, stub.pay_period_end)}`
   const body = `Hi ${settings.employee_name ?? 'there'},\n\nPlease find your pay stub attached for the pay period ${formatDateRange(stub.pay_period_start, stub.pay_period_end)}.\n\nNet Pay: $${Number(stub.net_pay).toFixed(2)}\n\nIf you have any questions, please reply to this email.\n\nPersad Pay`
 
