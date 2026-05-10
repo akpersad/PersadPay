@@ -43,17 +43,20 @@ function TabLink({
   icon: Icon,
   pathname,
   className,
+  onNavigate,
 }: {
   href: string
   label: string
   icon: React.ElementType
   pathname: string
   className?: string
+  onNavigate?: (href: string) => void
 }) {
   const active = isActive(href, pathname)
   return (
     <Link
       href={href}
+      onClick={() => { if (!active) onNavigate?.(href) }}
       className={cn(
         'flex flex-col items-center justify-center gap-1 h-full text-xs transition-colors',
         active ? 'text-primary' : 'text-muted-foreground',
@@ -69,16 +72,27 @@ function TabLink({
 export function BottomNav({ role }: { role: Role }) {
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
+  const [transitioningTo, setTransitioningTo] = useState<string | null>(null)
+  const transitioning = transitioningTo !== null && transitioningTo !== pathname
+
+  const progressBar = transitioning ? (
+    <div className="fixed top-0 inset-x-0 h-0.5 z-[100] overflow-hidden pointer-events-none">
+      <div className="h-full bg-primary animate-nav-progress" />
+    </div>
+  ) : null
 
   if (role === 'employee') {
     return (
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background print:hidden">
-        <div className="flex h-16 items-center justify-around px-2 max-w-lg md:max-w-4xl mx-auto">
-          {employeeTabs.map(tab => (
-            <TabLink key={tab.href} {...tab} pathname={pathname} className="flex-1" />
-          ))}
-        </div>
-      </nav>
+      <>
+        {progressBar}
+        <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background print:hidden">
+          <div className="flex h-16 items-center justify-around px-2 max-w-lg md:max-w-4xl mx-auto">
+            {employeeTabs.map(tab => (
+              <TabLink key={tab.href} {...tab} pathname={pathname} className="flex-1" onNavigate={(href) => setTransitioningTo(href)} />
+            ))}
+          </div>
+        </nav>
+      </>
     )
   }
 
@@ -86,11 +100,12 @@ export function BottomNav({ role }: { role: Role }) {
 
   return (
     <>
+      {progressBar}
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background print:hidden">
         <div className="flex h-16 items-center justify-around px-2 max-w-lg md:max-w-4xl mx-auto">
           {/* Primary tabs — always visible */}
           {adminPrimary.map(tab => (
-            <TabLink key={tab.href} {...tab} pathname={pathname} className="flex-1" />
+            <TabLink key={tab.href} {...tab} pathname={pathname} className="flex-1" onNavigate={(href) => setTransitioningTo(href)} />
           ))}
 
           {/* Overflow tabs — visible on md+ screens only */}
@@ -100,6 +115,7 @@ export function BottomNav({ role }: { role: Role }) {
               {...tab}
               pathname={pathname}
               className="hidden md:flex flex-1"
+              onNavigate={(href) => setTransitioningTo(href)}
             />
           ))}
 
@@ -129,7 +145,7 @@ export function BottomNav({ role }: { role: Role }) {
                 <Link
                   key={href}
                   href={href}
-                  onClick={() => setMoreOpen(false)}
+                  onClick={() => { setMoreOpen(false); if (!active) setTransitioningTo(href) }}
                   className={cn(
                     'flex flex-col items-center justify-center gap-2 p-4 rounded-xl text-xs font-medium transition-colors',
                     active

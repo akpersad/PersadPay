@@ -57,7 +57,7 @@ _Two items deferred to Phase 2: 13c (schema grants tightening) and 11f (multi-re
 
 ---
 
-## Phase 2 — Filings accuracy + compliance display
+## Phase 2 — Filings accuracy + compliance display ✅ COMPLETE 2026-05-10
 _Q1 NYS-45 is already past due. Fix filings and stub display issues._
 
 ### NYS-45
@@ -92,20 +92,20 @@ _Q1 NYS-45 is already past due. Fix filings and stub display issues._
 
 ---
 
-## Phase 3 — W-2 completeness + polish
+## Phase 3 — W-2 completeness + polish ✅ COMPLETE
 _Ship before end-of-year W-2 season, but no rush before May._
 
 ### W-2
-- [ ] 9a: Multi-copy W-2 PDF — include Copy B + Copy C + Copy 2 as a single multi-page PDF
-- [ ] 9b: Copy B "Notice to Employee" — full IRS Pub 1141 §4 required text
-- [ ] 9c: Box 14 (SDI/PFL) — populate in email path (currently blank)
-- [ ] 9d: Box 12 — contiguous layout (12a/12b/12c/12d all on same side)
-- [ ] 9e: W-2 PDF margins — increase to 36pt (0.5") minimum per Pub 1141
-- [ ] 9f: `filed_with_ssa` flag — lock regeneration after W-2 has been filed with SSA
-- [ ] 14a: SSN UI alert — warn admin at W-2 generation/download that SSN must be hand-written before distribution
+- [x] 9a: Multi-copy W-2 PDF — include Copy B + Copy C + Copy 2 as a single multi-page PDF (W2PacketDocument + generateW2PacketPDF + ?copy=packet on download route; email route now sends packet)
+- [x] 9b: Copy B "Notice to Employee" — full IRS Pub 1141 §4 required text (5-paragraph notice on Copy B)
+- [x] 9c: Box 14 (SDI/PFL) — populate in email path (email route now fetches paystub SDI/PFL and passes to PDF)
+- [x] 9d: Box 12 — contiguous layout (12a/12b/12c/12d all in right column as 2×2 grid below Box 11)
+- [x] 9e: W-2 PDF margins — increased from 28pt to 36pt per Pub 1141
+- [x] 9f: `filed_with_ssa` flag — migration 0028 adds filed_with_ssa + filed_with_ssa_at; UI shows lock badge + "Mark Filed w/ SSA" button + warning before regeneration; /api/w2/mark-filed-ssa route
+- [x] 14a: SSN UI alert — dialog shown before download or email reminding admin to hand-write SSN; amber alert banner also shown in preview card
 
 ### Polish
-- [ ] Nav: Add page transition loader/spinner for mobile navigation
-- [ ] Filings cards (`/filings`): inconsistent vertical spacing between cards — add consistent margin/gap between rows
-- [ ] schema.sql: Tighten grants + add DST note to cron comment in dates.ts
-- [ ] 12a: W-2/W-3 reminder due date — verify Jan 31 2027 (Sunday) handling
+- [x] Nav: Add page transition loader/spinner for mobile navigation (thin primary-color bar at top, animate-nav-progress CSS keyframe, clears on pathname change)
+- [x] Filings cards (`/filings`): space-y-1.5 → space-y-3 between quarter groups for clearer visual separation
+- [x] schema.sql: Tighten grants (migration 0029 revokes INSERT/DELETE on settings, onboarding_checklist, tax_rates, and DELETE on reminders) + DST note added to dates.ts
+- [x] 12a: W-2/W-3 reminder due date — migration 0028 updates due_date from 2027-01-31 (Sunday) → 2027-02-01 (Mon, actual legal deadline per IRC § 7503)

@@ -84,7 +84,6 @@ export default async function ScheduleHYearPage({ params }: { params: Promise<Pa
     (yearStubs ?? []) as Paystub[],
     rates,
     year,
-    sutaRate,
     priorYearFutaThresholdMet,
   )
   const { effective: dueDateEffective, shifted } = shiftedDeadline(data.due_date)
