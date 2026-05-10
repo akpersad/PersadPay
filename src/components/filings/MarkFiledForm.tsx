@@ -58,6 +58,7 @@ export function MarkFiledForm({ existing, filingType, taxYear, quarter, createdB
       tax_year: number
       quarter: number | null
       filed_on: string | null
+      amount_paid: number | null
       confirmation: string | null
       notes: string | null
       not_applicable: boolean
@@ -70,6 +71,7 @@ export function MarkFiledForm({ existing, filingType, taxYear, quarter, createdB
             tax_year: taxYear,
             quarter,
             filed_on: filedOn || null,
+            amount_paid: computedAmount ?? null,
             confirmation: confirmation || null,
             notes: notes || null,
             not_applicable: false,
@@ -81,6 +83,7 @@ export function MarkFiledForm({ existing, filingType, taxYear, quarter, createdB
             tax_year: taxYear,
             quarter,
             filed_on: null,
+            amount_paid: null,
             confirmation: null,
             notes: null,
             not_applicable: true,

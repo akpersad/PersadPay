@@ -27,6 +27,10 @@ const ITEM_LINKS: Record<string, LinkDef> = {
     href: 'https://www.nynewhire.com/',
     external: true,
   },
+  'Provide signed LS-59 Wage Notice to employee': {
+    href: 'https://dol.ny.gov/form-ls-59-exempt-employees',
+    external: true,
+  },
   'Have employee complete Federal W-4': {
     href: 'https://www.irs.gov/forms-pubs/about-form-w-4',
     external: true,
@@ -36,7 +40,7 @@ const ITEM_LINKS: Record<string, LinkDef> = {
     external: true,
   },
   'Determine PFL waiver eligibility': {
-    href: 'https://www.wcb.ny.gov/content/main/forms/PFLDocs/PFLWaiver.pdf',
+    href: 'https://paidfamilyleave.ny.gov/pfl-waiver-form',
     external: true,
   },
   'Purchase persadpay.com domain': {
