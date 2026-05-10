@@ -18,6 +18,7 @@ interface DocSpec {
   externalHref?: string
   externalLabel?: string
   requiresSignature?: boolean  // false = "Uploaded/Not uploaded" copy instead of "Signed/Unsigned"
+  multi?: boolean              // true = multiple uploads allowed (each is a distinct record)
 }
 
 const DOCS: DocSpec[] = [
@@ -75,9 +76,8 @@ const DOCS: DocSpec[] = [
   {
     type: 'sexual_harassment_policy',
     title: 'Sexual Harassment Prevention Policy',
-    description: 'NY Labor Law § 201-g requires all employers to adopt and distribute a sexual harassment prevention policy at hire and annually. Use the NYS model policy or a compliant equivalent. Do NOT mail — retain signed acknowledgement.',
-    externalHref: 'https://www.ny.gov/programs/combating-sexual-harassment-workplace',
-    externalLabel: 'NYS model policy',
+    description: 'NY Labor Law § 201-g requires all employers to adopt and distribute a sexual harassment prevention policy at hire and annually. Print, sign, and retain the signed acknowledgement.',
+    inAppHref: '/documents/sexual-harassment-policy',
   },
   {
     type: 'sexual_harassment_training_certificate',
@@ -109,8 +109,10 @@ const DOCS: DocSpec[] = [
   {
     type: 'sick_leave_summary',
     title: 'Sick Leave Summary',
-    description: 'On-demand year summary required by NY Labor Law § 196-b(4) within 3 business days of an employee request.',
+    description: 'Generated on-demand when Melina requests it — NY § 196-b(4) requires you to respond within 3 business days. Each upload is kept as a separate record so you have a history of every copy provided.',
     inAppHref: '/documents/sick-leave-summary',
+    requiresSignature: false,
+    multi: true,
   },
 ]
 
@@ -127,14 +129,30 @@ export default async function DocumentsPage() {
 
   if (profile?.role !== 'admin') redirect('/dashboard')
 
-  const { data: signedRows } = await supabase.from('signed_documents').select('*')
+  const { data: signedRows } = await supabase
+    .from('signed_documents')
+    .select('*')
+    .order('uploaded_at', { ascending: false })
+
+  const allRows = (signedRows ?? []) as SignedDocument[]
+
+  // Single-copy types: keyed by document_type (only one row ever exists)
   const signedByType = new Map<string, SignedDocument>()
-  for (const row of (signedRows ?? []) as SignedDocument[]) {
-    signedByType.set(row.document_type, row)
+  // Multi-copy types: keyed by document_type, value is array sorted newest-first
+  const multiByType = new Map<string, SignedDocument[]>()
+
+  for (const row of allRows) {
+    const doc = DOCS.find(d => d.type === row.document_type)
+    if (doc?.multi) {
+      const arr = multiByType.get(row.document_type) ?? []
+      arr.push(row)
+      multiByType.set(row.document_type, arr)
+    } else {
+      signedByType.set(row.document_type, row)
+    }
   }
 
-  // Pre-generate 1-hour signed URLs for everything that's been uploaded so the
-  // download link works without an extra round-trip when the admin clicks.
+  // Pre-generate 1-hour signed URLs for single-copy uploads
   const signedUrls = new Map<string, string>()
   for (const row of signedByType.values()) {
     const { data } = await supabase
@@ -142,6 +160,18 @@ export default async function DocumentsPage() {
       .from('signed-documents')
       .createSignedUrl(row.file_path, 60 * 60)
     if (data?.signedUrl) signedUrls.set(row.document_type, data.signedUrl)
+  }
+
+  // Pre-generate signed URLs for all multi-copy uploads, keyed by row id
+  const multiSignedUrls = new Map<string, string>()
+  for (const rows of multiByType.values()) {
+    for (const row of rows) {
+      const { data } = await supabase
+        .storage
+        .from('signed-documents')
+        .createSignedUrl(row.file_path, 60 * 60)
+      if (data?.signedUrl) multiSignedUrls.set(row.id, data.signedUrl)
+    }
   }
 
   return (
@@ -155,9 +185,86 @@ export default async function DocumentsPage() {
 
       <div className="space-y-3">
         {DOCS.map(doc => {
+          const needsSig = doc.requiresSignature !== false
+
+          // ── Multi-upload card (e.g. sick leave summary) ──────────────────
+          if (doc.multi) {
+            const uploads = multiByType.get(doc.type) ?? []
+            return (
+              <Card key={doc.type}>
+                <CardContent className="py-3 px-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-medium">{doc.title}</p>
+                        <Badge variant="outline">{uploads.length} uploaded</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{doc.description}</p>
+                    </div>
+                  </div>
+
+                  {/* Reference / source links */}
+                  {(doc.inAppHref || doc.externalHref) && (
+                    <div className="flex flex-wrap gap-2">
+                      {doc.inAppHref && (
+                        <Link href={doc.inAppHref} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
+                          View in app
+                        </Link>
+                      )}
+                      {doc.externalHref && (
+                        <a href={doc.externalHref} target="_blank" rel="noopener noreferrer" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
+                          <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                          {doc.externalLabel}
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Upload history */}
+                  {uploads.length > 0 && (
+                    <div className="space-y-1.5 pt-1 border-t">
+                      {uploads.map(row => {
+                        const url = multiSignedUrls.get(row.id)
+                        return (
+                          <div key={row.id} className="flex items-center justify-between gap-2">
+                            <p className="text-xs text-muted-foreground min-w-0 truncate">
+                              {formatDate(row.uploaded_at.slice(0, 10))}
+                              {row.file_name ? ` · ${row.file_name}` : ''}
+                            </p>
+                            {url && (
+                              <a href={url} target="_blank" rel="noopener noreferrer">
+                                <Button variant="outline" size="sm">
+                                  <Download className="h-3.5 w-3.5 mr-1.5" />
+                                  Download
+                                </Button>
+                              </a>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* Upload new copy */}
+                  <div className="flex justify-end pt-1 border-t">
+                    <UploadDocumentButton
+                      documentType={doc.type}
+                      hasExisting={false}
+                      uploaderId={user.id}
+                      uploadLabel="Upload copy"
+                      successLabel="Copy uploaded."
+                      multi
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          }
+
+          // ── Single-copy card (all other documents) ───────────────────────
           const signed = signedByType.get(doc.type)
           const signedUrl = signedUrls.get(doc.type)
-          const needsSig = doc.requiresSignature !== false
           return (
             <Card key={doc.type}>
               <CardContent className="py-3 px-4 space-y-3">
@@ -183,20 +290,12 @@ export default async function DocumentsPage() {
                 {/* Reference / source links */}
                 <div className="flex flex-wrap gap-2">
                   {doc.inAppHref && (
-                    <Link
-                      href={doc.inAppHref}
-                      className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
-                    >
+                    <Link href={doc.inAppHref} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
                       View in app
                     </Link>
                   )}
                   {doc.externalHref && (
-                    <a
-                      href={doc.externalHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
-                    >
+                    <a href={doc.externalHref} target="_blank" rel="noopener noreferrer" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
                       <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
                       {doc.externalLabel}
                     </a>
