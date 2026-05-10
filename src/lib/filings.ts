@@ -57,6 +57,13 @@ export function getFederalEstimatedTaxPeriod(year: number, quarter: Quarter): { 
   return { start: `${year}-09-01`, end: `${year}-12-31` }
 }
 
+// Number of months in each IRS 1040-ES fiscal period (for annualization).
+export function getFederalEstimatedTaxPeriodMonths(quarter: Quarter): number {
+  if (quarter === 2) return 2
+  if (quarter === 4) return 4
+  return 3
+}
+
 export function getCurrentQuarter(date: Date = new Date()): { year: number; quarter: Quarter } {
   const year = date.getFullYear()
   const quarter = Math.ceil((date.getMonth() + 1) / 3) as Quarter
@@ -74,10 +81,14 @@ export interface NYS45Data {
   due_date: string
   stub_count: number
   // Part A (UI)
-  ui_gross_wages: number       // Box 2 — total quarterly remuneration
-  ui_excess_wages: number      // Box 3 — amount over the UI wage base
-  ui_taxable_wages: number     // Box 4 — subject to UI tax
-  ui_tax_due: number           // Box 5 — UI tax due
+  ui_gross_wages: number       // Line 2 — total quarterly remuneration
+  ui_excess_wages: number      // Line 3 — amount over the UI wage base
+  ui_taxable_wages: number     // Line 4 — subject to UI tax
+  ui_tax_due: number           // Line 5 — UI contribution (taxable × UI rate)
+  rsf: number                  // Line 6 — Re-employment Service Fund (taxable × rsf_rate)
+  // Part A employee-count boxes (NYS-45 Part A, boxes 10a/10b/10c)
+  // Count of covered employees employed on the 12th of each month in the quarter.
+  employee_counts_by_month: [number, number, number]
   // Part B (Withholding)
   ny_state_tax_withheld: number // Box 12
   total_tax_withheld: number    // Box 15 — same as Box 12 in Nassau (no NYC/Yonkers)
@@ -88,6 +99,7 @@ export interface NYS45Data {
 // Compute UI taxable wages stub-by-stub so we correctly cap at the wage base
 // across the year. ytdGrossBeforeQuarter is the sum of gross paid in earlier
 // quarters of the same year.
+// allYearStubs is used solely for the employee-count-by-12th check.
 export function calculateNYS45(
   stubsInQuarter: Paystub[],
   ytdGrossBeforeQuarter: number,
@@ -95,6 +107,7 @@ export function calculateNYS45(
   sutaRate: number,
   year: number,
   quarter: Quarter,
+  allYearStubs: Paystub[] = [],
 ): NYS45Data {
   const sorted = [...stubsInQuarter].sort((a, b) => a.pay_date.localeCompare(b.pay_date))
 
@@ -111,9 +124,24 @@ export function calculateNYS45(
   const uiGross = sorted.reduce((sum, s) => sum + Number(s.gross_pay), 0)
   const uiExcess = uiGross - uiTaxable
   const uiTaxDue = round(uiTaxable * sutaRate)
+  const rsf = round(uiTaxable * Number(rates.rsf_rate ?? 0.00075))
 
   const nyWithheld = sorted.reduce((sum, s) => sum + Number(s.state_withholding), 0)
   const fedWithheld = sorted.reduce((sum, s) => sum + Number(s.federal_withholding), 0)
+
+  // Employee count by 12th of each month: 1 if any stub's pay period covers
+  // the 12th of that month (proxy for "employed on the 12th"), else 0.
+  const startMonth = (quarter - 1) * 3 + 1
+  const allStubs = allYearStubs.length > 0 ? allYearStubs : sorted
+  const employee_counts_by_month: [number, number, number] = [0, 0, 0]
+  for (let i = 0; i < 3; i++) {
+    const month = startMonth + i
+    const twelfth = `${year}-${String(month).padStart(2, '0')}-12`
+    const covered = allStubs.some(
+      s => s.pay_period_start <= twelfth && s.pay_period_end >= twelfth,
+    )
+    employee_counts_by_month[i] = covered ? 1 : 0
+  }
 
   return {
     year,
@@ -125,6 +153,8 @@ export function calculateNYS45(
     ui_excess_wages: round(uiExcess),
     ui_taxable_wages: round(uiTaxable),
     ui_tax_due: uiTaxDue,
+    rsf,
+    employee_counts_by_month,
     ny_state_tax_withheld: round(nyWithheld),
     total_tax_withheld: round(nyWithheld),
     fed_income_tax_withheld: round(fedWithheld),
@@ -136,21 +166,26 @@ export interface ScheduleHData {
   due_date: string
   stub_count: number
   total_cash_wages: number
-  // Line 1a/1b — Social Security (combined employee + employer)
+  // Line 1/2 — Social Security (combined employee + employer)
   ss_wages: number
   ss_tax: number
-  // Line 2a/2b — Medicare (combined)
+  // Line 3/4 — Medicare (combined)
   medicare_wages: number
   medicare_tax: number
-  // Line 5 — federal income tax withheld
+  // Line 5/6 — Additional Medicare Tax (wages > $200K threshold; $0 for household employees)
+  additional_medicare_tax_wages: number
+  additional_medicare_tax: number
+  // Line 7 — federal income tax withheld
   fed_income_tax_withheld: number
-  // Line 6 — total social security, Medicare, and income taxes
-  line_6_total: number
-  // Line 7 — cash wages subject to FUTA (Section A, single state)
+  // Line 8 — total social security, Medicare, and income taxes (lines 2+4+6+7)
+  line_8_total: number
+  // Lines 13/14 — state unemployment (shown for completeness; not in federal total)
+  suta_wages: number
+  suta_paid: number
+  // Line 15/16 — Federal Unemployment Tax (FUTA)
   futa_wages: number
-  // Line 8 — FUTA tax
   futa_tax: number
-  // Line 9 — total household employment taxes
+  // Line 26 — total household employment taxes (line 8 + line 16)
   total_household_employment_taxes: number
   // Threshold flags — informational only, computed against IRS Pub 926
   fica_threshold_met: boolean
@@ -165,11 +200,13 @@ export interface FederalEstimatedTaxData {
   stub_count: number
   // Per-stub stored values summed across the quarter — these are the quarterly
   // slices of the annual Schedule H lines.
-  ss_combined: number          // employee + employer FICA SS for quarter (Schedule H Line 1b slice)
-  medicare_combined: number    // employee + employer FICA Medicare for quarter (Line 2b slice)
-  fed_income_tax_withheld: number  // Line 5 slice
-  futa: number                 // Line 8 slice
+  ss_combined: number          // employee + employer FICA SS for quarter (Schedule H Line 2 slice)
+  medicare_combined: number    // employee + employer FICA Medicare for quarter (Line 4 slice)
+  fed_income_tax_withheld: number  // Line 7 slice
+  futa: number                 // Line 16 slice
   total_due: number            // sum — what to send via Form 1040-ES this quarter
+  // Annualized projection: total_due / period_months × 12
+  annualized_projection: number
 }
 
 // Computes the per-period Schedule H slice paid via Form 1040-ES. Uses IRS
@@ -192,6 +229,9 @@ export function calculateFederalEstimatedTax(
   const futa = round(sum('futa'))
   const total_due = round(ss_combined + medicare_combined + fed_income_tax_withheld + futa)
 
+  const periodMonths = getFederalEstimatedTaxPeriodMonths(quarter)
+  const annualized_projection = total_due > 0 ? round(total_due / periodMonths * 12) : 0
+
   return {
     year,
     quarter,
@@ -203,13 +243,19 @@ export function calculateFederalEstimatedTax(
     fed_income_tax_withheld,
     futa,
     total_due,
+    annualized_projection,
   }
 }
 
+// priorYearFutaThresholdMet: true if any calendar quarter of the PRIOR year had
+// $1,000+ in cash wages (per IRS Pub 926 — the FUTA $1K threshold checks
+// both the current and prior year). Pass false (default) if no prior-year data.
 export function calculateScheduleH(
   yearStubs: Paystub[],
   rates: TaxRates,
   taxYear: number,
+  sutaRate: number = 0,
+  priorYearFutaThresholdMet: boolean = false,
 ): ScheduleHData {
   const totalGross = yearStubs.reduce((sum, s) => sum + Number(s.gross_pay), 0)
 
@@ -220,14 +266,17 @@ export function calculateScheduleH(
   // FICA trigger: cash wages must meet the annual household-employee threshold.
   const ficaThresholdMet = totalGross >= ficaThreshold
 
-  // FUTA trigger: $1,000+ in cash wages in any single calendar quarter.
+  // FUTA trigger: $1,000+ in cash wages in any single calendar quarter of the
+  // current OR prior year (IRS Pub 926). priorYearFutaThresholdMet covers the
+  // prior-year check; the loop below covers the current year.
   const quarterTotals: Record<Quarter, number> = { 1: 0, 2: 0, 3: 0, 4: 0 }
   for (const stub of yearStubs) {
     const month = parseInt(stub.pay_date.slice(5, 7), 10)
     const q = Math.ceil(month / 3) as Quarter
     quarterTotals[q] += Number(stub.gross_pay)
   }
-  const futaThresholdMet = Object.values(quarterTotals).some(t => t >= futaQuarterlyThreshold)
+  const currentYearFutaThresholdMet = Object.values(quarterTotals).some(t => t >= futaQuarterlyThreshold)
+  const futaThresholdMet = priorYearFutaThresholdMet || currentYearFutaThresholdMet
 
   // SS — capped at the SS wage base; combined rate (employee 6.2% + employer 6.2%)
   const ssWages = ficaThresholdMet ? Math.min(totalGross, Number(rates.ss_wage_base)) : 0
@@ -237,15 +286,25 @@ export function calculateScheduleH(
   const medicareWages = ficaThresholdMet ? totalGross : 0
   const medicareTax = round(medicareWages * Number(rates.fica_medicare_rate) * 2)
 
+  // Additional Medicare Tax — 0.9% on wages above $200K threshold. Not
+  // applicable for a household employee at these wage levels, but the IRS
+  // Schedule H form requires lines 5 and 6 to be present (at $0).
+  const additional_medicare_tax_wages = 0
+  const additional_medicare_tax = 0
+
   const fedWithheld = round(yearStubs.reduce((sum, s) => sum + Number(s.federal_withholding), 0))
 
-  const line6 = round(ssTax + medicareTax + fedWithheld)
+  const line8 = round(ssTax + medicareTax + additional_medicare_tax + fedWithheld)
+
+  // State unemployment (SUTA) — informational on Schedule H; paid via NYS-45.
+  const suta_wages = Math.min(totalGross, Number(rates.suta_wage_base))
+  const suta_paid = round(yearStubs.reduce((sum, s) => sum + Number(s.suta), 0))
 
   // FUTA — capped at the FUTA wage base
   const futaWages = futaThresholdMet ? Math.min(totalGross, Number(rates.futa_wage_base)) : 0
   const futaTax = round(futaWages * Number(rates.futa_rate))
 
-  const total = round(line6 + futaTax)
+  const total = round(line8 + futaTax)
 
   return {
     year: taxYear,
@@ -256,8 +315,12 @@ export function calculateScheduleH(
     ss_tax: ssTax,
     medicare_wages: round(medicareWages),
     medicare_tax: medicareTax,
+    additional_medicare_tax_wages,
+    additional_medicare_tax,
     fed_income_tax_withheld: fedWithheld,
-    line_6_total: line6,
+    line_8_total: line8,
+    suta_wages: round(suta_wages),
+    suta_paid,
     futa_wages: round(futaWages),
     futa_tax: futaTax,
     total_household_employment_taxes: total,

@@ -128,10 +128,10 @@ export interface W2 {
 // Paystub with pre-calculated YTD values — passed to PDF renderer
 export interface PaystubWithYTD extends Paystub {
   ytd_gross: number
-  // Regular wages YTD = sum(hours_worked × hourly_rate) across the year. Distinct
-  // from ytd_gross (which includes taxable additional pay like bonuses + gift cards)
-  // so the "Regular" row on the stub shows the right per-line YTD.
+  // Regular wages YTD = sum((hours_worked - overtime_hours) × hourly_rate).
   ytd_regular_wages: number
+  // Overtime wages YTD = sum(overtime_hours × hourly_rate × 1.5).
+  ytd_overtime_wages: number
   ytd_federal_withholding: number
   ytd_fica_social_security: number
   ytd_fica_medicare: number
@@ -232,6 +232,7 @@ export interface Filing {
   tax_year: number
   quarter: number | null
   filed_on: string | null
+  amount_paid: number | null
   confirmation: string | null
   notes: string | null
   not_applicable: boolean

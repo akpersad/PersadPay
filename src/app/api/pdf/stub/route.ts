@@ -46,16 +46,23 @@ export async function GET(request: Request) {
   const sum = (key: keyof Paystub) => prior.reduce((acc, s) => acc + Number(s[key] ?? 0), 0)
   const totalEmpTaxes = Number(stub.federal_withholding) + Number(stub.fica_social_security) + Number(stub.fica_medicare) + Number(stub.state_withholding) + Number(stub.sdi) + Number(stub.pfl)
 
+  const overtimeHoursThisStub = Number(stub.overtime_hours ?? 0)
+  const regularWagesThisStub = (Number(stub.hours_worked) - overtimeHoursThisStub) * Number(stub.hourly_rate)
+  const overtimeWagesThisStub = overtimeHoursThisStub * Number(stub.hourly_rate) * 1.5
   const regularWagesPrior = prior.reduce(
-    (acc, s) => acc + Number(s.hours_worked) * Number(s.hourly_rate),
+    (acc, s) => acc + (Number(s.hours_worked) - Number(s.overtime_hours ?? 0)) * Number(s.hourly_rate),
     0,
   )
-  const regularWagesThisStub = Number(stub.hours_worked) * Number(stub.hourly_rate)
+  const overtimeWagesPrior = prior.reduce(
+    (acc, s) => acc + Number(s.overtime_hours ?? 0) * Number(s.hourly_rate) * 1.5,
+    0,
+  )
 
   const stubWithYTD: PaystubWithYTD = {
     ...stub,
     ytd_gross: sum('gross_pay') + Number(stub.gross_pay),
     ytd_regular_wages: regularWagesPrior + regularWagesThisStub,
+    ytd_overtime_wages: overtimeWagesPrior + overtimeWagesThisStub,
     ytd_federal_withholding: sum('federal_withholding') + Number(stub.federal_withholding),
     ytd_fica_social_security: sum('fica_social_security') + Number(stub.fica_social_security),
     ytd_fica_medicare: sum('fica_medicare') + Number(stub.fica_medicare),

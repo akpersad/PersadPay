@@ -33,10 +33,16 @@ export default async function FederalEstimatedTaxQuarterPage({ params }: { param
   if (profile?.role !== 'admin') redirect('/dashboard')
 
   // IRS Form 1040-ES uses non-calendar fiscal periods (3/2/3/4 months).
-  // Use those, not the calendar-quarter range that NYS-45 uses.
   const period = getFederalEstimatedTaxPeriod(year, q)
 
-  const [{ data: stubsInPeriod }, { data: filing }] = await Promise.all([
+  const [
+    { data: stubsInPeriod },
+    { data: filing },
+    // All current-year 1040-ES filings for YTD payment tracking (amount_paid sums)
+    { data: yearFilings },
+    // Prior-year Schedule H filing for safe-harbor calculation
+    { data: priorYearScheduleH },
+  ] = await Promise.all([
     supabase
       .from('paystubs')
       .select('*')
@@ -50,6 +56,19 @@ export default async function FederalEstimatedTaxQuarterPage({ params }: { param
       .eq('tax_year', year)
       .eq('quarter', q)
       .maybeSingle<Filing>(),
+    supabase
+      .from('filings')
+      .select('amount_paid, quarter')
+      .eq('filing_type', 'Federal Estimated Tax')
+      .eq('tax_year', year)
+      .not('amount_paid', 'is', null),
+    supabase
+      .from('filings')
+      .select('amount_paid')
+      .eq('filing_type', 'Schedule H')
+      .eq('tax_year', year - 1)
+      .not('amount_paid', 'is', null)
+      .maybeSingle(),
   ])
 
   const data = calculateFederalEstimatedTax((stubsInPeriod ?? []) as Paystub[], year, q)
@@ -59,6 +78,14 @@ export default async function FederalEstimatedTaxQuarterPage({ params }: { param
   const daysUntilFileBy = daysUntil(fileBy)
   const isFiled = !!filing?.filed_on
   const isNotApplicable = !!filing?.not_applicable
+
+  // YTD payments across all quarters this year
+  const ytdPaid = (yearFilings ?? []).reduce((sum, f) => sum + Number(f.amount_paid ?? 0), 0)
+
+  // Safe harbor: 100% of prior-year Schedule H total / 4 per quarter.
+  // (IRS safe-harbor rule — avoids underpayment penalty.)
+  const priorYearTotal = Number(priorYearScheduleH?.amount_paid ?? 0)
+  const safeHarborPerQuarter = priorYearTotal > 0 ? priorYearTotal / 4 : null
 
   return (
     <div className="px-4 pt-4 pb-4 max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto space-y-4">
@@ -109,10 +136,10 @@ export default async function FederalEstimatedTaxQuarterPage({ params }: { param
               <CardTitle className="text-sm">Send via Form 1040-ES</CardTitle>
             </CardHeader>
             <CardContent className="pb-4 space-y-2">
-              <LineRow label="Social Security tax (12.4% combined)" value={data.ss_combined} hint="Employee 6.2% + employer 6.2% — Schedule H Line 1b slice" />
-              <LineRow label="Medicare tax (2.9% combined)" value={data.medicare_combined} hint="Employee 1.45% + employer 1.45% — Schedule H Line 2b slice" />
-              <LineRow label="Federal income tax withheld" value={data.fed_income_tax_withheld} hint="Schedule H Line 5 slice" />
-              <LineRow label="FUTA" value={data.futa} hint="Capped at $7,000 wage base annually — Schedule H Line 8 slice" />
+              <LineRow label="Social Security tax (12.4% combined)" value={data.ss_combined} hint="Employee 6.2% + employer 6.2% — Schedule H Line 2 slice" />
+              <LineRow label="Medicare tax (2.9% combined)" value={data.medicare_combined} hint="Employee 1.45% + employer 1.45% — Schedule H Line 4 slice" />
+              <LineRow label="Federal income tax withheld" value={data.fed_income_tax_withheld} hint="Schedule H Line 7 slice" />
+              <LineRow label="FUTA" value={data.futa} hint="Capped at $7,000 wage base annually — Schedule H Line 16 slice" />
               <div className="flex items-start gap-3 pt-2 border-t">
                 <span className="text-[10px] uppercase tracking-wide text-muted-foreground pt-1 w-10 flex-shrink-0">Total</span>
                 <div className="flex-1 min-w-0">
@@ -122,6 +149,44 @@ export default async function FederalEstimatedTaxQuarterPage({ params }: { param
                   <span className="font-mono text-base font-semibold">{formatCurrency(data.total_due)}</span>
                   <CopyValue value={data.total_due} label="Federal estimated tax payment" />
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Projections and safe harbor */}
+          <Card>
+            <CardHeader className="pb-2 pt-4">
+              <CardTitle className="text-sm">Projections</CardTitle>
+            </CardHeader>
+            <CardContent className="pb-4 space-y-2">
+              <LineRow
+                label="Annualized projection"
+                value={data.annualized_projection}
+                hint={`Q${q} total annualized over 12 months based on this period's pace`}
+              />
+              {safeHarborPerQuarter !== null ? (
+                <LineRow
+                  label="Safe harbor per quarter"
+                  value={safeHarborPerQuarter}
+                  hint={`100% of ${year - 1} Schedule H total (${formatCurrency(priorYearTotal)}) ÷ 4 — meets underpayment safe harbor`}
+                />
+              ) : (
+                <div className="flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm">Safe harbor per quarter</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      N/A — no prior-year Schedule H filed yet. Mark the {year - 1} Schedule H as filed with the amount paid to enable this.
+                    </p>
+                  </div>
+                  <span className="font-mono text-sm text-muted-foreground">—</span>
+                </div>
+              )}
+              <div className="flex items-start gap-3 pt-2 border-t">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm">YTD paid (all Q{year} estimated payments)</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Sum of amount_paid across all marked-paid 1040-ES quarters this year</p>
+                </div>
+                <span className="font-mono text-sm">{formatCurrency(ytdPaid)}</span>
               </div>
             </CardContent>
           </Card>

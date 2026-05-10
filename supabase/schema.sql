@@ -188,7 +188,10 @@ create table public.tax_rates (
   sdi_weekly_cap      numeric(8,2)  not null,
   pfl_rate            numeric(8,5)  not null,
   pfl_annual_cap      numeric(10,2) not null,
-  irs_mileage_rate    numeric(6,4)  not null,
+  irs_mileage_rate             numeric(6,4)  not null,
+  fica_household_threshold     numeric(10,2) not null default 3000, -- IRS Pub 926 (migration 0018)
+  futa_quarterly_threshold     numeric(10,2) not null default 1000, -- IRS Pub 926 (migration 0018)
+  rsf_rate                     numeric(8,6)  not null default 0.00075, -- NY RSF surcharge (migration 0028)
   source_notes        text,
   created_at          timestamptz   not null default now()
 );
@@ -301,6 +304,7 @@ create table public.filings (
   tax_year                 integer not null,
   quarter                  integer check (quarter is null or quarter between 1 and 4),
   filed_on                 date,
+  amount_paid              numeric(12,2),    -- saved at filing time for YTD tracking (migration 0029)
   confirmation             text,
   notes                    text,
   not_applicable           boolean not null default false,
@@ -560,13 +564,14 @@ insert into public.tax_rates (
   effective_year, fica_ss_rate, fica_medicare_rate, ss_wage_base,
   futa_rate, futa_wage_base, suta_wage_base,
   sdi_rate, sdi_weekly_cap, pfl_rate, pfl_annual_cap,
-  irs_mileage_rate, source_notes
+  irs_mileage_rate, fica_household_threshold, futa_quarterly_threshold, rsf_rate,
+  source_notes
 ) values (
   2026, 0.062, 0.0145, 184500,
-  0.006, 7000, 13000,
+  0.006, 7000, 17600,
   0.005, 0.60, 0.00432, 411.91,
-  0.725,
-  'Verified 2026-05-05. Sources: IRS Topic 751 (FICA, SS wage base); IRS Pub 926 (FUTA); NY DOL UI rate notice (SUTA wage base $13,000 for NY 2026); NY DFS 2026 PFL rate decision (PFL rate 0.432%, cap $411.91); NY DFS / WCB (SDI 0.5% / $0.60 weekly cap); IRS Notice 2026-10 (mileage 72.5¢/mi). See /docs/ROADMAP.md.'
+  0.725, 3000, 1000, 0.00075,
+  'Verified 2026-05-05. Sources: IRS Topic 751 (FICA/SS wage base $184,500); IRS Pub 926 (FUTA $7,000 / FICA threshold $3,000 / FUTA quarterly threshold $1,000); NY DOL UI rate notice (SUTA wage base $17,600 for NY 2026 per NYS-50 permanent formula); NY DFS 2026 PFL rate decision (0.432%, cap $411.91); NY DFS / WCB (SDI 0.5% / $0.60 weekly cap); IRS Notice 2026-10 (mileage 72.5¢/mi); NY DOL RSF notice (RSF 0.075%). See /docs/ROADMAP.md.'
 );
 
 -- ── Grants ────────────────────────────────────────────────────────────────────
@@ -579,12 +584,12 @@ grant all privileges on all sequences in schema public to service_role;
 
 grant select, insert, update, delete on public.profiles to authenticated;
 grant select, insert, update, delete on public.paystubs to authenticated;
-grant select, insert, update, delete on public.settings to authenticated;
-grant select, insert, update, delete on public.reminders to authenticated;
-grant select, insert, update, delete on public.onboarding_checklist to authenticated;
+grant select, update on public.settings to authenticated;           -- INSERT/DELETE revoked (migration 0028): single-row table
+grant select, insert, update on public.reminders to authenticated;  -- DELETE revoked: reminders are dismissed, not deleted
+grant select, update on public.onboarding_checklist to authenticated; -- INSERT/DELETE revoked (migration 0028): pre-seeded items
 grant select, insert, update, delete on public.year_end_checklist to authenticated;
 grant select, insert, update, delete on public.w2s to authenticated;
-grant select, insert, update, delete on public.tax_rates to authenticated;
+grant select on public.tax_rates to authenticated;                  -- INSERT/UPDATE/DELETE revoked (migration 0028): updated only via migrations
 grant select, insert, update, delete on public.filings to authenticated;
 grant select, insert, update, delete on public.paystub_line_items to authenticated;
 grant select on public.audit_log to authenticated;  -- INSERT revoked (migration 0025); writes via triggers only

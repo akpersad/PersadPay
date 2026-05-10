@@ -101,6 +101,17 @@ export default async function SickLeaveSummaryPage({
         </section>
 
         <section className="space-y-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide">Sick Leave Balance</h2>
+          <p className="text-sm">
+            <span className="font-medium">Accrued balance:</span>{' '}
+            <span>Unlimited</span>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {employer} provides unlimited unpaid sick leave, exceeding the 40-hour statutory floor under NY Labor Law § 196-b.
+          </p>
+        </section>
+
+        <section className="space-y-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide">Sick Leave Used</h2>
           {entries.length === 0 ? (
             <p className="text-sm text-muted-foreground">

@@ -34,7 +34,7 @@ _Two items deferred to Phase 2: 13c (schema grants tightening) and 11f (multi-re
 - [x] B3: RSC data leak — strip employer fields + zelle from RSC payload when role = employee
 - [x] B4: Employee PDF access — use admin client for settings fetch in `/api/pdf/stub` and `/api/pdf/w2`
 - [x] 13b: schema.sql — remove `INSERT on audit_log to authenticated` (migration 0025 revoked it; schema.sql wasn't updated)
-- [ ] 13c: schema.sql — tighten over-broad grants on settings/reminders/onboarding_checklist/tax_rates
+- [x] 13c: schema.sql — tighten over-broad grants on settings/reminders/onboarding_checklist/tax_rates
 - [x] 13d: tax_rates — add employee SELECT policy so stub view doesn't silently fail
 - [x] 13e: Push notifications — filing reminders should go to `['admin']` only, not `['admin', 'employee']`
 - [x] 13f: `/api/pdf/stub` — enforce variant server-side (remove ?variant=admin attack surface)
@@ -43,7 +43,7 @@ _Two items deferred to Phase 2: 13c (schema grants tightening) and 11f (multi-re
 - [x] 11a: Stub email idempotency — `force` flag required for resends; rejects duplicate first-sends
 - [x] 11c: Cron 10-day followup — added `followup_email_sent` guard (new DB column + migration)
 - [x] 11d: Cron windowing — changed `=== 20`/`=== 10` to `±1 day` windows
-- [ ] 11f: Multi-recipient partial failure — track which recipients failed; don't block `stub_sent=true` on partial success
+- [x] 11f: Multi-recipient partial failure — track which recipients failed; don't block `stub_sent=true` on partial success
 - [x] 11g: Store Resend message ID + `stub_sent_at` timestamp on stub record
 - [x] 11h: `stub_sent` DB update return value — surface error if update fails after send succeeds
 
@@ -61,34 +61,34 @@ _Two items deferred to Phase 2: 13c (schema grants tightening) and 11f (multi-re
 _Q1 NYS-45 is already past due. Fix filings and stub display issues._
 
 ### NYS-45
-- [ ] B6a: Add RSF Line 5 — `rsf = ui_taxable_wages × 0.00075`
-- [ ] B6b: Add employee count by 12th of each month (3 numbers per quarter)
+- [x] B6a: Add RSF Line 6 — `rsf = ui_taxable_wages × 0.00075` (rsf_rate added to tax_rates table)
+- [x] B6b: Add employee count by 12th of each month (3 numbers per quarter)
 
 ### Schedule H
-- [ ] 8a: Fix line numbering throughout UI (current: 1a/1b/2a/2b/5/6/7/8/9 → actual: 1/2/3/4/5/6/7/8/15/16/26)
-- [ ] 8b: Add Additional Medicare Tax lines 5/6 (required even at $0)
-- [ ] 8c: Add state UI lines 13/14 (SUTA contributions paid)
-- [ ] 8d: FUTA threshold — check prior-year wages too, not only current year
-- [ ] 8e: Confirm FICA threshold shows $3,000 for 2026
+- [x] 8a: Fix line numbering throughout UI (1/2/3/4/5/6/7/8 + 13/14 state UI + 15/16 FUTA + 26 total)
+- [x] 8b: Add Additional Medicare Tax lines 5/6 (required even at $0)
+- [x] 8c: Add state UI lines 13/14 (SUTA contributions paid)
+- [x] 8d: FUTA threshold — check prior-year wages too (priorYearFutaThresholdMet param added)
+- [x] 8e: Confirm FICA threshold shows $3,000 for 2026 — reads from tax_rates.fica_household_threshold
 
 ### 1040-ES
-- [ ] 8g: Add safe-harbor surface, YTD payment tracking, annualized projection
+- [x] 8g: Add safe-harbor surface, YTD payment tracking, annualized projection (filings.amount_paid added)
 
 ### Filings cards (`/filings`)
 - [x] Add "Mark Not Applicable" action alongside "Mark Filed" — landed on branch `fix/audit-followups` (migration 0027 adds `filings.not_applicable` + reason with mutual-exclusivity check; `MarkFiledForm` becomes a tri-state status card; "Not applicable" badge in `/filings` list + 4 detail pages + year-end view; `AdminDashboard.NextFilingCard` treats N/A as handled; HYSA withdrawal sync deletes any prior withdrawal when a filing flips to N/A).
 
 ### Stub display / compliance
-- [ ] 10c: Sick leave summary — show "Unlimited" for accrued balance
-- [ ] 10d: Admin PDF — add payment_sent, zelle_transaction_id, stub_sent to audit trail section
-- [ ] 10g: Zero-hour stubs — show "0" hours instead of "—"
-- [ ] 15f: OT YTD column — show computed YTD value instead of "—"
-- [ ] 15g: YTD line items — sum only through this stub's pay date (not full-year total)
+- [x] 10c: Sick leave summary — show "Unlimited" for accrued balance
+- [x] 10d: Admin PDF — add payment_sent, zelle_transaction_id, stub_sent to audit trail section
+- [x] 10g: Zero-hour stubs — show "0" hours instead of "—"
+- [x] 15f: OT YTD column — show computed YTD value instead of "—" (ytd_overtime_wages added to PaystubWithYTD)
+- [x] 15g: YTD line items — sum only through this stub's pay date — already implemented correctly
 
 ### Onboarding checklist
-- [ ] 12c: DBL insurance — show warning if `dbl_covered` toggle is on ("you must purchase a DBL policy from NYSIF or a private carrier"); verify toggle is currently off
-- [ ] 12d: Add IT-2104-E as a checklist note (employee may qualify for exemption; admin keeps current withholding)
-- [ ] 12e: Fix stale URLs (LS-59 → updated DOL link, labor.ny.gov → dol.ny.gov, PFL waiver URL)
-- [ ] 12g: W-4 checklist item — clarify "voluntary for household employees; requires signed W-4"
+- [x] 12c: DBL insurance — warning already in SettingsForm.tsx; AdminDashboard also has threshold watch banner
+- [x] 12d: Add IT-2104-E as a checklist note — detail text updated via migration
+- [x] 12e: Fix stale URLs — LS-59 dol.ny.gov link added to ITEM_LINKS; PFL waiver URL updated
+- [x] 12g: W-4 clarification — detail text updated via migration
 
 ---
 

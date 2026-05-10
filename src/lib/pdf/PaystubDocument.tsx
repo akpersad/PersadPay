@@ -136,7 +136,7 @@ export function PaystubDocument({ stub, settings, variant, lineItems = [], ytdBy
             <View style={styles.tableRow}>
               <Text style={styles.col1}>{reasonText ? `No Hours — ${reasonText}` : 'No Hours — Week Off'}</Text>
               <Text style={styles.col2}>—</Text>
-              <Text style={styles.col2}>—</Text>
+              <Text style={styles.col2}>0</Text>
               <Text style={styles.col2}>{formatCurrency(0)}</Text>
               <Text style={styles.col3}>{formatCurrency(stub.ytd_gross)}</Text>
             </View>
@@ -157,7 +157,7 @@ export function PaystubDocument({ stub, settings, variant, lineItems = [], ytdBy
                   <Text style={styles.col2}>{formatCurrency(hourlyRate * 1.5)}</Text>
                   <Text style={styles.col2}>{overtimeHours}</Text>
                   <Text style={styles.col2}>{formatCurrency(overtimePay)}</Text>
-                  <Text style={styles.col3}>—</Text>
+                  <Text style={styles.col3}>{formatCurrency(stub.ytd_overtime_wages)}</Text>
                 </View>
               )}
               {taxableLineItems.map((item, idx) => (
@@ -285,6 +285,27 @@ export function PaystubDocument({ stub, settings, variant, lineItems = [], ytdBy
               <TaxRow label="Employer FICA — Medicare" current={stub.employer_fica_medicare} ytd={stub.ytd_employer_fica_medicare} />
               <TaxRow label="FUTA" current={stub.futa} ytd={stub.ytd_futa} alt />
               <TaxRow label="SUTA (NY)" current={stub.suta} ytd={stub.ytd_suta} />
+            </View>
+          </>
+        )}
+
+        {/* Payment audit trail — admin only */}
+        {isAdmin && (
+          <>
+            <Text style={styles.sectionLabel}>Payment Record</Text>
+            <View style={styles.table}>
+              <View style={styles.tableRow}>
+                <Text style={styles.col1}>Payment sent</Text>
+                <Text style={[styles.col2, { flex: 3, textAlign: 'left' }]}>{stub.payment_sent ? 'Yes' : 'No'}</Text>
+              </View>
+              <View style={styles.tableRowAlt}>
+                <Text style={styles.col1}>Zelle transaction ID</Text>
+                <Text style={[styles.col2, { flex: 3, textAlign: 'left' }]}>{stub.zelle_transaction_id ?? '—'}</Text>
+              </View>
+              <View style={styles.tableRow}>
+                <Text style={styles.col1}>Stub emailed to employee</Text>
+                <Text style={[styles.col2, { flex: 3, textAlign: 'left' }]}>{stub.stub_sent ? 'Yes' : 'No'}</Text>
+              </View>
             </View>
           </>
         )}
