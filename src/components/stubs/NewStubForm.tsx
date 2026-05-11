@@ -14,6 +14,7 @@ import type { Settings, Paystub, PaystubLineItem, StubReason } from '@/lib/types
 import type { TaxResult, TaxRates } from '@/lib/tax'
 import { toast } from 'sonner'
 import { AdditionalPaySection } from './AdditionalPaySection'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { WageBaseCaps } from './WageBaseCaps'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
@@ -91,11 +92,10 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
     : prefillFromStub
       ? String(prefillFromStub.hours)
       : ''
-  const initialRate = initialStub
-    ? String(initialStub.hourly_rate)
-    : prefillFromStub
-      ? String(prefillFromStub.rate)
-      : settings?.employee_hourly_rate?.toString() ?? ''
+  const initialRate = initialStub?.hourly_rate
+    ?? prefillFromStub?.rate
+    ?? settings?.employee_hourly_rate
+    ?? 0
 
   const [hoursMode, setHoursMode] = useState<'total' | 'daily'>(() => {
     if (initialStub?.daily_hours && Object.keys(initialStub.daily_hours).length > 0) return 'daily'
@@ -184,7 +184,7 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
 
   const effectiveHours = hoursMode === 'daily' ? String(dailyTotal) : hours
   const totalHoursNum = parseFloat(effectiveHours || '0')
-  const rateNum = parseFloat(rate || '0')
+  const rateNum = rate
 
   // Auto-suggest OT split when total > 40. Admin can override via the OT
   // input below. Empty override = use the suggestion.
@@ -307,7 +307,7 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
       daily_hours: hoursMode === 'daily'
         ? Object.fromEntries(datesInRange.map(d => [d, parseFloat(dailyHours[d] || '0')]))
         : null,
-      hourly_rate: parseFloat(rate),
+      hourly_rate: rate,
       gross_pay: preview.gross_pay,
       federal_withholding: preview.federal_withholding,
       fica_social_security: preview.fica_social_security,
@@ -406,8 +406,8 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
 
   const canSwitchToDailyMode = !!periodStart && !!periodEnd
   const canPreview = hoursMode === 'daily'
-    ? (!!rate && !!periodStart && !!periodEnd && !!payDate)
-    : (!!hours && !!rate && !!periodStart && !!periodEnd && !!payDate)
+    ? (rate > 0 && !!periodStart && !!periodEnd && !!payDate)
+    : (!!hours && rate > 0 && !!periodStart && !!periodEnd && !!payDate)
 
   return (
     <div className="space-y-5">
@@ -475,15 +475,7 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
           {/* Hourly Rate */}
           <div className="space-y-1.5">
             <Label htmlFor="rate">Hourly Rate ($)</Label>
-            <Input
-              id="rate"
-              type="number"
-              min="0"
-              step="0.01"
-              value={rate}
-              onChange={e => { setRate(e.target.value); setPreview(null) }}
-              placeholder="20.00"
-            />
+            <CurrencyInput id="rate" value={rate} onChange={v => { setRate(v); setPreview(null) }} />
           </div>
 
           {/* Overtime — only when total > 40 hrs/wk (NY domestic-worker OT rule) */}

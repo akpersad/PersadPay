@@ -18,6 +18,7 @@ const rates2026: TaxRates = {
   irs_mileage_rate: 0.725,
   fica_household_threshold: 3000,
   futa_quarterly_threshold: 1000,
+  rsf_rate: 0.00075,
 }
 
 // Base inputs: first stub of the year (YTD=0). FICA applies from the first

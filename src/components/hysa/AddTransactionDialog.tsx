@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { Plus } from 'lucide-react'
+import { CurrencyInput } from '@/components/ui/currency-input'
 
 type TxType = 'deposit_manual' | 'withdrawal_manual' | 'balance_correction'
 
@@ -31,20 +32,19 @@ export function AddTransactionDialog({ userId }: { userId: string }) {
 
   const today = new Date().toISOString().slice(0, 10)
   const [txType, setTxType] = useState<TxType>('deposit_manual')
-  const [amount, setAmount] = useState('')
+  const [amount, setAmount] = useState(0)
   const [effectiveDate, setEffectiveDate] = useState(today)
   const [notes, setNotes] = useState('')
 
   function reset() {
     setTxType('deposit_manual')
-    setAmount('')
+    setAmount(0)
     setEffectiveDate(today)
     setNotes('')
   }
 
   async function save() {
-    const raw = parseFloat(amount)
-    if (isNaN(raw) || raw === 0) {
+    if (amount === 0) {
       toast.error('Enter a non-zero amount.')
       return
     }
@@ -53,10 +53,8 @@ export function AddTransactionDialog({ userId }: { userId: string }) {
       return
     }
 
-    // Enforce sign: deposits positive, withdrawals negative, corrections either
-    let signed = Math.abs(raw)
-    if (txType === 'withdrawal_manual') signed = -signed
-    if (txType === 'balance_correction' && raw < 0) signed = -Math.abs(raw)
+    let signed = amount
+    if (txType === 'withdrawal_manual') signed = -amount
 
     setSaving(true)
     const supabase = createClient()
@@ -110,18 +108,8 @@ export function AddTransactionDialog({ userId }: { userId: string }) {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="tx-amount">
-                Amount{txType === 'balance_correction' ? ' (use – for a negative correction)' : ''}
-              </Label>
-              <Input
-                id="tx-amount"
-                type="number"
-                step="0.01"
-                min="0.01"
-                placeholder="0.00"
-                value={amount}
-                onChange={e => setAmount(e.target.value)}
-              />
+              <Label htmlFor="tx-amount">Amount</Label>
+              <CurrencyInput id="tx-amount" value={amount} onChange={setAmount} />
             </div>
 
             <div className="space-y-1.5">
