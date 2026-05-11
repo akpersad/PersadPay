@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 const ADMIN_ONLY_PATHS = ['/stubs/new', '/reminders', '/filings', '/hysa', '/calendar', '/documents']
+// Sub-paths under ADMIN_ONLY_PATHS that employees are permitted to access
+const EMPLOYEE_ACCESSIBLE_PATHS = ['/documents/sick-leave-summary']
 const PUBLIC_PATHS = ['/', '/manifest.webmanifest', '/sw.js', '/auth/reset-password', '/auth/confirm']
 // MFA pages need authenticated session but are accessible before AAL2 is satisfied
 const MFA_PATHS = ['/auth/enroll-mfa', '/auth/verify-mfa', '/auth/set-password']
@@ -61,7 +63,8 @@ export async function proxy(request: NextRequest) {
   }
 
   // Role-based guard for admin-only paths
-  if (user && ADMIN_ONLY_PATHS.some(p => pathname.startsWith(p))) {
+  const isEmployeeAccessible = EMPLOYEE_ACCESSIBLE_PATHS.some(p => pathname.startsWith(p))
+  if (user && !isEmployeeAccessible && ADMIN_ONLY_PATHS.some(p => pathname.startsWith(p))) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
