@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { X, Plus, LogOut, History, FileSpreadsheet } from 'lucide-react'
 import type { Settings } from '@/lib/types'
+import { CurrencyInput } from '@/components/ui/currency-input'
 
 interface Props {
   settings: Settings | null
@@ -37,9 +38,9 @@ export function SettingsForm({ settings: initial }: Props) {
   const [employeeNameLast, setEmployeeNameLast] = useState(s.employee_name_last ?? '')
   const [employeeAddress, setEmployeeAddress] = useState(s.employee_address ?? '')
   const [employeeEmail, setEmployeeEmail] = useState(s.employee_email ?? '')
-  const [hourlyRate, setHourlyRate] = useState(s.employee_hourly_rate?.toString() ?? '')
-  const [federalWithholding, setFederalWithholding] = useState(s.federal_withholding_per_period?.toString() ?? '0')
-  const [stateWithholding, setStateWithholding] = useState(s.state_withholding_per_period?.toString() ?? '0')
+  const [hourlyRate, setHourlyRate] = useState(s.employee_hourly_rate ?? 0)
+  const [federalWithholding, setFederalWithholding] = useState(s.federal_withholding_per_period ?? 0)
+  const [stateWithholding, setStateWithholding] = useState(s.state_withholding_per_period ?? 0)
   const [pflCovered, setPflCovered] = useState(s.pfl_covered ?? false)
   const [dblCovered, setDblCovered] = useState(s.dbl_covered ?? false)
   const [sutaRate, setSutaRate] = useState(s.suta_rate?.toString() ?? '0.041')
@@ -65,9 +66,9 @@ export function SettingsForm({ settings: initial }: Props) {
       employee_name_last: employeeNameLast || null,
       employee_address: employeeAddress || null,
       employee_email: employeeEmail || null,
-      employee_hourly_rate: hourlyRate ? parseFloat(hourlyRate) : null,
-      federal_withholding_per_period: parseFloat(federalWithholding || '0'),
-      state_withholding_per_period: parseFloat(stateWithholding || '0'),
+      employee_hourly_rate: hourlyRate || null,
+      federal_withholding_per_period: federalWithholding,
+      state_withholding_per_period: stateWithholding,
       pfl_covered: pflCovered,
       dbl_covered: dblCovered,
       suta_rate: parseFloat(sutaRate || '0.041'),
@@ -130,16 +131,25 @@ export function SettingsForm({ settings: initial }: Props) {
           <p className="text-xs text-muted-foreground">Required for W-2. Leave blank until confirmed with employee.</p>
         </div>
         <Field label="Email" value={employeeEmail} onChange={setEmployeeEmail} onBlur={() => setEmployeeEmail(employeeEmail.trim().toLowerCase())} type="email" />
-        <Field label="Hourly Rate ($)" value={hourlyRate} onChange={setHourlyRate} onBlur={() => setHourlyRate(formatCurrencyInput(hourlyRate))} inputMode="decimal" placeholder="20.00" />
+        <div className="space-y-1.5">
+          <Label>Hourly Rate ($)</Label>
+          <CurrencyInput value={hourlyRate} onChange={setHourlyRate} />
+        </div>
       </Section>
 
       <Section title="Withholding">
         <div className="space-y-1.5">
-          <Field label="Federal Withholding per Period ($)" value={federalWithholding} onChange={setFederalWithholding} onBlur={() => setFederalWithholding(formatCurrencyInput(federalWithholding))} inputMode="decimal" placeholder="0.00" />
+          <div className="space-y-1.5">
+            <Label>Federal Withholding per Period ($)</Label>
+            <CurrencyInput value={federalWithholding} onChange={setFederalWithholding} />
+          </div>
           <p className="text-xs text-muted-foreground">Federal income tax withholding is <strong>voluntary</strong> for household employees. Default $0. Only set a value if you both agree and she has signed Form W-4. Most household employers settle federal tax via Schedule H + 1040-ES.</p>
         </div>
         <div className="space-y-1.5">
-          <Field label="NY State Withholding per Period ($)" value={stateWithholding} onChange={setStateWithholding} onBlur={() => setStateWithholding(formatCurrencyInput(stateWithholding))} inputMode="decimal" placeholder="0.00" />
+          <div className="space-y-1.5">
+            <Label>NY State Withholding per Period ($)</Label>
+            <CurrencyInput value={stateWithholding} onChange={setStateWithholding} />
+          </div>
           <p className="text-xs text-muted-foreground">NY state income tax withholding is <strong>voluntary</strong> for household employees. Default $0. Only set a value after she has signed Form IT-2104. (Source: NY DTF — Hiring Household Help)</p>
         </div>
         <div className="flex items-center justify-between py-1">
@@ -256,11 +266,6 @@ function Field({ label, value, onChange, onBlur, type = 'text', inputMode, place
       />
     </div>
   )
-}
-
-function formatCurrencyInput(v: string): string {
-  const n = parseFloat(v)
-  return isNaN(n) ? v : n.toFixed(2)
 }
 
 function formatRateInput(v: string, decimals: number): string {

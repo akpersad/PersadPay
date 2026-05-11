@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { ExternalLink, AlertTriangle } from 'lucide-react'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { toast } from 'sonner'
 import { formatDate, formatCurrency } from '@/lib/dates'
 import type { Settings, WithholdingForm } from '@/lib/types'
@@ -67,11 +68,11 @@ function W4Card({ existing, settings, expectedGross, userId }: CardProps) {
   const initial = (existing?.form_values ?? {}) as Partial<W4Values>
   const [filingStatus, setFilingStatus] = useState(initial.filing_status ?? 'single')
   const [multipleJobs, setMultipleJobs] = useState(initial.multiple_jobs ?? false)
-  const [dependents, setDependents] = useState(initial.dependents_amount ?? '0')
-  const [otherIncome, setOtherIncome] = useState(initial.other_income ?? '0')
-  const [deductions, setDeductions] = useState(initial.deductions ?? '0')
-  const [additional, setAdditional] = useState(initial.additional_withholding ?? '0')
-  const [computedAmount, setComputedAmount] = useState(String(existing?.computed_amount ?? settings?.federal_withholding_per_period ?? 0))
+  const [dependents, setDependents] = useState(parseFloat(initial.dependents_amount ?? '0') || 0)
+  const [otherIncome, setOtherIncome] = useState(parseFloat(initial.other_income ?? '0') || 0)
+  const [deductions, setDeductions] = useState(parseFloat(initial.deductions ?? '0') || 0)
+  const [additional, setAdditional] = useState(parseFloat(initial.additional_withholding ?? '0') || 0)
+  const [computedAmount, setComputedAmount] = useState(Number(existing?.computed_amount ?? settings?.federal_withholding_per_period ?? 0))
   const [notes, setNotes] = useState(existing?.notes ?? '')
   const [saving, setSaving] = useState(false)
 
@@ -84,12 +85,12 @@ function W4Card({ existing, settings, expectedGross, userId }: CardProps) {
     const formValues: W4Values = {
       filing_status: filingStatus,
       multiple_jobs: multipleJobs,
-      dependents_amount: dependents,
-      other_income: otherIncome,
-      deductions,
-      additional_withholding: additional,
+      dependents_amount: String(dependents),
+      other_income: String(otherIncome),
+      deductions: String(deductions),
+      additional_withholding: String(additional),
     }
-    const amount = parseFloat(computedAmount || '0')
+    const amount = computedAmount
 
     const { error: formErr } = await supabase
       .from('withholding_forms')
@@ -173,19 +174,19 @@ function W4Card({ existing, settings, expectedGross, userId }: CardProps) {
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
             <Label htmlFor="w4-dependents">Step 3 dependents ($)</Label>
-            <Input id="w4-dependents" type="number" step="1" min="0" value={dependents} onChange={e => setDependents(e.target.value)} />
+            <CurrencyInput id="w4-dependents" value={dependents} onChange={setDependents} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="w4-other-income">Step 4a other income ($)</Label>
-            <Input id="w4-other-income" type="number" step="1" min="0" value={otherIncome} onChange={e => setOtherIncome(e.target.value)} />
+            <CurrencyInput id="w4-other-income" value={otherIncome} onChange={setOtherIncome} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="w4-deductions">Step 4b deductions ($)</Label>
-            <Input id="w4-deductions" type="number" step="1" min="0" value={deductions} onChange={e => setDeductions(e.target.value)} />
+            <CurrencyInput id="w4-deductions" value={deductions} onChange={setDeductions} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="w4-extra">Step 4c extra/period ($)</Label>
-            <Input id="w4-extra" type="number" step="0.01" min="0" value={additional} onChange={e => setAdditional(e.target.value)} />
+            <CurrencyInput id="w4-extra" value={additional} onChange={setAdditional} />
           </div>
         </div>
 
@@ -209,7 +210,7 @@ function W4Card({ existing, settings, expectedGross, userId }: CardProps) {
 
         <div className="space-y-1.5">
           <Label htmlFor="w4-computed">Per-period federal withholding ($)</Label>
-          <Input id="w4-computed" type="number" step="0.01" min="0" value={computedAmount} onChange={e => setComputedAmount(e.target.value)} placeholder="0.00" />
+          <CurrencyInput id="w4-computed" value={computedAmount} onChange={setComputedAmount} />
           <p className="text-[11px] text-muted-foreground">
             Saving this updates settings.federal_withholding_per_period; the tax engine picks it up on the next stub.
           </p>
@@ -261,8 +262,8 @@ function IT2104Card({ existing, settings, expectedGross, userId }: CardProps) {
   const initial = (existing?.form_values ?? {}) as Partial<IT2104Values>
   const [allowances, setAllowances] = useState(initial.total_allowances ?? '0')
   const [filingStatus, setFilingStatus] = useState<IT2104Values['filing_status']>(initial.filing_status ?? 'single_or_hoh')
-  const [additional, setAdditional] = useState(initial.additional_withholding ?? '0')
-  const [computedAmount, setComputedAmount] = useState(String(existing?.computed_amount ?? settings?.state_withholding_per_period ?? 0))
+  const [additional, setAdditional] = useState(parseFloat(initial.additional_withholding ?? '0') || 0)
+  const [computedAmount, setComputedAmount] = useState(Number(existing?.computed_amount ?? settings?.state_withholding_per_period ?? 0))
   const [notes, setNotes] = useState(existing?.notes ?? '')
   const [saving, setSaving] = useState(false)
 
@@ -275,9 +276,9 @@ function IT2104Card({ existing, settings, expectedGross, userId }: CardProps) {
     const formValues: IT2104Values = {
       total_allowances: allowances,
       filing_status: filingStatus,
-      additional_withholding: additional,
+      additional_withholding: String(additional),
     }
-    const amount = parseFloat(computedAmount || '0')
+    const amount = computedAmount
 
     const { error: formErr } = await supabase
       .from('withholding_forms')
@@ -354,7 +355,7 @@ function IT2104Card({ existing, settings, expectedGross, userId }: CardProps) {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="it-extra">Additional/period ($)</Label>
-            <Input id="it-extra" type="number" step="0.01" min="0" value={additional} onChange={e => setAdditional(e.target.value)} />
+            <CurrencyInput id="it-extra" value={additional} onChange={setAdditional} />
           </div>
         </div>
 
@@ -377,7 +378,7 @@ function IT2104Card({ existing, settings, expectedGross, userId }: CardProps) {
 
         <div className="space-y-1.5">
           <Label htmlFor="it-computed">Per-period NY state withholding ($)</Label>
-          <Input id="it-computed" type="number" step="0.01" min="0" value={computedAmount} onChange={e => setComputedAmount(e.target.value)} placeholder="0.00" />
+          <CurrencyInput id="it-computed" value={computedAmount} onChange={setComputedAmount} />
           <p className="text-[11px] text-muted-foreground">
             Saving this updates settings.state_withholding_per_period; the tax engine picks it up on the next stub.
           </p>

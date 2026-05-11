@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatDate } from '@/lib/dates'
 import { toast } from 'sonner'
 import { Scale, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { CurrencyInput } from '@/components/ui/currency-input'
 
 interface Props {
   expectedBalance: number
@@ -27,7 +28,7 @@ export function ReconcileForm({ expectedBalance, actualBalance, actualBalanceAt,
   const [correcting, setCorrecting] = useState(false)
 
   const today = new Date().toISOString().slice(0, 10)
-  const [inputBalance, setInputBalance] = useState(actualBalance?.toString() ?? '')
+  const [inputBalance, setInputBalance] = useState(actualBalance ?? 0)
   const [inputDate, setInputDate] = useState(actualBalanceAt ? actualBalanceAt.slice(0, 10) : today)
 
   const discrepancy = actualBalance !== null
@@ -35,16 +36,11 @@ export function ReconcileForm({ expectedBalance, actualBalance, actualBalanceAt,
     : null
 
   async function saveReconcile() {
-    const parsed = parseFloat(inputBalance)
-    if (isNaN(parsed)) {
-      toast.error('Enter a valid balance.')
-      return
-    }
     setSaving(true)
     const supabase = createClient()
     const { error } = await supabase
       .from('settings')
-      .update({ hysa_actual_balance: parsed, hysa_actual_balance_at: inputDate })
+      .update({ hysa_actual_balance: inputBalance, hysa_actual_balance_at: inputDate })
       .eq('id', (await supabase.from('settings').select('id').single()).data?.id)
 
     if (error) {
@@ -142,14 +138,7 @@ export function ReconcileForm({ expectedBalance, actualBalance, actualBalanceAt,
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="actual-balance">Actual HYSA balance</Label>
-              <Input
-                id="actual-balance"
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={inputBalance}
-                onChange={e => setInputBalance(e.target.value)}
-              />
+              <CurrencyInput id="actual-balance" value={inputBalance} onChange={setInputBalance} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="balance-date">As of</Label>

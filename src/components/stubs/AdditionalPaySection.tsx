@@ -12,6 +12,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import { Plus, X } from 'lucide-react'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import {
   LINE_TYPES,
   getLineTypeDef,
@@ -181,12 +182,9 @@ export function AdditionalPaySection({ items, onChange, irsMileageRate }: Props)
                       ) : (
                         <div>
                           <Label className="text-xs">Amount ($)</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={item.amount || ''}
-                            onChange={e => updateItem(item.id, { amount: parseFloat(e.target.value || '0') })}
+                          <CurrencyInput
+                            value={item.amount}
+                            onChange={v => updateItem(item.id, { amount: v })}
                             className="h-9"
                           />
                         </div>
