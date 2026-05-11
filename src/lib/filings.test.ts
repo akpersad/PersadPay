@@ -23,6 +23,7 @@ const rates2026: TaxRates = {
   irs_mileage_rate: 0.725,
   fica_household_threshold: 3000,
   futa_quarterly_threshold: 1000,
+  rsf_rate: 0.00075,
 }
 
 function makeStub(overrides: Partial<Paystub> = {}): Paystub {
@@ -54,6 +55,8 @@ function makeStub(overrides: Partial<Paystub> = {}): Paystub {
     payment_sent: true,
     zelle_transaction_id: null,
     stub_sent: true,
+    stub_sent_at: null,
+    resend_message_id: null,
     hysa_transferred: false,
     hysa_transferred_at: null,
     hysa_notes: null,
