@@ -31,10 +31,11 @@ const VIEWPORTS = [
 
 // Routes the employee should be able to see
 const EMPLOYEE_ROUTES = [
-  { path: '/dashboard',  name: 'dashboard'  },
-  { path: '/stubs',      name: 'stubs-list' },
-  { path: '/w2',         name: 'w2'         },
-  { path: '/settings',   name: 'settings'   },
+  { path: '/dashboard',                    name: 'dashboard'          },
+  { path: '/stubs',                        name: 'stubs-list'         },
+  { path: '/w2',                           name: 'w2'                 },
+  { path: '/settings',                     name: 'settings'           },
+  { path: '/documents/sick-leave-summary', name: 'sick-leave-summary' },
 ]
 
 // Routes that must redirect to /dashboard for employees (14.4 guard)
