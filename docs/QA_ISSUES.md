@@ -143,7 +143,7 @@ export default function W2View(...) {
 
 ---
 
-### [ ] M-2 · Enroll-MFA: no retry or sign-out escape when enrollment fails
+### [x] M-2 · Enroll-MFA: no retry or sign-out escape when enrollment fails
 **Flow:** Any user (especially employee on iOS PWA) → `/auth/enroll-mfa` with a fatal enrollment error  
 **File:** `src/app/auth/enroll-mfa/page.tsx` ~lines 77–88 (the `enrollError` render branch)  
 **Symptom:** If `mfa.enroll` fails (e.g., network error — the stale-factor cleanup runs first but the subsequent enroll call can still fail), user sees the error card with no way to retry and no way to sign out. They are authenticated (AAL1) but middleware redirects every app route back to `/auth/enroll-mfa`. On iOS PWA there is no obvious browser reload affordance.  
@@ -160,7 +160,7 @@ export default function W2View(...) {
 
 ---
 
-### [ ] M-3 · Verify-MFA: silent disabled button when no factor found
+### [x] M-3 · Verify-MFA: silent disabled button when no factor found
 **Flow:** Login → `/auth/verify-mfa`  
 **File:** `src/app/auth/verify-mfa/page.tsx` ~lines 17–25  
 **Symptom:** If `listFactors()` returns no verified TOTP factor (e.g., factor was unenrolled in another tab), `factorId` is `null`, the Verify button is permanently disabled, and there is no error message explaining why. User is stuck.  
@@ -168,7 +168,7 @@ export default function W2View(...) {
 
 ---
 
-### [ ] M-4 · Stub email: `partialErrors` not surfaced in UI
+### [x] M-4 · Stub email: `partialErrors` not surfaced in UI
 **Flow:** Admin → stub detail → "Email Paystub"  
 **Files:** `src/app/api/email/stub/route.ts` ~line 141, `src/components/stubs/StubDetail.tsx` ~lines 112–116  
 **Symptom:** If the employee email succeeds but an `additional_emails` recipient fails, the API returns `{ success: true, partialErrors: [...] }`. The client only checks `res.ok` and shows "Pay stub emailed successfully." The delivery failure is silent.  
@@ -184,7 +184,7 @@ if (json.partialErrors?.length) {
 
 ---
 
-### [ ] M-5 · W-2 save+email: email silently not sent if SSN dialog dismissed
+### [x] M-5 · W-2 save+email: email silently not sent if SSN dialog dismissed
 **Flow:** Admin → `/w2` → "Save & Email" → dismisses SSN dialog  
 **File:** `src/components/w2/W2View.tsx` ~lines 93–109  
 **Symptom:** `saveAndEmail` saves the W-2 to the DB, then opens an SSN confirmation dialog. If admin presses Cancel/Escape, the W-2 is saved but no email is sent. No toast or indicator shows the email is pending. Admin may not realize.  
@@ -192,7 +192,7 @@ if (json.partialErrors?.length) {
 
 ---
 
-### [ ] M-6 · Reminders dismiss: insert error silently swallowed
+### [x] M-6 · Reminders dismiss: insert error silently swallowed
 **Flow:** Admin → `/reminders` → dismiss reminder  
 **File:** `src/components/reminders/RemindersView.tsx` ~lines 54–65  
 **Symptom:** If the insert of next year's replacement reminder fails (Supabase error, constraint violation), the current reminder is marked dismissed and `toast.success` fires. Next year's reminder is silently never created.  
@@ -208,7 +208,7 @@ if (updateError || insertError) {
 
 ---
 
-### [ ] M-7 · Reminders dismiss: year regex replaces wrong occurrence in title
+### [x] M-7 · Reminders dismiss: year regex replaces wrong occurrence in title
 **Flow:** Admin → `/reminders` → dismiss reminder  
 **File:** `src/components/reminders/RemindersView.tsx` ~line 52  
 **Symptom:** `nextTitle` uses `.replace(/\d{4}/, String(nextYear))` — unanchored, replaces the **first** 4-digit sequence. If the title is "NY § 195-3 — Q4 2026" the regex would match "1953" before "2026".  
@@ -219,7 +219,7 @@ const nextTitle = reminder.title.replace(/\b20\d{2}\b(?=[^0-9]*$)/, String(nextY
 
 ---
 
-### [ ] M-8 · Settings: save silently no-ops if settings row not pre-seeded
+### [x] M-8 · Settings: save silently no-ops if settings row not pre-seeded
 **Flow:** Admin → `/settings` → Save (on a fresh instance with no settings row)  
 **File:** `src/components/settings/SettingsForm.tsx` ~line 79  
 **Symptom:** If `initial` is `null` (no settings row exists yet), `update` with `.eq('id', '')` matches nothing. Supabase returns no error (0 rows updated). `toast.success('Settings saved.')` fires but nothing was actually saved.  
@@ -235,7 +235,7 @@ Or more cleanly: check `initial?.id` — if null, do `.insert()`, else do `.upda
 
 ---
 
-### [ ] M-12 · Stub detail + PDF: YTD query has no explicit `employee_id` filter (defense-in-depth gap)
+### [x] M-12 · Stub detail + PDF: YTD query has no explicit `employee_id` filter (defense-in-depth gap)
 **Flow:** Employee → `/stubs/[id]` + PDF download  
 **Files:** `src/app/(app)/stubs/[id]/page.tsx` lines 37–41; `src/app/api/pdf/stub/route.ts` lines 34–40  
 **Symptom:** No current user-visible bug — RLS on `paystubs` correctly limits employee queries to their own rows. However both the page and the PDF API route query `paystubs` for YTD without `.eq('employee_id', stub.employee_id)`. If RLS were misconfigured, or if an admin-context bug caused the wrong session client to be used, YTD figures on the employee's stub would silently incorporate other employees' wages.  
@@ -252,7 +252,7 @@ const { data: ytdStubs } = await supabase
 
 ---
 
-### [ ] M-9 · Employee settings: password change requires no current password
+### [x] M-9 · Employee settings: password change requires no current password
 **Flow:** Employee → `/settings` → Change Password  
 **File:** `src/components/settings/ChangePasswordCard.tsx` ~line 34  
 **Symptom:** `supabase.auth.updateUser({ password: newPassword })` only requires an active session. Anyone with a briefly unlocked phone (session alive) can change the password without knowing the current one.  
@@ -261,7 +261,7 @@ const { data: ytdStubs } = await supabase
 
 ---
 
-### [ ] M-10 · API: `/api/stubs/export` auth guard unconfirmed
+### [-] M-10 · API: `/api/stubs/export` auth guard unconfirmed
 **Flow:** Admin → stubs export (CSV)  
 **File:** `src/app/api/stubs/export/route.ts`  
 **Symptom:** Unknown — route was not audited for admin-only enforcement.  
@@ -269,7 +269,7 @@ const { data: ytdStubs } = await supabase
 
 ---
 
-### [ ] M-11 · PDF generation: no try-catch — unhandled exceptions return unformatted 500
+### [x] M-11 · PDF generation: no try-catch — unhandled exceptions return unformatted 500
 **Flow:** Any user → download PDF (stub or W-2)  
 **Files:** `src/app/api/pdf/stub/route.ts` ~line 107, `src/app/api/pdf/w2/route.ts` ~line 48  
 **Symptom:** If `renderToBuffer` throws (e.g., a `NaN` value in a numeric field, `@react-pdf/renderer` internal error), the API returns an unformatted 500 with no JSON body. The client-side download opens a blank/error tab with no actionable message.  
@@ -401,3 +401,4 @@ async function signOut() {
 |------|----------|--------|-------|
 | 2026-05-12 | MFA invite flow — stuck unverified factor | `94b3879` | `listFactors()` + `unenroll()` stale factor before re-enrolling; better error message |
 | 2026-05-12 | C-1, H-1, H-2, H-3, H-4, H-5, M-1 | `cb29298` | C-1: sick-leave-summary settings fetch via adminClient. H-1: date ordering guard on canPreview + saveStub + inline error. H-2: setSaving(false) on success paths. H-3: explicit employee_id filter on W-2 paystubs query. H-4: CURRENT_YEAR/TAX_YEARS moved inside W2View component body. H-5: set-password session guard + friendly error message. M-1: setLoading(false) on set-password success path. Also fixed TS error in enroll-mfa: listFactors().all (not .totp) needed to find unverified factors. |
+| 2026-05-12 | M-2 thru M-12 (except M-10 already ok) | pending | M-2: enroll-mfa retry+sign-out buttons (startEnrollment lifted to useCallback). M-3: verify-mfa factorMissing state + sign-out escape. M-4: stub email partialErrors surfaced as warning toast. M-5: W-2 SSN dialog cancel shows "email not sent" info toast (useRef guard). M-6: reminders dismiss destructures both Promise.all errors. M-7: reminders year regex anchored to end-of-string to avoid matching §-numbers. M-8: settings save uses upsert (handles no pre-seeded row). M-9: ChangePasswordCard requires current-password re-auth before updateUser; email prop passed from settings page. M-10: already had admin guard — marked [-]. M-11: PDF routes wrapped in try-catch returning JSON 500. M-12: YTD stubs queries in stubs page and PDF stub route get explicit employee_id filter. |

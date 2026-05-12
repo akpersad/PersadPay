@@ -45,18 +45,22 @@ export async function GET(request: Request) {
   const sdiWithheld = stubs.reduce((sum, s) => sum + Number(s.sdi ?? 0), 0)
   const pflWithheld = stubs.reduce((sum, s) => sum + Number(s.pfl ?? 0), 0)
 
-  const pdfBuffer = isPacket
-    ? await generateW2PacketPDF(w2, settings, sdiWithheld, pflWithheld)
-    : await generateW2PDF(w2, settings, copy, sdiWithheld, pflWithheld)
-
   const filename = isPacket
     ? `w2-${w2.tax_year}-copies-b-c-2.pdf`
     : copy === 'worksheet' ? `w2-${w2.tax_year}-worksheet.pdf` : `w2-${w2.tax_year}-copy-${copy.toLowerCase()}.pdf`
 
-  return new Response(new Uint8Array(pdfBuffer), {
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}"`,
-    },
-  })
+  try {
+    const pdfBuffer = isPacket
+      ? await generateW2PacketPDF(w2, settings, sdiWithheld, pflWithheld)
+      : await generateW2PDF(w2, settings, copy, sdiWithheld, pflWithheld)
+    return new Response(new Uint8Array(pdfBuffer), {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+      },
+    })
+  } catch (err) {
+    console.error('PDF generation failed:', err)
+    return NextResponse.json({ error: 'PDF generation failed' }, { status: 500 })
+  }
 }

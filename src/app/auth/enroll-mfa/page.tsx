@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,32 +18,36 @@ export default function EnrollMfaPage() {
   const [copied, setCopied] = useState(false)
   const [enrollError, setEnrollError] = useState<string | null>(null)
 
-  useEffect(() => {
-    async function startEnrollment() {
-      const supabase = createClient()
+  const startEnrollment = useCallback(async () => {
+    setEnrollError(null)
+    setQrCode(null)
+    setSecret(null)
+    setFactorId(null)
+    const supabase = createClient()
 
-      // Clean up any stuck unverified factor before enrolling — a prior
-      // incomplete enrollment leaves a pending factor that causes 422 on retry.
-      const { data: existing } = await supabase.auth.mfa.listFactors()
-      const stale = existing?.all.find(f => f.factor_type === 'totp' && f.status === 'unverified')
-      if (stale) {
-        await supabase.auth.mfa.unenroll({ factorId: stale.id })
-      }
-
-      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' })
-
-      if (error) {
-        setEnrollError(`Could not start MFA enrollment: ${error.message}`)
-        return
-      }
-
-      setFactorId(data.id)
-      setQrCode(data.totp.qr_code)
-      setSecret(data.totp.secret)
+    // Clean up any stuck unverified factor before enrolling — a prior
+    // incomplete enrollment leaves a pending factor that causes 422 on retry.
+    const { data: existing } = await supabase.auth.mfa.listFactors()
+    const stale = existing?.all.find(f => f.factor_type === 'totp' && f.status === 'unverified')
+    if (stale) {
+      await supabase.auth.mfa.unenroll({ factorId: stale.id })
     }
 
-    startEnrollment()
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' })
+
+    if (error) {
+      setEnrollError(`Could not start MFA enrollment: ${error.message}`)
+      return
+    }
+
+    setFactorId(data.id)
+    setQrCode(data.totp.qr_code)
+    setSecret(data.totp.secret)
   }, [])
+
+  useEffect(() => {
+    startEnrollment()
+  }, [startEnrollment])
 
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault()
@@ -81,6 +85,13 @@ export default function EnrollMfaPage() {
           <CardContent className="py-6 text-center space-y-3">
             <ShieldCheck className="h-8 w-8 mx-auto text-muted-foreground" />
             <p className="text-sm text-destructive">{enrollError}</p>
+            <Button className="w-full" onClick={startEnrollment}>Try Again</Button>
+            <Button variant="outline" className="w-full" onClick={async () => {
+              await createClient().auth.signOut()
+              window.location.href = '/'
+            }}>
+              Sign out and try again
+            </Button>
           </CardContent>
         </Card>
       </main>

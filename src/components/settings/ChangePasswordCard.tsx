@@ -8,7 +8,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { KeyRound } from 'lucide-react'
 
-export function ChangePasswordCard() {
+interface Props {
+  email: string
+}
+
+export function ChangePasswordCard({ email }: Props) {
+  const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -31,12 +36,21 @@ export function ChangePasswordCard() {
 
     setLoading(true)
     const supabase = createClient()
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password: currentPassword })
+    if (signInError) {
+      setError('Current password is incorrect.')
+      setLoading(false)
+      return
+    }
+
     const { error } = await supabase.auth.updateUser({ password: newPassword })
 
     if (error) {
       setError(error.message)
     } else {
       setSuccess(true)
+      setCurrentPassword('')
       setNewPassword('')
       setConfirm('')
     }
@@ -53,6 +67,18 @@ export function ChangePasswordCard() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="cp-current">Current password</Label>
+            <Input
+              id="cp-current"
+              type="password"
+              value={currentPassword}
+              onChange={e => setCurrentPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              autoComplete="current-password"
+            />
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="cp-new">New password</Label>
             <Input
