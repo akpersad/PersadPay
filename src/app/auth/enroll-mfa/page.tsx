@@ -25,7 +25,7 @@ export default function EnrollMfaPage() {
       // Clean up any stuck unverified factor before enrolling — a prior
       // incomplete enrollment leaves a pending factor that causes 422 on retry.
       const { data: existing } = await supabase.auth.mfa.listFactors()
-      const stale = existing?.totp.find(f => f.status === 'unverified')
+      const stale = existing?.all.find(f => f.factor_type === 'totp' && f.status === 'unverified')
       if (stale) {
         await supabase.auth.mfa.unenroll({ factorId: stale.id })
       }

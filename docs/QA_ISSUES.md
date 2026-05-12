@@ -38,7 +38,7 @@ After fixing a group, commit with a message referencing the issue numbers.
 
 ## CRITICAL
 
-### [ ] C-1 · Employee sick-leave-summary: settings fetch blocked by RLS
+### [x] C-1 · Employee sick-leave-summary: settings fetch blocked by RLS
 **Flow:** Employee → `/documents/sick-leave-summary`  
 **File:** `src/app/(app)/documents/sick-leave-summary/page.tsx` ~lines 54–58  
 **Symptom:** Page renders with "Employer" and "Employee" as placeholder text instead of real names/address. No error shown.  
@@ -57,7 +57,7 @@ const { data: settings } = await adminClient.from('settings').select('*').single
 
 ## HIGH
 
-### [ ] H-1 · New stub: no date ordering validation
+### [x] H-1 · New stub: no date ordering validation
 **Flow:** Admin → `/stubs/new`  
 **File:** `src/components/stubs/NewStubForm.tsx` ~line 408 (`canPreview` logic)  
 **Symptom:** Admin can set `pay_period_end` before `pay_period_start`. The form allows preview and save. Saved stub has inverted dates, which corrupts YTD calculations for all subsequent stubs (YTD sums stubs ordered by date).  
@@ -69,7 +69,7 @@ const { data: settings } = await adminClient.from('settings').select('*').single
 
 ---
 
-### [ ] H-2 · New stub: `setSaving(false)` missing on success path
+### [x] H-2 · New stub: `setSaving(false)` missing on success path
 **Flow:** Admin → `/stubs/new` → save  
 **File:** `src/components/stubs/NewStubForm.tsx` ~lines 399–404 (inside `saveStub`)  
 **Symptom:** After successful save, the Save button remains in "Saving…" / disabled state permanently if Next.js router navigation is slow or the user presses back.  
@@ -78,7 +78,7 @@ const { data: settings } = await adminClient.from('settings').select('*').single
 
 ---
 
-### [ ] H-5 · Set-password: no session guard on page mount — raw Supabase error shown on direct navigation
+### [x] H-5 · Set-password: no session guard on page mount — raw Supabase error shown on direct navigation
 **Flow:** Employee onboarding → `/auth/set-password`  
 **File:** `src/app/auth/set-password/page.tsx`  
 **Symptom:** The page has no `useEffect` session check. If an employee navigates directly to `/auth/set-password` without a valid session (expired invite, direct URL), the form renders normally. On submit, `supabase.auth.updateUser()` fails with "Auth session missing" and the raw Supabase error message is displayed via `setError(error.message)`. The user sees a technical error with no recovery instruction.  
@@ -95,7 +95,7 @@ Also: replace `setError(error.message)` with a user-friendly message for the "Au
 
 ---
 
-### [ ] H-3 · W-2 calculate: no `employee_id` filter on paystubs fetch
+### [x] H-3 · W-2 calculate: no `employee_id` filter on paystubs fetch
 **Flow:** Admin → `/w2` → Preview W-2  
 **File:** `src/app/api/w2/calculate/route.ts` ~lines 26–31  
 **Symptom:** W-2 wages aggregate stubs from ALL employees if any test/additional employee stubs exist. `employee_id` is taken from `typedStubs[0].employee_id` — the first stub returned — rather than being explicitly filtered.  
@@ -114,7 +114,7 @@ const { data: emp } = await adminClient
 
 ---
 
-### [ ] H-4 · W-2 view: `CURRENT_YEAR` is a build-time constant
+### [x] H-4 · W-2 view: `CURRENT_YEAR` is a build-time constant
 **Flow:** Admin or employee → `/w2`  
 **File:** `src/components/w2/W2View.tsx` ~line 25  
 **Symptom:** On Jan 1 of a new year, a cached PWA bundle compiled in the previous December shows last year's most recent selectable tax year. Admin cannot generate the current year's W-2 without reinstalling the PWA or forcing a refresh.  
@@ -135,7 +135,7 @@ export default function W2View(...) {
 
 ## MEDIUM
 
-### [ ] M-1 · Set-password: `setLoading(false)` missing on success path
+### [x] M-1 · Set-password: `setLoading(false)` missing on success path
 **Flow:** New user onboarding → `/auth/set-password`  
 **File:** `src/app/auth/set-password/page.tsx` ~lines 31–42  
 **Symptom:** On slow networks/PWA, the "Set password & continue" button stays in "Saving…" disabled state after `updateUser` succeeds. If navigation is intercepted (back button, PWA), user cannot retry.  

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft } from 'lucide-react'
 import { PrintButton } from '../sick-leave-policy/PrintButton'
@@ -51,8 +51,9 @@ export default async function SickLeaveSummaryPage({
 
   if (isEmployee) anyStubQuery.eq('employee_id', user.id)
 
+  const adminClient = createAdminClient()
   const [{ data: settings }, { data: stubsThisYear }, { data: anyStubs }] = await Promise.all([
-    supabase.from('settings').select('*').single<Settings>(),
+    adminClient.from('settings').select('*').single<Settings>(),
     stubQuery,
     anyStubQuery,
   ])

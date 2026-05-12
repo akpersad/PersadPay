@@ -289,6 +289,10 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
 
   async function saveStub() {
     if (!preview || !employeeId) return
+    if (periodStart && periodEnd && periodEnd < periodStart) {
+      toast.error('End date must be on or after start date.')
+      return
+    }
     setSaving(true)
 
     const supabase = createClient()
@@ -396,18 +400,21 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
       const { error: lineError } = await supabase.from('paystub_line_items').insert(rows)
       if (lineError) {
         toast.error('Stub saved, but line items failed. Edit the stub to retry.')
+        setSaving(false)
         router.push(`/stubs/${stubId}`)
         return
       }
     }
 
+    setSaving(false)
     router.push(`/stubs/${stubId}`)
   }
 
   const canSwitchToDailyMode = !!periodStart && !!periodEnd
-  const canPreview = hoursMode === 'daily'
+  const datesInOrder = !periodStart || !periodEnd || periodEnd >= periodStart
+  const canPreview = datesInOrder && (hoursMode === 'daily'
     ? (rate > 0 && !!periodStart && !!periodEnd && !!payDate)
-    : (!!hours && rate > 0 && !!periodStart && !!periodEnd && !!payDate)
+    : (!!hours && rate > 0 && !!periodStart && !!periodEnd && !!payDate))
 
   return (
     <div className="space-y-5">
@@ -560,6 +567,9 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
               value={periodEnd}
               onChange={e => handlePeriodEndChange(e.target.value)}
             />
+            {!datesInOrder && (
+              <p className="text-xs text-destructive">End date must be on or after start date.</p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="pay-date">Pay Date</Label>
