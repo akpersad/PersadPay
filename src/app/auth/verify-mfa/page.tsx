@@ -13,13 +13,18 @@ export default function VerifyMfaPage() {
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [factorMissing, setFactorMissing] = useState(false)
 
   useEffect(() => {
     async function getFactorId() {
       const supabase = createClient()
       const { data } = await supabase.auth.mfa.listFactors()
       const verified = data?.totp?.find(f => f.status === 'verified')
-      if (verified) setFactorId(verified.id)
+      if (verified) {
+        setFactorId(verified.id)
+      } else {
+        setFactorMissing(true)
+      }
     }
     getFactorId()
   }, [])
@@ -58,6 +63,19 @@ export default function VerifyMfaPage() {
             Enter the code from your authenticator app.
           </p>
         </div>
+
+        {factorMissing && (
+          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 space-y-2">
+            <p className="text-sm font-medium text-destructive">No authenticator found.</p>
+            <p className="text-sm text-muted-foreground">Please sign out and sign in again to set up two-factor authentication.</p>
+            <Button variant="outline" size="sm" className="w-full" onClick={async () => {
+              await createClient().auth.signOut()
+              window.location.href = '/'
+            }}>
+              Sign out
+            </Button>
+          </div>
+        )}
 
         <Card>
           <CardHeader className="pb-2 pt-4">
