@@ -21,14 +21,19 @@ export default function EnrollMfaPage() {
   useEffect(() => {
     async function startEnrollment() {
       const supabase = createClient()
+
+      // Clean up any stuck unverified factor before enrolling — a prior
+      // incomplete enrollment leaves a pending factor that causes 422 on retry.
+      const { data: existing } = await supabase.auth.mfa.listFactors()
+      const stale = existing?.totp.find(f => f.status === 'unverified')
+      if (stale) {
+        await supabase.auth.mfa.unenroll({ factorId: stale.id })
+      }
+
       const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' })
 
       if (error) {
-        setEnrollError(
-          error.message.includes('not enabled') || error.status === 422
-            ? 'TOTP MFA is not yet enabled in the system. Contact your administrator to enable it in the Supabase dashboard.'
-            : `Could not start MFA enrollment: ${error.message}`
-        )
+        setEnrollError(`Could not start MFA enrollment: ${error.message}`)
         return
       }
 
