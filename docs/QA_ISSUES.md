@@ -400,3 +400,4 @@ async function signOut() {
 | Date | Issue(s) | Commit | Notes |
 |------|----------|--------|-------|
 | 2026-05-12 | MFA invite flow — stuck unverified factor | `94b3879` | `listFactors()` + `unenroll()` stale factor before re-enrolling; better error message |
+| 2026-05-12 | C-1, H-1, H-2, H-3, H-4, H-5, M-1 | `cb29298` | C-1: sick-leave-summary settings fetch via adminClient. H-1: date ordering guard on canPreview + saveStub + inline error. H-2: setSaving(false) on success paths. H-3: explicit employee_id filter on W-2 paystubs query. H-4: CURRENT_YEAR/TAX_YEARS moved inside W2View component body. H-5: set-password session guard + friendly error message. M-1: setLoading(false) on set-password success path. Also fixed TS error in enroll-mfa: listFactors().all (not .totp) needed to find unverified factors. |
