@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -42,6 +42,8 @@ export function W2View({ w2s, role, userId }: Props) {
 
   // SSN alert dialog: shown before download/email so admin knows to hand-write SSN
   const [ssnAlert, setSsnAlert] = useState<{ action: 'download' | 'email' | 'preview-download'; w2Id?: string } | null>(null)
+  // Tracks whether the user confirmed the SSN alert (vs. cancelling/escaping)
+  const ssnAlertConfirmed = useRef(false)
 
   async function generatePreview() {
     if (!selectedYear) return
@@ -108,6 +110,7 @@ export function W2View({ w2s, role, userId }: Props) {
   }
 
   async function proceedAfterSsnAlert() {
+    ssnAlertConfirmed.current = true
     if (!ssnAlert?.w2Id) { setSsnAlert(null); return }
     const { action, w2Id } = ssnAlert
     setSsnAlert(null)
@@ -330,7 +333,15 @@ export function W2View({ w2s, role, userId }: Props) {
       </Dialog>
 
       {/* SSN alert — shown before download or email */}
-      <Dialog open={!!ssnAlert} onOpenChange={() => setSsnAlert(null)}>
+      <Dialog open={!!ssnAlert} onOpenChange={(open) => {
+        if (!open) {
+          if (!ssnAlertConfirmed.current && ssnAlert?.action === 'email') {
+            toast.info('W-2 saved. Email was not sent — use the Email button on the W-2 record to send it.')
+          }
+          ssnAlertConfirmed.current = false
+          setSsnAlert(null)
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Hand-write SSN before distributing</DialogTitle>
