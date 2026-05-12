@@ -34,6 +34,7 @@ export async function GET(request: Request) {
   const { data: ytdStubs } = await supabase
     .from('paystubs')
     .select('*')
+    .eq('employee_id', stub.employee_id)
     .gte('pay_date', `${payYear}-01-01`)
     .lte('pay_date', `${payYear}-12-31`)
 
@@ -104,18 +105,22 @@ export async function GET(request: Request) {
     ytdByLineType[row.line_type] = (ytdByLineType[row.line_type] ?? 0) + Number(row.amount)
   }
 
-  const pdfBuffer = await generateStubPDF(
-    stubWithYTD,
-    settings,
-    effectiveVariant,
-    (lineItems ?? []) as PaystubLineItem[],
-    ytdByLineType,
-  )
-
-  return new Response(new Uint8Array(pdfBuffer), {
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="paystub-${stub.stub_number}.pdf"`,
-    },
-  })
+  try {
+    const pdfBuffer = await generateStubPDF(
+      stubWithYTD,
+      settings,
+      effectiveVariant,
+      (lineItems ?? []) as PaystubLineItem[],
+      ytdByLineType,
+    )
+    return new Response(new Uint8Array(pdfBuffer), {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="paystub-${stub.stub_number}.pdf"`,
+      },
+    })
+  } catch (err) {
+    console.error('PDF generation failed:', err)
+    return NextResponse.json({ error: 'PDF generation failed' }, { status: 500 })
+  }
 }

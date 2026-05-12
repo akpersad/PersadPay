@@ -37,6 +37,7 @@ export default async function StubDetailPage({ params }: Props) {
   const { data: ytdStubs } = await supabase
     .from('paystubs')
     .select('*')
+    .eq('employee_id', stub.employee_id)
     .gte('pay_date', `${payYear}-01-01`)
     .lte('pay_date', `${payYear}-12-31`)
 

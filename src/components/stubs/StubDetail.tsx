@@ -110,7 +110,12 @@ export function StubDetail({ stub, role, userId, lineItems = [], ytdByLineType =
       } catch { /* ignore */ }
       toast.error(`Failed to send email${detail}`)
     } else {
-      toast.success('Pay stub emailed successfully.')
+      const json = await res.json()
+      if (json.partialErrors?.length) {
+        toast.warning(`Stub emailed, but ${json.partialErrors.length} recipient(s) failed: ${json.partialErrors.join(', ')}`)
+      } else {
+        toast.success('Pay stub emailed successfully.')
+      }
       startTransition(() => router.refresh())
     }
     setEmailPending(false)
