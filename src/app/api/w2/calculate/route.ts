@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { getTaxRatesForYear } from '@/lib/tax'
 import type { Paystub, PaystubLineItem } from '@/lib/types'
 
@@ -22,10 +22,20 @@ export async function GET(request: Request) {
 
   const yearInt = parseInt(year)
 
+  const adminClient = createAdminClient()
+  const { data: emp } = await adminClient
+    .from('profiles')
+    .select('id')
+    .eq('role', 'employee')
+    .single()
+
+  if (!emp) return NextResponse.json({ error: 'No employee profile found' }, { status: 500 })
+
   const [{ data: stubs }, rates] = await Promise.all([
     supabase
       .from('paystubs')
       .select('*')
+      .eq('employee_id', emp.id)
       .gte('pay_date', `${year}-01-01`)
       .lte('pay_date', `${year}-12-31`),
     getTaxRatesForYear(supabase, yearInt),
@@ -71,10 +81,8 @@ export async function GET(request: Request) {
   const nyWages = totalBaseWages + sumLineItems('taxable_ny')
   const ssWages = Math.min(ficaWages, Number(rates.ss_wage_base))
 
-  const employeeId = typedStubs[0].employee_id
-
   return NextResponse.json({
-    employee_id: employeeId,
+    employee_id: emp.id,
     tax_year: yearInt,
     wages_tips,
     federal_tax_withheld: sumStubs('federal_withholding'),

@@ -22,15 +22,14 @@ interface Props {
   userId: string
 }
 
-const CURRENT_YEAR = new Date().getFullYear()
-const TAX_YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - 1 - i)
-
 const SSN_WARNING = 'Before distributing this W-2, hand-write the employee\'s SSN in Box a on every copy (B, C, 2, D). SSN is never stored in this app.'
 
 export function W2View({ w2s, role, userId }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const isAdmin = role === 'admin'
+  const CURRENT_YEAR = new Date().getFullYear()
+  const TAX_YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - 1 - i)
 
   const [selectedYear, setSelectedYear] = useState<string>('')
   const [preview, setPreview] = useState<W2 | null>(null)

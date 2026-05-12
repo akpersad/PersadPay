@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,12 @@ export default function SetPasswordPage() {
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data: { user } }) => {
+      if (!user) router.replace('/')
+    })
+  }, [router])
 
   async function handleSetPassword(e: React.FormEvent) {
     e.preventDefault()
@@ -33,11 +39,16 @@ export default function SetPasswordPage() {
     const { error } = await supabase.auth.updateUser({ password: newPassword })
 
     if (error) {
-      setError(error.message)
+      setError(
+        error.message.toLowerCase().includes('auth session missing')
+          ? 'Your session has expired. Please use the invitation link again or contact your employer.'
+          : error.message
+      )
       setLoading(false)
       return
     }
 
+    setLoading(false)
     router.push('/auth/enroll-mfa')
   }
 
