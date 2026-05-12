@@ -28,7 +28,7 @@ export default async function SettingsPage() {
         <h1 className="text-lg font-semibold">Settings</h1>
         <PushNotificationsToggle />
         <MfaSecurityCard />
-        <ChangePasswordCard />
+        <ChangePasswordCard email={user.email ?? ''} />
       </div>
     )
   }
@@ -47,7 +47,7 @@ export default async function SettingsPage() {
       <SettingsForm settings={settings} />
       <PushNotificationsToggle />
       <MfaSecurityCard />
-      <ChangePasswordCard />
+      <ChangePasswordCard email={user.email ?? ''} />
       <MfaStatusPanel profiles={allProfiles ?? []} />
       <TaxRatesPanel rates={taxRates} requestedYear={currentYear} />
     </div>

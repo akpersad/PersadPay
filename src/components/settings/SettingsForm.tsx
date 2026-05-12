@@ -54,7 +54,8 @@ export function SettingsForm({ settings: initial }: Props) {
   async function save() {
     setSaving(true)
     const supabase = createClient()
-    const { error } = await supabase.from('settings').update({
+    const { error } = await supabase.from('settings').upsert({
+      id: initial?.id ?? crypto.randomUUID(),
       employer_name: employerName || null,
       employer_ein: employerEin || null,
       employer_address: employerAddress || null,
@@ -76,7 +77,7 @@ export function SettingsForm({ settings: initial }: Props) {
       reply_to_emails: replyToEmails,
       reminder_emails: reminderEmails,
       updated_at: new Date().toISOString(),
-    }).eq('id', initial?.id ?? '')
+    })
 
     if (error) {
       toast.error('Failed to save settings.')
