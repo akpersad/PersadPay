@@ -48,10 +48,11 @@ export function RemindersView({
 
   async function dismiss(reminder: Reminder) {
     const supabase = createClient()
-    const nextDue = reminder.due_date.replace(/^\d{4}/, y => String(parseInt(y) + 1))
-    const nextTitle = reminder.title.replace(/\d{4}/, y => String(parseInt(y) + 1))
+    const nextYear = parseInt(reminder.due_date.substring(0, 4)) + 1
+    const nextDue = `${nextYear}${reminder.due_date.substring(4)}`
+    const nextTitle = reminder.title.replace(/\b20\d{2}\b(?=[^0-9]*$)/, String(nextYear))
 
-    const [{ error }] = await Promise.all([
+    const [{ error: updateError }, { error: insertError }] = await Promise.all([
       supabase.from('reminders').update({ dismissed: true }).eq('id', reminder.id),
       supabase.from('reminders').insert({
         title: nextTitle,
@@ -62,12 +63,12 @@ export function RemindersView({
       }),
     ])
 
-    if (error) {
-      toast.error('Failed to dismiss reminder.')
-    } else {
-      toast.success("Reminder dismissed. Next year's reminder created.")
-      startTransition(() => router.refresh())
+    if (updateError || insertError) {
+      toast.error('Failed to dismiss reminder. Please try again.')
+      return
     }
+    toast.success("Reminder dismissed. Next year's reminder created.")
+    startTransition(() => router.refresh())
   }
 
   if (!reminders.length) {
