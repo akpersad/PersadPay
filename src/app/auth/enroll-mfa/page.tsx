@@ -46,6 +46,7 @@ export default function EnrollMfaPage() {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     startEnrollment()
   }, [startEnrollment])
 

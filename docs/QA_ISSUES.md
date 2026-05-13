@@ -288,13 +288,13 @@ try {
 
 ## LOW
 
-### [ ] L-1 · `/auth/confirm`: `recovery` token type gives opaque "invalid link" error
+### [x] L-1 · `/auth/confirm`: `recovery` token type gives opaque "invalid link" error
 **File:** `src/app/auth/confirm/page.tsx` ~line 8  
 **Fix:** Add `'recovery'` to a separate branch that redirects to `/auth/reset-password` with params forwarded, instead of showing "Invalid link."
 
 ---
 
-### [ ] L-2 · Login: no return-to URL after session expiry redirect
+### [x] L-2 · Login: no return-to URL after session expiry redirect
 **File:** `src/components/auth/LoginForm.tsx` ~line 34  
 **Symptom:** User visiting `/stubs/123` with expired session is redirected to `/`. After login they land on `/dashboard`, not `/stubs/123`.  
 **Fix:** Middleware captures `pathname` into a `?returnTo=` query param when redirecting to `/`. Login form reads `returnTo` and uses it as the post-login destination.
@@ -308,27 +308,27 @@ try {
 
 ---
 
-### [ ] L-4 · New stub preview: stub number can be stale if concurrent admin session generates a stub
+### [x] L-4 · New stub preview: stub number can be stale if concurrent admin session generates a stub
 **File:** `src/app/(app)/stubs/new/page.tsx` ~line 92  
 **Symptom:** Preview shows "Stub #X Preview" but saved stub may be #X+1 due to the atomic DB trigger.  
 **Fix:** Show "Stub #TBD (assigned on save)" in preview, or show the actual assigned number only post-save.
 
 ---
 
-### [ ] L-5 · Stub detail: delete with no RLS error message surfacing
+### [-] L-5 · Stub detail: delete with no RLS error message surfacing
 **File:** `src/components/stubs/StubDetail.tsx` ~lines 173–184  
-**Note:** RLS correctly blocks deletion of paid stubs. The UI handles the error with a generic toast. Consider making the error message more specific: "Cannot delete a stub after payment has been marked sent."
+**Note:** Already handled — when `payment_sent = true`, the UI shows "Cannot delete this stub / Payment has been sent. This stub is a legal payroll record and cannot be deleted (NY § 195(3) — 6-year retention)." The Delete button is conditionally hidden for paid stubs.
 
 ---
 
-### [ ] L-6 · Stub email: `force` value is stale snapshot from page load
+### [x] L-6 · Stub email: `force` value is stale snapshot from page load
 **File:** `src/components/stubs/StubDetail.tsx` ~line 103  
 **Symptom:** If stub was emailed in another tab, the "Email Paystub" button still shows (stale `stub_sent = false`). Clicking it sends a 409 from the API. The error message is generic.  
 **Fix:** After 409, show: "This stub was already emailed. To resend, use the Resend Email option." (The `router.refresh()` after the 409 will already update the button state.)
 
 ---
 
-### [ ] L-7 · W-2: tax year dropdown shows years with no payroll data
+### [x] L-7 · W-2: tax year dropdown shows years with no payroll data
 **File:** `src/components/w2/W2View.tsx`  
 **Symptom:** Dropdown shows 5 years back from current year regardless of when payroll started. Selecting a year with no stubs shows a "Failed to calculate" toast only after clicking Preview.  
 **Fix:** Pre-filter `TAX_YEARS` to years where at least one paystub's `pay_date` falls in that year. Disable or omit years with no data.
@@ -341,27 +341,27 @@ try {
 
 ---
 
-### [ ] L-9 · Reminders: StrictMode double-fire on `/auth/confirm` OTP
+### [x] L-9 · Reminders: StrictMode double-fire on `/auth/confirm` OTP
 **File:** `src/app/auth/confirm/page.tsx`  
 **Note:** Development-only issue (React StrictMode double-invokes effects). Add a `useRef` guard. Production is unaffected.
 
 ---
 
-### [ ] L-10 · Missing custom error.tsx and not-found.tsx pages
+### [x] L-10 · Missing custom error.tsx and not-found.tsx pages
 **Files:** `src/app/error.tsx`, `src/app/(app)/error.tsx`, `src/app/not-found.tsx` — do not exist  
 **Symptom:** Unhandled server errors and 404s show default Next.js/Vercel pages instead of branded Persad Pay pages.  
 **Fix:** Create minimal `error.tsx` and `not-found.tsx` with a simple "Something went wrong" / "Page not found" card and a link back to `/dashboard`.
 
 ---
 
-### [ ] L-11 · Bottom nav: progress animation never resets on navigation failure
+### [x] L-11 · Bottom nav: progress animation never resets on navigation failure
 **File:** `src/components/nav/BottomNav.tsx` ~lines 75–82  
 **Symptom:** If Next.js navigation fails (network error), `transitioningTo` is never cleared — progress bar animates forever.  
 **Fix:** Add a `setTimeout` fallback (e.g., 5 seconds) that clears `transitioningTo` if `pathname` hasn't changed.
 
 ---
 
-### [ ] L-14 · Employee dashboard: `.single()` instead of `.maybeSingle()` — silent PGRST116 console error
+### [x] L-14 · Employee dashboard: `.single()` instead of `.maybeSingle()` — silent PGRST116 console error
 **Flow:** Employee → `/dashboard` (when no stubs exist yet)  
 **File:** `src/components/dashboard/EmployeeDashboard.tsx` line 22  
 **Symptom:** When Melina has no stubs, `.single<Paystub>()` returns `{ data: null, error: { code: 'PGRST116' } }`. The UI empty state renders correctly (the `latestStub ?` check handles `null`). But PGRST116 errors appear in the console/Vercel logs, which can obscure real errors.  
@@ -369,7 +369,7 @@ try {
 
 ---
 
-### [ ] L-15 · Employee header: client-side `signOut()` may leave stale server session on iOS PWA
+### [x] L-15 · Employee header: client-side `signOut()` may leave stale server session on iOS PWA
 **Flow:** Employee → account dialog → Sign Out  
 **File:** `src/components/nav/EmployeeHeader.tsx` lines 16–20  
 **Symptom:** `supabase.auth.signOut()` + `router.push('/')` + `router.refresh()` clears the client-side session. On iOS PWA with aggressive cookie handling, the httpOnly server session cookie may not be cleared immediately. Subsequent requests before the full reload completes could be made with a stale authenticated session.  
@@ -402,3 +402,4 @@ async function signOut() {
 | 2026-05-12 | MFA invite flow — stuck unverified factor | `94b3879` | `listFactors()` + `unenroll()` stale factor before re-enrolling; better error message |
 | 2026-05-12 | C-1, H-1, H-2, H-3, H-4, H-5, M-1 | `cb29298` | C-1: sick-leave-summary settings fetch via adminClient. H-1: date ordering guard on canPreview + saveStub + inline error. H-2: setSaving(false) on success paths. H-3: explicit employee_id filter on W-2 paystubs query. H-4: CURRENT_YEAR/TAX_YEARS moved inside W2View component body. H-5: set-password session guard + friendly error message. M-1: setLoading(false) on set-password success path. Also fixed TS error in enroll-mfa: listFactors().all (not .totp) needed to find unverified factors. |
 | 2026-05-12 | M-2 thru M-12 (except M-10 already ok) | pending | M-2: enroll-mfa retry+sign-out buttons (startEnrollment lifted to useCallback). M-3: verify-mfa factorMissing state + sign-out escape. M-4: stub email partialErrors surfaced as warning toast. M-5: W-2 SSN dialog cancel shows "email not sent" info toast (useRef guard). M-6: reminders dismiss destructures both Promise.all errors. M-7: reminders year regex anchored to end-of-string to avoid matching §-numbers. M-8: settings save uses upsert (handles no pre-seeded row). M-9: ChangePasswordCard requires current-password re-auth before updateUser; email prop passed from settings page. M-10: already had admin guard — marked [-]. M-11: PDF routes wrapped in try-catch returning JSON 500. M-12: YTD stubs queries in stubs page and PDF stub route get explicit employee_id filter. |
+| 2026-05-12 | L-1, L-2, L-4, L-5, L-6, L-7, L-9, L-10, L-11, L-14, L-15 | pending | L-1: /auth/confirm forwards recovery type to /auth/reset-password instead of showing "invalid link". L-2: proxy appends ?returnTo= on session-expiry redirect; LoginForm honors it post-login (Suspense wrapper added to login page). L-4: new stub preview title shows "Stub #TBD — Preview" instead of a possibly-stale number. L-5: marked [-] — already handled by conditional UI showing legal-hold message for paid stubs. L-6: 409 from email API now shows contextual toast + triggers router.refresh(). L-7: W2 page fetches distinct stub years and passes to W2View; dropdown filtered to years with actual payroll data. L-9: StrictMode double-fire guard added to /auth/confirm via useRef. L-10: Created src/app/error.tsx, src/app/(app)/error.tsx, src/app/not-found.tsx. L-11: BottomNav clears transitioningTo after 5s timeout + on pathname change. L-14: EmployeeDashboard uses maybeSingle() to avoid PGRST116 error logs. L-15: EmployeeHeader signOut redirects to /api/auth/sign-out (server-side cookie clear). |
