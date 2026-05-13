@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
@@ -30,7 +31,9 @@ export default async function LoginPage() {
             <p className="text-sm text-muted-foreground">Sign in to your account</p>
           </div>
         </div>
-        <LoginForm />
+        <Suspense>
+          <LoginForm />
+        </Suspense>
       </div>
     </main>
   )

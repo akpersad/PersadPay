@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -12,13 +12,22 @@ function ConfirmContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [otpError, setOtpError] = useState<string | null>(null)
+  const called = useRef(false)
 
   const tokenHash = searchParams.get('token_hash')
   const type = searchParams.get('type')
+  const isRecovery = type === 'recovery' && !!tokenHash
   const isValid = Boolean(tokenHash && validTypes.includes(type as ValidType))
 
   useEffect(() => {
-    if (!isValid) return
+    // Recovery links are handled by /auth/reset-password directly
+    if (isRecovery) {
+      router.replace(`/auth/reset-password?token_hash=${tokenHash}&type=recovery`)
+      return
+    }
+    // StrictMode guard — prevent double-invocation of verifyOtp in development
+    if (!isValid || called.current) return
+    called.current = true
 
     const supabase = createClient()
     supabase.auth
@@ -35,9 +44,9 @@ function ConfirmContent() {
           router.push('/dashboard')
         }
       })
-  }, [isValid, tokenHash, type, router])
+  }, [isRecovery, isValid, tokenHash, type, router])
 
-  const error = !isValid ? 'Invalid or unsupported link.' : otpError
+  const error = (!isValid && !isRecovery) ? 'Invalid or unsupported link.' : otpError
 
   if (error) {
     return (
@@ -55,6 +64,7 @@ function ConfirmContent() {
       {type === 'invite' ? 'Verifying invitation…' : 'Verifying…'}
     </p>
   )
+
 }
 
 export default function ConfirmPage() {

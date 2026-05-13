@@ -17,6 +17,7 @@ export function CurrencyInput({ id, value, onChange, className, disabled }: Curr
 
   useEffect(() => {
     const incoming = Math.round(value * 100)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (incoming !== cents) setCents(incoming)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value])

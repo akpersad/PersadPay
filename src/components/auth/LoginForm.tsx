@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,6 +10,7 @@ import { Label } from '@/components/ui/label'
 type View = 'login' | 'forgot' | 'sent'
 
 export function LoginForm() {
+  const searchParams = useSearchParams()
   const [view, setView] = useState<View>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -31,7 +33,9 @@ export function LoginForm() {
     }
 
     // Full page reload ensures session cookies are sent cleanly with the next request.
-    window.location.href = '/dashboard'
+    const returnTo = searchParams.get('returnTo')
+    const dest = returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/dashboard'
+    window.location.href = dest
   }
 
   async function handleForgotPassword(e: React.FormEvent) {

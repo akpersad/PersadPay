@@ -19,7 +19,16 @@ export default async function W2Page() {
   const w2Query = supabase.from('w2s').select('*').order('tax_year', { ascending: false })
   if (!isAdmin) w2Query.eq('employee_id', user.id)
 
-  const { data: w2s } = await w2Query
+  const [{ data: w2s }, stubYearsResult] = await Promise.all([
+    w2Query,
+    isAdmin
+      ? supabase.from('paystubs').select('pay_date').order('pay_date', { ascending: false })
+      : Promise.resolve({ data: null }),
+  ])
+
+  const stubYears = isAdmin
+    ? [...new Set((stubYearsResult.data ?? []).map(s => parseInt(s.pay_date.slice(0, 4))))]
+    : []
 
   return (
     <div className="px-4 pt-6 pb-4 max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
@@ -28,6 +37,7 @@ export default async function W2Page() {
         w2s={(w2s ?? []) as W2[]}
         role={profile?.role ?? 'employee'}
         userId={user.id}
+        availableStubYears={stubYears}
       />
     </div>
   )

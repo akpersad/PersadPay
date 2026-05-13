@@ -37,7 +37,9 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (!user && !PUBLIC_PATHS.includes(pathname)) {
-    return NextResponse.redirect(new URL('/', request.url))
+    const loginUrl = new URL('/', request.url)
+    loginUrl.searchParams.set('returnTo', pathname)
+    return NextResponse.redirect(loginUrl)
   }
 
   // Authenticated users hitting / are intentionally NOT redirected here.
