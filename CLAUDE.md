@@ -585,3 +585,4 @@ All in `.env.local`. Never hardcode.
 - Keep components small and composable — owner will maintain this codebase
 - Tests: `npm test` runs Vitest. Test files live alongside source (`*.test.ts`). Cover all tax calc logic.
 - When adding a new tax rate or changing a threshold: update the `tax_rates` DB row (via migration), not a hardcoded constant
+- Every `CREATE TABLE public.xyz` in a migration must be paired with explicit `GRANT` statements in that same file — `grant select, insert, update, delete on public.xyz to authenticated;` and ensure `service_role` coverage. Omitting grants will break supabase-js access (PostgREST returns 42501). See `schema.sql` lines 580–598 for the established pattern.
