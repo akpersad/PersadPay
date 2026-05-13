@@ -1,8 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -10,14 +8,10 @@ import { Button } from '@/components/ui/button'
 import { LogOut, UserCircle } from 'lucide-react'
 
 export function EmployeeHeader({ name }: { name: string }) {
-  const router = useRouter()
   const [open, setOpen] = useState(false)
 
-  async function signOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/')
-    router.refresh()
+  function signOut() {
+    window.location.href = '/api/auth/sign-out'
   }
 
   return (

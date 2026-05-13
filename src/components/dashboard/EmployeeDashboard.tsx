@@ -19,7 +19,7 @@ export async function EmployeeDashboard() {
     .eq('employee_id', user.id)
     .order('stub_number', { ascending: false })
     .limit(1)
-    .single<Paystub>()
+    .maybeSingle<Paystub>()
 
   return (
     <div className="px-4 pt-6 pb-4 space-y-5 max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">

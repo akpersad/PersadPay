@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -74,6 +74,20 @@ export function BottomNav({ role }: { role: Role }) {
   const [moreOpen, setMoreOpen] = useState(false)
   const [transitioningTo, setTransitioningTo] = useState<string | null>(null)
   const transitioning = transitioningTo !== null && transitioningTo !== pathname
+
+  // Clear the progress bar if navigation hasn't completed within 5 seconds
+  // (covers network failures where pathname never changes)
+  useEffect(() => {
+    if (!transitioningTo) return
+    const t = setTimeout(() => setTransitioningTo(null), 5000)
+    return () => clearTimeout(t)
+  }, [transitioningTo])
+
+  // Clear progress bar once we arrive at the destination
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTransitioningTo(null)
+  }, [pathname])
 
   const progressBar = transitioning ? (
     <div className="fixed top-0 inset-x-0 h-0.5 z-[100] overflow-hidden pointer-events-none">

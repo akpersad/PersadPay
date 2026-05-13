@@ -591,7 +591,6 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
 
       <Button
         className="w-full"
-        variant="secondary"
         disabled={!canPreview}
         onClick={generatePreview}
       >
@@ -623,7 +622,9 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
         return (
           <Card ref={previewRef}>
             <CardHeader className="pb-2 pt-4">
-              <CardTitle className="text-sm">Stub #{stubNumber} {isEdit ? 'Updated' : 'Preview'}</CardTitle>
+              <CardTitle className="text-sm">
+                {isEdit ? `Stub #${stubNumber} Updated` : 'Stub #TBD — Preview'}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 pb-4">
               <p className="text-xs text-muted-foreground font-medium">Earnings</p>

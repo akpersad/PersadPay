@@ -103,12 +103,17 @@ export function StubDetail({ stub, role, userId, lineItems = [], ytdByLineType =
       body: JSON.stringify({ stubId: stub.id, force: stub.stub_sent }),
     })
     if (!res.ok) {
-      let detail = ''
-      try {
-        const json = await res.json()
-        detail = json?.error ? `: ${json.error}` : ''
-      } catch { /* ignore */ }
-      toast.error(`Failed to send email${detail}`)
+      if (res.status === 409) {
+        toast.warning('This stub was already emailed. To resend, use the Resend Email option.')
+        startTransition(() => router.refresh())
+      } else {
+        let detail = ''
+        try {
+          const json = await res.json()
+          detail = json?.error ? `: ${json.error}` : ''
+        } catch { /* ignore */ }
+        toast.error(`Failed to send email${detail}`)
+      }
     } else {
       const json = await res.json()
       if (json.partialErrors?.length) {
