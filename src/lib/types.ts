@@ -246,6 +246,7 @@ export interface Filing {
 export type HysaTransactionType =
   | 'deposit_paystub'
   | 'deposit_manual'
+  | 'deposit_interest'
   | 'withdrawal_filing'
   | 'withdrawal_manual'
   | 'balance_correction'

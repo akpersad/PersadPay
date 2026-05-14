@@ -11,6 +11,7 @@ import type { Profile, Settings, HysaTransactionWithRefs } from '@/lib/types'
 const TYPE_LABELS: Record<string, string> = {
   deposit_paystub:   'Stub deposit',
   deposit_manual:    'Manual deposit',
+  deposit_interest:  'Interest',
   withdrawal_filing: 'Filing payment',
   withdrawal_manual: 'Manual withdrawal',
   balance_correction:'Correction',
@@ -19,6 +20,7 @@ const TYPE_LABELS: Record<string, string> = {
 const TYPE_BADGE: Record<string, string> = {
   deposit_paystub:   'bg-green-100 text-green-800',
   deposit_manual:    'bg-blue-100 text-blue-800',
+  deposit_interest:  'bg-teal-100 text-teal-800',
   withdrawal_filing: 'bg-red-100 text-red-800',
   withdrawal_manual: 'bg-orange-100 text-orange-800',
   balance_correction:'bg-gray-100 text-gray-800',
@@ -89,9 +91,6 @@ export default async function HYSAPage() {
 
   const actualBalance = settings?.hysa_actual_balance ?? null
   const actualBalanceAt = settings?.hysa_actual_balance_at ?? null
-  const discrepancy = actualBalance !== null
-    ? Math.round((actualBalance - expectedBalance) * 100) / 100
-    : null
 
   return (
     <div className="px-4 pt-6 pb-4 space-y-5 max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
@@ -103,37 +102,15 @@ export default async function HYSAPage() {
         <AddTransactionDialog userId={user.id} />
       </div>
 
-      {/* Stat cards */}
+      {/* Stat cards — HYSA Balance full-width, deposits/withdrawals side by side */}
       <div className="grid grid-cols-2 gap-3">
-        <Card>
+        <Card className="col-span-2">
           <CardContent className="pt-4 pb-3 px-3">
-            <p className="text-xs text-muted-foreground">Expected Balance</p>
-            <p className={`text-lg font-semibold font-mono mt-0.5 ${expectedBalance < 0 ? 'text-destructive' : ''}`}>
+            <p className="text-xs text-muted-foreground">HYSA Balance</p>
+            <p className={`text-2xl font-semibold font-mono mt-0.5 ${expectedBalance < 0 ? 'text-destructive' : ''}`}>
               {formatCurrency(expectedBalance)}
             </p>
-            {discrepancy !== null && discrepancy !== 0 && (
-              <p className="text-[10px] text-yellow-600 mt-0.5">
-                {Math.abs(discrepancy) < 0.01 ? '~$0 discrepancy' : `${formatCurrency(Math.abs(discrepancy))} discrepancy`}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-4 pb-3 px-3">
-            <p className="text-xs text-muted-foreground">
-              {actualBalance !== null ? 'Actual Balance' : 'Last Reconciled'}
-            </p>
-            {actualBalance !== null ? (
-              <p className="text-lg font-semibold font-mono mt-0.5">{formatCurrency(actualBalance)}</p>
-            ) : (
-              <p className="text-sm text-muted-foreground mt-0.5">Never</p>
-            )}
-            {actualBalanceAt && (
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                {formatDate(actualBalanceAt.slice(0, 10))}
-              </p>
-            )}
+            <p className="text-[10px] text-muted-foreground mt-1">Based on all ledger entries</p>
           </CardContent>
         </Card>
 
@@ -158,12 +135,13 @@ export default async function HYSAPage() {
         </Card>
       </div>
 
-      {/* Reconciliation */}
+      {/* Reconciliation — collapsed by default; open when you need to verify against bank statement */}
       <ReconcileForm
         expectedBalance={expectedBalance}
         actualBalance={actualBalance}
         actualBalanceAt={actualBalanceAt}
         userId={user.id}
+        collapsible
       />
 
       {/* Transaction ledger */}

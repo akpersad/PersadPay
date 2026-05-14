@@ -16,10 +16,11 @@ import { toast } from 'sonner'
 import { Plus } from 'lucide-react'
 import { CurrencyInput } from '@/components/ui/currency-input'
 
-type TxType = 'deposit_manual' | 'withdrawal_manual' | 'balance_correction'
+type TxType = 'deposit_manual' | 'deposit_interest' | 'withdrawal_manual' | 'balance_correction'
 
 const TX_TYPE_LABELS: Record<TxType, string> = {
   deposit_manual: 'Deposit',
+  deposit_interest: 'Interest earned',
   withdrawal_manual: 'Withdrawal',
   balance_correction: 'Balance correction',
 }
@@ -55,6 +56,9 @@ export function AddTransactionDialog({ userId }: { userId: string }) {
 
     let signed = amount
     if (txType === 'withdrawal_manual') signed = -amount
+    // balance_correction can be negative — user enters a signed amount via the
+    // notes hint; we keep it as-is for corrections only
+    // deposit_manual and deposit_interest are always positive (enforced by DB)
 
     setSaving(true)
     const supabase = createClient()
@@ -101,6 +105,7 @@ export function AddTransactionDialog({ userId }: { userId: string }) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="deposit_manual">Deposit</SelectItem>
+                  <SelectItem value="deposit_interest">Interest earned</SelectItem>
                   <SelectItem value="withdrawal_manual">Withdrawal</SelectItem>
                   <SelectItem value="balance_correction">Balance correction</SelectItem>
                 </SelectContent>
