@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatDate } from '@/lib/dates'
 import { toast } from 'sonner'
-import { Scale, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Scale, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react'
 import { CurrencyInput } from '@/components/ui/currency-input'
 
 interface Props {
@@ -18,11 +18,13 @@ interface Props {
   actualBalance: number | null
   actualBalanceAt: string | null
   userId: string
+  collapsible?: boolean
 }
 
-export function ReconcileForm({ expectedBalance, actualBalance, actualBalanceAt, userId }: Props) {
+export function ReconcileForm({ expectedBalance, actualBalance, actualBalanceAt, userId, collapsible }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
+  const [open, setOpen] = useState(!collapsible)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [correcting, setCorrecting] = useState(false)
@@ -78,95 +80,108 @@ export function ReconcileForm({ expectedBalance, actualBalance, actualBalanceAt,
   return (
     <Card>
       <CardHeader className="pb-2 pt-4">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <Scale className="h-4 w-4" />
-          Reconciliation
+        <CardTitle
+          className={`text-sm flex items-center justify-between gap-2 ${collapsible ? 'cursor-pointer select-none' : ''}`}
+          onClick={collapsible ? () => setOpen(v => !v) : undefined}
+        >
+          <span className="flex items-center gap-2">
+            <Scale className="h-4 w-4" />
+            Reconciliation
+          </span>
+          {collapsible && (
+            open
+              ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              : <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          )}
         </CardTitle>
       </CardHeader>
-      <CardContent className="pb-4 space-y-3">
-        {discrepancy !== null && !editing && (
-          <div className={`rounded-md px-3 py-2 text-sm flex items-start gap-2 ${
-            discrepancy === 0
-              ? 'bg-green-50 border border-green-200 text-green-900'
-              : 'bg-yellow-50 border border-yellow-200 text-yellow-900'
-          }`}>
-            {discrepancy === 0
-              ? <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
-              : <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-            }
-            <div>
-              {discrepancy === 0 ? (
-                <p className="font-medium">Balanced — actual matches expected</p>
-              ) : (
-                <>
-                  <p className="font-medium">
-                    Discrepancy of {formatCurrency(Math.abs(discrepancy))}{' '}
-                    ({discrepancy > 0 ? 'bank shows more' : 'bank shows less'})
-                  </p>
-                  <p className="text-xs mt-0.5">
-                    Likely cause: accrued interest, bank fee, or unrecorded transaction.
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-2 h-7 text-xs"
-                    disabled={correcting}
-                    onClick={recordCorrection}
-                  >
-                    {correcting ? 'Recording…' : `Record correction of ${formatCurrency(discrepancy)}`}
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
 
-        {!editing && (
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">
-              {actualBalance !== null
-                ? `Actual: ${formatCurrency(actualBalance)} as of ${actualBalanceAt ? formatDate(actualBalanceAt.slice(0, 10)) : '—'}`
-                : 'No balance entered yet'}
-            </span>
-            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditing(true)}>
-              {actualBalance !== null ? 'Update' : 'Enter balance'}
-            </Button>
-          </div>
-        )}
+      {open && (
+        <CardContent className="pb-4 space-y-3">
+          {discrepancy !== null && !editing && (
+            <div className={`rounded-md px-3 py-2 text-sm flex items-start gap-2 ${
+              discrepancy === 0
+                ? 'bg-green-50 border border-green-200 text-green-900'
+                : 'bg-yellow-50 border border-yellow-200 text-yellow-900'
+            }`}>
+              {discrepancy === 0
+                ? <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                : <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              }
+              <div>
+                {discrepancy === 0 ? (
+                  <p className="font-medium">Balanced — actual matches expected</p>
+                ) : (
+                  <>
+                    <p className="font-medium">
+                      Discrepancy of {formatCurrency(Math.abs(discrepancy))}{' '}
+                      ({discrepancy > 0 ? 'bank shows more' : 'bank shows less'})
+                    </p>
+                    <p className="text-xs mt-0.5">
+                      Likely cause: accrued interest, bank fee, or unrecorded transaction.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2 h-7 text-xs"
+                      disabled={correcting}
+                      onClick={recordCorrection}
+                    >
+                      {correcting ? 'Recording…' : `Record correction of ${formatCurrency(discrepancy)}`}
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
 
-        {editing && (
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="actual-balance">Actual HYSA balance</Label>
-              <CurrencyInput id="actual-balance" value={inputBalance} onChange={setInputBalance} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="balance-date">As of</Label>
-              <Input
-                id="balance-date"
-                type="date"
-                value={inputDate}
-                onChange={e => setInputDate(e.target.value)}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setEditing(false)}>Cancel</Button>
-              <Button className="flex-1" disabled={saving} onClick={saveReconcile}>
-                {saving ? 'Saving…' : 'Save'}
+          {!editing && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                {actualBalance !== null
+                  ? `Actual: ${formatCurrency(actualBalance)} as of ${actualBalanceAt ? formatDate(actualBalanceAt.slice(0, 10)) : '—'}`
+                  : 'No balance entered yet'}
+              </span>
+              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditing(true)}>
+                {actualBalance !== null ? 'Update' : 'Enter balance'}
               </Button>
             </div>
+          )}
+
+          {editing && (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="actual-balance">Actual HYSA balance</Label>
+                <CurrencyInput id="actual-balance" value={inputBalance} onChange={setInputBalance} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="balance-date">As of</Label>
+                <Input
+                  id="balance-date"
+                  type="date"
+                  value={inputDate}
+                  onChange={e => setInputDate(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setEditing(false)}>Cancel</Button>
+                <Button className="flex-1" disabled={saving} onClick={saveReconcile}>
+                  {saving ? 'Saving…' : 'Save'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className="text-xs text-muted-foreground">
+            Ledger balance: <span className="font-mono font-medium text-foreground">{formatCurrency(expectedBalance)}</span>
+            {' '}(computed from all ledger entries)
           </div>
-        )}
 
-        <div className="text-xs text-muted-foreground">
-          Expected balance: <span className="font-mono font-medium text-foreground">{formatCurrency(expectedBalance)}</span>
-          {' '}(computed from all ledger entries)
-        </div>
-
-        {discrepancy === null && (
-          <Badge variant="outline" className="text-xs">Not yet reconciled</Badge>
-        )}
-      </CardContent>
+          {discrepancy === null && (
+            <Badge variant="outline" className="text-xs">Not yet reconciled</Badge>
+          )}
+        </CardContent>
+      )}
     </Card>
   )
 }

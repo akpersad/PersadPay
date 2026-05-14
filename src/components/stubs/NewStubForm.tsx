@@ -98,8 +98,16 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
     ?? 0
 
   const [hoursMode, setHoursMode] = useState<'total' | 'daily'>(() => {
-    if (initialStub?.daily_hours && Object.keys(initialStub.daily_hours).length > 0) return 'daily'
-    return 'total'
+    // Edit mode: respect whichever format the stub was originally saved in.
+    if (initialStub) {
+      return initialStub.daily_hours && Object.keys(initialStub.daily_hours).length > 0 ? 'daily' : 'total'
+    }
+    // New stub: use persisted preference, defaulting to daily.
+    if (typeof window !== 'undefined') {
+      const saved = window.localStorage.getItem('persadpay.hoursMode')
+      if (saved === 'total' || saved === 'daily') return saved
+    }
+    return 'daily'
   })
   const [hours, setHours] = useState(initialHours)
   const [dailyHours, setDailyHours] = useState<Record<string, string>>(() => {
@@ -259,7 +267,12 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
   }
 
   function toggleMode() {
-    if (hoursMode === 'total') {
+    const next: 'total' | 'daily' = hoursMode === 'total' ? 'daily' : 'total'
+    if (!initialStub) {
+      // Persist preference for new stubs only; don't override edit-mode format.
+      localStorage.setItem('persadpay.hoursMode', next)
+    }
+    if (next === 'daily') {
       setHoursMode('daily')
       setHours('')
     } else {
