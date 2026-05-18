@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
@@ -14,6 +14,8 @@ interface CurrencyInputProps {
 
 export function CurrencyInput({ id, value, onChange, className, disabled }: CurrencyInputProps) {
   const [cents, setCents] = useState(() => Math.round(value * 100))
+  // Prevents onBeforeInput from double-applying when onKeyDown already handled the event
+  const handledRef = useRef(false)
 
   useEffect(() => {
     const incoming = Math.round(value * 100)
@@ -27,19 +29,49 @@ export function CurrencyInput({ id, value, onChange, className, disabled }: Curr
     return whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + dec
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    e.preventDefault()
-    let next = cents
-    if (e.key === 'Backspace') {
-      next = Math.floor(cents / 10)
-    } else if (/^\d$/.test(e.key)) {
-      const candidate = cents * 10 + parseInt(e.key, 10)
-      next = candidate > 999999999 ? cents : candidate
-    } else {
-      return
-    }
+  function applyBackspace(input: HTMLInputElement) {
+    const allSelected =
+      input.selectionStart === 0 && input.selectionEnd === input.value.length
+    const next = allSelected ? 0 : Math.floor(cents / 10)
     setCents(next)
     onChange(next / 100)
+  }
+
+  function applyDigit(digit: string) {
+    const candidate = cents * 10 + parseInt(digit, 10)
+    const next = candidate > 999999999 ? cents : candidate
+    setCents(next)
+    onChange(next / 100)
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    handledRef.current = false
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      e.preventDefault()
+      applyBackspace(e.currentTarget)
+      handledRef.current = true
+    } else if (/^\d$/.test(e.key)) {
+      e.preventDefault()
+      applyDigit(e.key)
+      handledRef.current = true
+    }
+    // Tab, arrows, etc. pass through naturally
+  }
+
+  // onBeforeInput handles mobile virtual keyboards, which don't reliably fire onKeyDown.
+  // The handledRef guard prevents double-applying when onKeyDown already acted.
+  function handleBeforeInput(e: React.FormEvent<HTMLInputElement>) {
+    if (handledRef.current) return
+    e.preventDefault()
+    const native = e.nativeEvent as InputEvent
+    if (
+      native.inputType === 'deleteContentBackward' ||
+      native.inputType === 'deleteContentForward'
+    ) {
+      applyBackspace(e.currentTarget as HTMLInputElement)
+    } else if (native.data && /^\d$/.test(native.data)) {
+      applyDigit(native.data)
+    }
   }
 
   return (
@@ -51,8 +83,9 @@ export function CurrencyInput({ id, value, onChange, className, disabled }: Curr
         inputMode="numeric"
         className={cn('pl-6 tabular-nums', className)}
         value={format(cents)}
+        onChange={() => {/* controlled; all input handled by onKeyDown + onBeforeInput */}}
         onKeyDown={handleKeyDown}
-        readOnly
+        onBeforeInput={handleBeforeInput}
         disabled={disabled}
       />
     </div>
