@@ -4,13 +4,14 @@ import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ChevronRight, CheckCircle2, MinusCircle } from 'lucide-react'
-import { formatDate, formatCurrency, daysUntil } from '@/lib/dates'
+import { formatDate, formatDateRange, formatCurrency, daysUntil } from '@/lib/dates'
 import {
   getCurrentQuarter,
   getQuarterDateRange,
   getQuarterDueDate,
   getScheduleHDueDate,
   getFederalEstimatedTaxDueDate,
+  getFederalEstimatedTaxPeriod,
   type Quarter,
 } from '@/lib/filings'
 import type { Profile, Paystub, Filing } from '@/lib/types'
@@ -36,15 +37,23 @@ export default async function FilingsPage() {
   ])
 
   const stubsByQuarter: Record<string, { count: number; gross: number }> = {}
+  // 1040-ES uses IRS fiscal periods (Jan–Mar / Apr–May / Jun–Aug / Sep–Dec),
+  // not calendar quarters, so it needs its own grouping.
+  const stubsByFedPeriod: Record<string, { count: number; gross: number }> = {}
   let earliestYear = currentYear
   for (const s of (stubs ?? []) as Pick<Paystub, 'id' | 'pay_date' | 'gross_pay'>[]) {
     const y = parseInt(s.pay_date.slice(0, 4))
     const m = parseInt(s.pay_date.slice(5, 7))
     const q = Math.ceil(m / 3)
+    const fedQ = m <= 3 ? 1 : m <= 5 ? 2 : m <= 8 ? 3 : 4
     const key = `${y}-${q}`
     if (!stubsByQuarter[key]) stubsByQuarter[key] = { count: 0, gross: 0 }
     stubsByQuarter[key].count += 1
     stubsByQuarter[key].gross += Number(s.gross_pay)
+    const fedKey = `${y}-${fedQ}`
+    if (!stubsByFedPeriod[fedKey]) stubsByFedPeriod[fedKey] = { count: 0, gross: 0 }
+    stubsByFedPeriod[fedKey].count += 1
+    stubsByFedPeriod[fedKey].gross += Number(s.gross_pay)
     if (y < earliestYear) earliestYear = y
   }
 
@@ -84,6 +93,7 @@ export default async function FilingsPage() {
           key={year}
           year={year}
           stubsByQuarter={stubsByQuarter}
+          stubsByFedPeriod={stubsByFedPeriod}
           filingMap={filingMap}
           isCurrentYear={year === currentYear}
         />
@@ -95,11 +105,13 @@ export default async function FilingsPage() {
 function YearSection({
   year,
   stubsByQuarter,
+  stubsByFedPeriod,
   filingMap,
   isCurrentYear,
 }: {
   year: number
   stubsByQuarter: Record<string, { count: number; gross: number }>
+  stubsByFedPeriod: Record<string, { count: number; gross: number }>
   filingMap: Map<string, Filing>
   isCurrentYear: boolean
 }) {
@@ -110,9 +122,11 @@ function YearSection({
       <div className="space-y-5">
         {quarters.map(q => {
           const data = stubsByQuarter[`${year}-${q}`]
+          const fedData = stubsByFedPeriod[`${year}-${q}`]
           const nysFiling = filingMap.get(`nys45-${year}-${q}`)
           const fedFiling = filingMap.get(`fed1040es-${year}-${q}`)
           const range = getQuarterDateRange(year, q)
+          const fedPeriod = getFederalEstimatedTaxPeriod(year, q)
 
           return (
             <div key={q}>
@@ -130,8 +144,8 @@ function YearSection({
                 <FilingRow
                   href={`/filings/federal-estimated-tax/${year}/${q}`}
                   title="1040-ES"
-                  subtitle="Federal estimated tax · IRS"
-                  rangeText={data ? `${data.count} stubs covered` : 'No stubs'}
+                  subtitle={`Federal estimated tax · IRS · covers ${formatDateRange(fedPeriod.start, fedPeriod.end)}`}
+                  rangeText={fedData ? `${fedData.count} stubs covered` : 'No stubs'}
                   dueDate={getFederalEstimatedTaxDueDate(year, q)}
                   filed={fedFiling}
                   threshold={30}
