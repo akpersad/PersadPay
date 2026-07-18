@@ -80,7 +80,10 @@ export async function POST(request: Request) {
     total_employee_taxes: totalEmpTaxes,
   }
 
-  const stubIdsInYear = ((ytdStubs ?? []) as Paystub[]).map(s => s.id)
+  // Line-item YTD must cover the same window as the main YTD sums — prior
+  // stubs plus this one — so a re-sent stub doesn't absorb bonuses or
+  // reimbursements paid after it (NY § 195(3) statement consistency).
+  const ytdLineItemStubIds = [...prior.map(s => s.id), stub.id]
 
   const [{ data: lineItems }, { data: ytdLineItemRows }] = await Promise.all([
     supabase
@@ -88,12 +91,10 @@ export async function POST(request: Request) {
       .select('*')
       .eq('paystub_id', stubId)
       .order('sort_order', { ascending: true }),
-    stubIdsInYear.length > 0
-      ? supabase
-          .from('paystub_line_items')
-          .select('line_type, amount')
-          .in('paystub_id', stubIdsInYear)
-      : Promise.resolve({ data: [] }),
+    supabase
+      .from('paystub_line_items')
+      .select('line_type, amount')
+      .in('paystub_id', ytdLineItemStubIds),
   ])
 
   const ytdByLineType: Record<string, number> = {}

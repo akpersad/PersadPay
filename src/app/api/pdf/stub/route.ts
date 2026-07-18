@@ -79,7 +79,10 @@ export async function GET(request: Request) {
     total_employee_taxes: totalEmpTaxes,
   }
 
-  const stubIdsInYear = ((ytdStubs ?? []) as Paystub[]).map(s => s.id)
+  // Line-item YTD must cover the same window as the main YTD sums — prior
+  // stubs plus this one — so a re-downloaded stub doesn't absorb bonuses or
+  // reimbursements paid after it (NY § 195(3) statement consistency).
+  const ytdLineItemStubIds = [...prior.map(s => s.id), stub.id]
 
   // Use admin client for settings: employees can't SELECT settings via RLS
   // but settings data is only used for PDF rendering, not exposed to the user.
@@ -91,12 +94,10 @@ export async function GET(request: Request) {
       .select('*')
       .eq('paystub_id', id)
       .order('sort_order', { ascending: true }),
-    stubIdsInYear.length > 0
-      ? supabase
-          .from('paystub_line_items')
-          .select('line_type, amount')
-          .in('paystub_id', stubIdsInYear)
-      : Promise.resolve({ data: [] }),
+    supabase
+      .from('paystub_line_items')
+      .select('line_type, amount')
+      .in('paystub_id', ytdLineItemStubIds),
   ])
   if (!settings) return NextResponse.json({ error: 'Settings not configured' }, { status: 500 })
 
