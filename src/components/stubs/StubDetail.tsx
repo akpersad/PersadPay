@@ -129,25 +129,41 @@ export function StubDetail({ stub, role, userId, lineItems = [], ytdByLineType =
   async function markHysaTransferred() {
     setHysaPending(true)
     const supabase = createClient()
+    // The same dialog serves first-time transfers and note edits. A note edit
+    // must not re-stamp the transfer time or write another ledger deposit.
+    const alreadyTransferred = stub.hysa_transferred
     const { error } = await supabase
       .from('paystubs')
-      .update({
-        hysa_transferred: true,
-        hysa_transferred_at: new Date().toISOString(),
-        hysa_notes: hysaNotes || null,
-      })
+      .update(
+        alreadyTransferred
+          ? { hysa_notes: hysaNotes || null }
+          : {
+              hysa_transferred: true,
+              hysa_transferred_at: new Date().toISOString(),
+              hysa_notes: hysaNotes || null,
+            }
+      )
       .eq('id', stub.id)
 
     if (error) {
-      toast.error('Failed to record HYSA transfer.')
+      toast.error(alreadyTransferred ? 'Failed to update note.' : 'Failed to record HYSA transfer.')
       setHysaPending(false)
       return
     }
 
-    // Record deposit transaction so the ledger stays in sync
-    await insertHysaDeposit(supabase, stub, userId)
+    if (!alreadyTransferred) {
+      // Record deposit transaction so the ledger stays in sync
+      const { error: depositError } = await insertHysaDeposit(supabase, stub, userId)
+      if (depositError) {
+        toast.error('Transfer marked, but the HYSA ledger deposit failed. Add it from the HYSA page.')
+        setHysaDialog(false)
+        startTransition(() => router.refresh())
+        setHysaPending(false)
+        return
+      }
+    }
 
-    toast.success('HYSA transfer recorded.')
+    toast.success(alreadyTransferred ? 'Note updated.' : 'HYSA transfer recorded.')
     setHysaDialog(false)
     startTransition(() => router.refresh())
     setHysaPending(false)
