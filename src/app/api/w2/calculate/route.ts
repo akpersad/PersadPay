@@ -23,11 +23,16 @@ export async function GET(request: Request) {
   const yearInt = parseInt(year)
 
   const adminClient = createAdminClient()
+  // The DB may hold a permanent test-employee profile alongside the real one
+  // (migration 0026). Ordering by is_test puts the real employee first;
+  // .single() would error with two rows and break W-2 generation entirely.
   const { data: emp } = await adminClient
     .from('profiles')
     .select('id')
     .eq('role', 'employee')
-    .single()
+    .order('is_test', { ascending: true })
+    .limit(1)
+    .maybeSingle()
 
   if (!emp) return NextResponse.json({ error: 'No employee profile found' }, { status: 500 })
 

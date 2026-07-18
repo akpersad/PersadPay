@@ -236,7 +236,7 @@ export default async function ScheduleHYearPage({ params }: { params: Promise<Pa
                 line="14"
                 label="State unemployment tax paid (SUTA)"
                 value={data.suta_paid}
-                hint={`Paid via NYS-45 · rate ${(sutaRate * 100).toFixed(2)}%`}
+                hint={`Paid via NYS-45 · rate ${parseFloat((sutaRate * 100).toFixed(3))}%`}
               />
             </CardContent>
           </Card>

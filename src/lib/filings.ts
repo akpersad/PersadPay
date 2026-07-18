@@ -1,5 +1,6 @@
 import type { Paystub } from './types'
 import type { TaxRates } from './tax'
+import { addDays } from './dates'
 
 export type Quarter = 1 | 2 | 3 | 4
 
@@ -86,6 +87,10 @@ export interface NYS45Data {
   ui_taxable_wages: number     // Line 4 — subject to UI tax
   ui_tax_due: number           // Line 5 — UI contribution (taxable × UI rate)
   rsf: number                  // Line 6 — Re-employment Service Fund (taxable × rsf_rate)
+  // Line 5 + Line 6 totaled from the unrounded amounts with fractional cents
+  // truncated, matching how NY DOL's online filing assesses the total (can
+  // differ by a penny from adding the rounded lines).
+  total_ui_due: number
   // Part A employee-count boxes (NYS-45 Part A, boxes 10a/10b/10c)
   // Count of covered employees employed on the 12th of each month in the quarter.
   employee_counts_by_month: [number, number, number]
@@ -123,22 +128,34 @@ export function calculateNYS45(
 
   const uiGross = sorted.reduce((sum, s) => sum + Number(s.gross_pay), 0)
   const uiExcess = uiGross - uiTaxable
+  const rsfRate = Number(rates.rsf_rate ?? 0.00075)
   const uiTaxDue = round(uiTaxable * sutaRate)
-  const rsf = round(uiTaxable * Number(rates.rsf_rate ?? 0.00075))
+  const rsf = round(uiTaxable * rsfRate)
+  // NY DOL's e-file totals the unrounded UI + RSF and truncates fractional
+  // cents (observed: 51.80175 + 0.96525 = 52.767 assessed as 52.76). Compute
+  // in tenths of cents to avoid float noise before truncating.
+  const totalUiDue = Math.floor(Math.round((uiTaxable * sutaRate + uiTaxable * rsfRate) * 1000) / 10) / 100
 
   const nyWithheld = sorted.reduce((sum, s) => sum + Number(s.state_withholding), 0)
   const fedWithheld = sorted.reduce((sum, s) => sum + Number(s.federal_withholding), 0)
 
-  // Employee count by 12th of each month: 1 if any stub's pay period covers
-  // the 12th of that month (proxy for "employed on the 12th"), else 0.
+  // Employee count by 12th of each month: 1 if any stub's pay period overlaps
+  // the calendar week (Sun–Sat) containing the 12th, else 0. Recorded pay
+  // periods often span only the days actually worked (e.g. Mon–Wed), so
+  // requiring the period to contain the 12th itself undercounts an employee
+  // who worked that week but not on the 12th. Pay schedule is weekly, so
+  // week overlap is the proxy for "worked during or received pay for the
+  // pay period that includes the 12th" (NYS-45 Part A instructions).
   const startMonth = (quarter - 1) * 3 + 1
   const allStubs = allYearStubs.length > 0 ? allYearStubs : sorted
   const employee_counts_by_month: [number, number, number] = [0, 0, 0]
   for (let i = 0; i < 3; i++) {
     const month = startMonth + i
     const twelfth = `${year}-${String(month).padStart(2, '0')}-12`
+    const weekStart = addDays(twelfth, -new Date(Date.UTC(year, month - 1, 12)).getUTCDay())
+    const weekEnd = addDays(weekStart, 6)
     const covered = allStubs.some(
-      s => s.pay_period_start <= twelfth && s.pay_period_end >= twelfth,
+      s => s.pay_period_start <= weekEnd && s.pay_period_end >= weekStart,
     )
     employee_counts_by_month[i] = covered ? 1 : 0
   }
@@ -154,6 +171,7 @@ export function calculateNYS45(
     ui_taxable_wages: round(uiTaxable),
     ui_tax_due: uiTaxDue,
     rsf,
+    total_ui_due: totalUiDue,
     employee_counts_by_month,
     ny_state_tax_withheld: round(nyWithheld),
     total_tax_withheld: round(nyWithheld),

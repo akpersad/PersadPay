@@ -172,10 +172,10 @@ export function SettingsForm({ settings: initial }: Props) {
           <Input
             value={sutaRate}
             onChange={e => setSutaRate(e.target.value)}
-            onBlur={() => setSutaRate(formatRateInput(sutaRate, 4))}
+            onBlur={() => setSutaRate(formatRateInput(sutaRate, 5))}
             inputMode="decimal"
           />
-          <p className="text-xs text-muted-foreground">Update annually from your NY UI rate notice.</p>
+          <p className="text-xs text-muted-foreground">Enter your UI contribution rate only, excluding the 0.075% Re-employment Service Fund surcharge. Your rate notice may show a combined total that includes it; the app adds RSF separately. Example: enter 0.04025 for 4.025%. Update annually from your NY UI rate notice.</p>
         </div>
       </Section>
 

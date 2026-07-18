@@ -126,6 +126,64 @@ describe('calculateNYS45 — SUTA wage base cap', () => {
   })
 })
 
+describe('calculateNYS45 — total UI due rounding', () => {
+  it('totals unrounded UI + RSF and truncates fractional cents, matching NY DOL', () => {
+    // Real Q2 2026 case: $1,287 taxable at 4.025% UI + 0.075% RSF.
+    // Rounded lines: 51.80 + 0.97 = 52.77, but the unrounded sum is
+    // 51.80175 + 0.96525 = 52.767, truncated to 52.76 (what the state assessed).
+    const stubs = [makeStub({ gross_pay: 1287, pay_date: '2026-05-13' })]
+    const r = calculateNYS45(stubs, 0, rates2026, 0.04025, 2026, 2)
+    expect(r.ui_tax_due).toBe(51.8)
+    expect(r.rsf).toBe(0.97)
+    expect(r.total_ui_due).toBe(52.76)
+  })
+})
+
+describe('calculateNYS45 — covered employees by 12th of month', () => {
+  // Recorded pay periods only span days actually worked (e.g. Mon–Wed),
+  // so the 12th itself can fall in a gap between stubs even though the
+  // employee worked the week containing the 12th.
+  it('counts a month when a stub overlaps the week of the 12th but not the 12th itself', () => {
+    // Real Q2 2026 shape: Jun 12 is a Friday; periods Jun 4–10 and Jun 15–17
+    // straddle it, but Jun 4–10 overlaps the Sun–Sat week of Jun 7–13.
+    const stubs = [
+      makeStub({ pay_period_start: '2026-05-11', pay_period_end: '2026-05-13', pay_date: '2026-05-13' }),
+      makeStub({ pay_period_start: '2026-06-04', pay_period_end: '2026-06-10', pay_date: '2026-06-10' }),
+      makeStub({ pay_period_start: '2026-06-15', pay_period_end: '2026-06-17', pay_date: '2026-06-17' }),
+    ]
+    const r = calculateNYS45(stubs, 0, rates2026, 0.041, 2026, 2)
+    expect(r.employee_counts_by_month).toEqual([0, 1, 1])
+  })
+
+  it('still counts a month when a stub period contains the 12th directly', () => {
+    const stubs = [
+      makeStub({ pay_period_start: '2026-05-11', pay_period_end: '2026-05-13', pay_date: '2026-05-13' }),
+    ]
+    const r = calculateNYS45(stubs, 0, rates2026, 0.041, 2026, 2)
+    expect(r.employee_counts_by_month).toEqual([0, 1, 0])
+  })
+
+  it('does not count a month when no stub touches the week of the 12th', () => {
+    // Week of Jun 12, 2026 is Sun Jun 7 – Sat Jun 13; both stubs miss it.
+    const stubs = [
+      makeStub({ pay_period_start: '2026-06-01', pay_period_end: '2026-06-03', pay_date: '2026-06-03' }),
+      makeStub({ pay_period_start: '2026-06-22', pay_period_end: '2026-06-24', pay_date: '2026-06-24' }),
+    ]
+    const r = calculateNYS45(stubs, 0, rates2026, 0.041, 2026, 2)
+    expect(r.employee_counts_by_month).toEqual([0, 0, 0])
+  })
+
+  it('uses allYearStubs when provided so cross-quarter periods are seen', () => {
+    // Period covering the week of Mar 12 but paid in Q2 quarter list edge:
+    // quarter stubs empty, year stubs carry the coverage.
+    const yearStubs = [
+      makeStub({ pay_period_start: '2026-04-08', pay_period_end: '2026-04-14', pay_date: '2026-04-14' }),
+    ]
+    const r = calculateNYS45([], 0, rates2026, 0.041, 2026, 2, yearStubs)
+    expect(r.employee_counts_by_month).toEqual([1, 0, 0])
+  })
+})
+
 describe('calculateFederalEstimatedTax — IRS fiscal periods', () => {
   it('Q1 period covers Jan 1 – Mar 31', () => {
     const p = getFederalEstimatedTaxPeriod(2026, 1)

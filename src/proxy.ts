@@ -47,21 +47,37 @@ export async function proxy(request: NextRequest) {
   // Doing it in the proxy creates a redirect loop when getUser() behaves
   // inconsistently between the proxy and the layout.
 
-  // MFA enforcement — skip for public paths, API routes, and the MFA pages themselves
-  if (user && !MFA_PATHS.includes(pathname) && !PUBLIC_PATHS.includes(pathname) && !pathname.startsWith('/api/')) {
+  // MFA enforcement — skip for public paths and the MFA pages themselves.
+  // API routes are enforced too (they serve the same payroll data as pages);
+  // exceptions: sign-out must work at aal1 so a stuck user can escape, and
+  // the cron route authenticates via CRON_SECRET with no user session (so the
+  // `user &&` gate already skips it).
+  const isApi = pathname.startsWith('/api/')
+  const MFA_EXEMPT_API_PATHS = ['/api/auth/sign-out']
+  if (
+    user &&
+    !MFA_PATHS.includes(pathname) &&
+    !PUBLIC_PATHS.includes(pathname) &&
+    !MFA_EXEMPT_API_PATHS.includes(pathname)
+  ) {
     const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
 
-    if (aalData) {
-      if (aalData.currentLevel === 'aal1' && aalData.nextLevel === 'aal2') {
+    if (aalData && aalData.currentLevel === 'aal1') {
+      if (isApi) {
+        // No redirects for APIs — fail closed with a machine-readable error
+        return NextResponse.json(
+          { error: 'Multi-factor authentication required' },
+          { status: 401 },
+        )
+      }
+      if (aalData.nextLevel === 'aal2') {
         // Factor enrolled but not yet verified for this session
         return NextResponse.redirect(new URL('/auth/verify-mfa', request.url))
       }
-      if (aalData.currentLevel === 'aal1' && aalData.nextLevel === 'aal1') {
-        // No factor enrolled — force enrollment
-        return NextResponse.redirect(new URL('/auth/enroll-mfa', request.url))
-      }
-      // currentLevel === 'aal2' → fully authenticated, proceed
+      // No factor enrolled — force enrollment
+      return NextResponse.redirect(new URL('/auth/enroll-mfa', request.url))
     }
+    // currentLevel === 'aal2' → fully authenticated, proceed
   }
 
   // Role-based guard for admin-only paths
