@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { calculateTaxes } from '@/lib/tax'
+import { calculateTaxes, getTaxRatesForYear } from '@/lib/tax'
 import { addDays, formatCurrency } from '@/lib/dates'
 import type { Settings, Paystub, PaystubLineItem, StubReason } from '@/lib/types'
 import type { TaxResult, TaxRates } from '@/lib/tax'
@@ -143,6 +143,12 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
     }))
   })
   const [preview, setPreview] = useState<TaxResult | null>(null)
+  // YTD wage-base context + tax rates actually used by the last preview. The
+  // server props were computed for the SUGGESTED pay date; the admin can move
+  // the pay date (including across a year boundary), so generatePreview()
+  // re-derives both for the entered date before calculating.
+  const [previewContext, setPreviewContext] = useState({ ytdGrossBefore, ytdPflBefore, taxRates })
+  const [previewing, setPreviewing] = useState(false)
   const [saving, setSaving] = useState(false)
 
   // Auto-scroll the preview card into view when it appears so the admin
@@ -283,21 +289,82 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
     setPreview(null)
   }
 
-  function generatePreview() {
-    if (!settings) return
+  async function generatePreview() {
+    if (!settings || !payDate) return
+    setPreviewing(true)
+
+    // Re-derive YTD wage-base context and tax rates for the ENTERED pay date.
+    // The server-provided props were computed for the suggested date; without
+    // this, moving the pay date across a year boundary (Dec 31 → Jan 2) would
+    // apply the old year's accumulators and rates, and backfilling a missed
+    // week would count later-paid stubs as prior wages.
+    let context = { ytdGrossBefore, ytdPflBefore, taxRates }
+    if (employeeId) {
+      const supabase = createClient()
+      const payYear = parseInt(payDate.substring(0, 4))
+
+      // "Prior" = stubs paid before this one within the pay-date's calendar
+      // year. Create mode: any stub paid on or before the pay date (the new
+      // stub always gets the highest stub number). Edit mode: exclude the
+      // stub itself and break same-day ties by stub number.
+      const priorQuery = isEdit && initialStub
+        ? supabase
+            .from('paystubs')
+            .select('gross_pay, pfl')
+            .eq('employee_id', employeeId)
+            .gte('pay_date', `${payYear}-01-01`)
+            .neq('id', initialStub.id)
+            .or(`pay_date.lt.${payDate},and(pay_date.eq.${payDate},stub_number.lt.${initialStub.stub_number})`)
+        : supabase
+            .from('paystubs')
+            .select('gross_pay, pfl')
+            .eq('employee_id', employeeId)
+            .gte('pay_date', `${payYear}-01-01`)
+            .lte('pay_date', payDate)
+
+      const [freshRates, { data: priorStubs, error: priorError }] = await Promise.all([
+        payYear === Number(taxRates.effective_year)
+          ? Promise.resolve(taxRates)
+          : getTaxRatesForYear(supabase, payYear),
+        priorQuery,
+      ])
+
+      if (priorError) {
+        toast.error('Could not load prior stubs for YTD totals. Please try again.')
+        setPreviewing(false)
+        return
+      }
+      if (!freshRates) {
+        toast.error(`No tax rates available for ${payYear}. Seed the tax_rates table first.`)
+        setPreviewing(false)
+        return
+      }
+      if (Number(freshRates.effective_year) !== payYear) {
+        toast.warning(`No ${payYear} tax rates seeded yet. Using ${freshRates.effective_year} rates as a fallback. Verify before filing.`)
+      }
+
+      context = {
+        ytdGrossBefore: (priorStubs ?? []).reduce((s, r) => s + Number(r.gross_pay), 0),
+        ytdPflBefore: (priorStubs ?? []).reduce((s, r) => s + Number(r.pfl ?? 0), 0),
+        taxRates: freshRates,
+      }
+    }
+    setPreviewContext(context)
+
     // Spec: flat voluntary withholdings are $0 on zero-hour weeks regardless of settings.
     const hoursForWithholding = totalHoursNum
     const calc = calculateTaxes({
       gross,
-      ytdGrossBefore,
-      ytdPflBefore,
+      ytdGrossBefore: context.ytdGrossBefore,
+      ytdPflBefore: context.ytdPflBefore,
       federalWithholding: hoursForWithholding === 0 ? 0 : effectiveFederalWithholding,
       stateWithholding: hoursForWithholding === 0 ? 0 : effectiveStateWithholding,
       dblCovered: effectiveDblCovered,
       pflCovered: effectivePflCovered,
       sutaRate: effectiveSutaRate,
-    }, taxRates)
+    }, context.taxRates)
     setPreview(calc)
+    setPreviewing(false)
   }
 
   async function saveStub() {
@@ -431,7 +498,7 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
 
   return (
     <div className="space-y-5">
-      <WageBaseCaps ytdGrossBefore={ytdGrossBefore} taxRates={taxRates} />
+      <WageBaseCaps ytdGrossBefore={previewContext.ytdGrossBefore} taxRates={previewContext.taxRates} />
 
       <Card>
         <CardContent className="pt-4 space-y-4">
@@ -604,10 +671,10 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
 
       <Button
         className="w-full"
-        disabled={!canPreview}
+        disabled={!canPreview || previewing}
         onClick={generatePreview}
       >
-        Preview Stub
+        {previewing ? 'Calculating…' : 'Preview Stub'}
       </Button>
 
       {preview && (() => {

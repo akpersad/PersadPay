@@ -44,6 +44,7 @@ export default async function EditStubPage({ params }: { params: Promise<Params>
     supabase
       .from('paystubs')
       .select('gross_pay, pfl')
+      .eq('employee_id', stub.employee_id)
       .gte('pay_date', `${payYear}-01-01`)
       .or(`pay_date.lt.${stub.pay_date},and(pay_date.eq.${stub.pay_date},stub_number.lt.${stub.stub_number})`),
     getTaxRatesForYear(supabase, parseInt(payYear)),
