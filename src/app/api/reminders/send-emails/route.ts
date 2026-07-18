@@ -6,11 +6,19 @@ import { REMINDER_LEAD_DAYS, REMINDER_FOLLOWUP_DAYS, daysUntil, formatDate, toda
 import type { Reminder, Settings, Paystub } from '@/lib/types'
 
 // Called daily by Vercel Cron. Can also be triggered manually via GET for testing.
-// Vercel automatically sets CRON_SECRET and sends it as a Bearer token in production.
+// CRON_SECRET must be set manually in the Vercel project env — Vercel does NOT
+// create it, but when it exists Vercel Cron sends it as `Authorization: Bearer
+// <CRON_SECRET>` on each invocation. Fail with a distinct status when it is
+// missing so a misconfiguration shows up in cron logs instead of silently
+// 401ing every scheduled run.
 export async function GET(request: Request) {
   if (process.env.NODE_ENV === 'production') {
+    const secret = process.env.CRON_SECRET
+    if (!secret) {
+      return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
+    }
     const auth = request.headers.get('authorization')
-    if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    if (auth !== `Bearer ${secret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
   }
