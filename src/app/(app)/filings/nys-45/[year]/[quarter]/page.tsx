@@ -142,13 +142,19 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
                 box="5"
                 label="UI contributions due"
                 value={data.ui_tax_due}
-                hint={`Wage base $${Number(rates.suta_wage_base).toLocaleString()} · rate ${(sutaRate * 100).toFixed(2)}%`}
+                hint={`Wage base $${Number(rates.suta_wage_base).toLocaleString()} · rate ${parseFloat((sutaRate * 100).toFixed(3))}%`}
               />
               <BoxRow
                 box="6"
                 label="Re-employment Service Fund (RSF) contribution"
                 value={data.rsf}
                 hint={`Box 4 × ${(Number(rates.rsf_rate ?? 0.00075) * 100).toFixed(3)}%`}
+              />
+              <BoxRow
+                box=""
+                label="Total UI amount due"
+                value={data.total_ui_due}
+                hint="Boxes 5 + 6, rounded on the sum to match NY DOL's online total. Can differ by a penny from adding the rounded boxes."
               />
             </CardContent>
           </Card>
@@ -215,7 +221,7 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
         taxYear={year}
         quarter={q}
         createdBy={user.id}
-        computedAmount={data.ui_tax_due + data.total_tax_withheld}
+        computedAmount={data.total_ui_due + data.total_tax_withheld}
       />
 
       <a

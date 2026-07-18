@@ -54,7 +54,7 @@ export default async function RemindersPage() {
       if (rates) {
         const data = calculateNYS45(inQuarter, ytdGrossBefore, rates, sutaRate, year, q)
         amounts[r.id] = {
-          amount: data.ui_tax_due + data.total_tax_withheld,
+          amount: data.total_ui_due + data.total_tax_withheld,
           agency: 'NY State Tax & Finance',
         }
       }
