@@ -30,9 +30,9 @@ export default async function StubDetailPage({ params }: Props) {
   // Employees can only see their own stubs
   if (profile?.role === 'employee' && stub.employee_id !== user.id) notFound()
 
-  // Fetch all stubs in the calendar year so line-item YTD can span the full year.
-  // "Prior" stubs for YTD sums use a composite predicate: earlier pay_date OR
-  // same pay_date with a lower stub_number (handles backdated and same-day stubs).
+  // Fetch all stubs in the calendar year, then narrow to "prior" via a
+  // composite predicate: earlier pay_date OR same pay_date with a lower
+  // stub_number (handles backdated and same-day stubs).
   const payYear = stub.pay_date.substring(0, 4)
   const { data: ytdStubs } = await supabase
     .from('paystubs')
@@ -90,7 +90,10 @@ export default async function StubDetailPage({ params }: Props) {
     total_employee_taxes: totalEmployeeTaxes,
   }
 
-  const stubIdsInYear = (ytdStubs ?? []).map(s => s.id)
+  // Line-item YTD must cover the same window as the main YTD sums — prior
+  // stubs plus this one — so a re-rendered stub doesn't absorb bonuses or
+  // reimbursements paid after it (NY § 195(3) statement consistency).
+  const ytdLineItemStubIds = [...prior.map(s => s.id), stub.id]
 
   const [{ data: lineItems }, { data: ytdLineItemRows }] = await Promise.all([
     supabase
@@ -98,12 +101,10 @@ export default async function StubDetailPage({ params }: Props) {
       .select('*')
       .eq('paystub_id', id)
       .order('sort_order', { ascending: true }),
-    stubIdsInYear.length > 0
-      ? supabase
-          .from('paystub_line_items')
-          .select('line_type, amount')
-          .in('paystub_id', stubIdsInYear)
-      : Promise.resolve({ data: [] }),
+    supabase
+      .from('paystub_line_items')
+      .select('line_type, amount')
+      .in('paystub_id', ytdLineItemStubIds),
   ])
 
   // Aggregate YTD per line_type so each row on the stub can render its own YTD.

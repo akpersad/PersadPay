@@ -83,8 +83,17 @@ export default async function NewStubPage({
     taxRates,
   ] = await Promise.all([
     supabase.from('settings').select('*').single<Settings>(),
+    // Prior = paid on or before the suggested pay date, within its calendar
+    // year. The upper bound matters when backfilling a missed week: stubs paid
+    // AFTER the new one must not count toward wage-base accumulators. The form
+    // re-derives this at preview time if the admin edits the pay date.
     employee?.id
-      ? supabase.from('paystubs').select('gross_pay, pfl').eq('employee_id', employee.id).gte('pay_date', `${currentYear}-01-01`)
+      ? supabase
+          .from('paystubs')
+          .select('gross_pay, pfl')
+          .eq('employee_id', employee.id)
+          .gte('pay_date', `${currentYear}-01-01`)
+          .lte('pay_date', suggestedPayDate)
       : Promise.resolve({ data: [] as Pick<Paystub, 'gross_pay' | 'pfl'>[] }),
     getTaxRatesForYear(supabase, currentYear),
   ])

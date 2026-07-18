@@ -71,6 +71,15 @@ export function getCurrentQuarter(date: Date = new Date()): { year: number; quar
   return { year, quarter }
 }
 
+// The quarter before the given one, wrapping Q1 into the prior year's Q4.
+// A quarter's NYS-45 is due during the FOLLOWING quarter, so "what's due
+// right now" is usually the previous quarter, not the one accruing.
+export function previousQuarter(year: number, quarter: Quarter): { year: number; quarter: Quarter } {
+  return quarter === 1
+    ? { year: year - 1, quarter: 4 }
+    : { year, quarter: (quarter - 1) as Quarter }
+}
+
 function round(n: number): number {
   return Math.round(n * 100) / 100
 }

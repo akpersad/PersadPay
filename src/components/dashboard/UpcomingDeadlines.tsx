@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Square } from 'lucide-react'
 import { formatDate, daysUntil } from '@/lib/dates'
+import { rollForwardReminder } from '@/lib/reminders'
 import { toast } from 'sonner'
 import type { Reminder } from '@/lib/types'
 
@@ -28,18 +29,10 @@ export function UpcomingDeadlines({ reminders }: { reminders: Reminder[] }) {
 
   async function dismiss(reminder: Reminder) {
     const supabase = createClient()
-    const nextDue = reminder.due_date.replace(/^\d{4}/, y => String(parseInt(y) + 1))
-    const nextTitle = reminder.title.replace(/\d{4}/, y => String(parseInt(y) + 1))
 
     const [{ error }] = await Promise.all([
       supabase.from('reminders').update({ dismissed: true }).eq('id', reminder.id),
-      supabase.from('reminders').insert({
-        title: nextTitle,
-        due_date: nextDue,
-        description: reminder.description,
-        dismissed: false,
-        email_sent: false,
-      }),
+      supabase.from('reminders').insert(rollForwardReminder(reminder)),
     ])
 
     if (error) {

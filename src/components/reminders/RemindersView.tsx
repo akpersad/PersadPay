@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Square } from 'lucide-react'
 import { formatDate, daysUntil, formatCurrency, shiftedDeadline, selfImposedDeadline } from '@/lib/dates'
+import { rollForwardReminder } from '@/lib/reminders'
 import { toast } from 'sonner'
 import type { Reminder } from '@/lib/types'
 
@@ -48,19 +49,10 @@ export function RemindersView({
 
   async function dismiss(reminder: Reminder) {
     const supabase = createClient()
-    const nextYear = parseInt(reminder.due_date.substring(0, 4)) + 1
-    const nextDue = `${nextYear}${reminder.due_date.substring(4)}`
-    const nextTitle = reminder.title.replace(/\b20\d{2}\b(?=[^0-9]*$)/, String(nextYear))
 
     const [{ error: updateError }, { error: insertError }] = await Promise.all([
       supabase.from('reminders').update({ dismissed: true }).eq('id', reminder.id),
-      supabase.from('reminders').insert({
-        title: nextTitle,
-        due_date: nextDue,
-        description: reminder.description,
-        dismissed: false,
-        email_sent: false,
-      }),
+      supabase.from('reminders').insert(rollForwardReminder(reminder)),
     ])
 
     if (updateError || insertError) {

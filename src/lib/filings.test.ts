@@ -4,6 +4,7 @@ import {
   calculateNYS45,
   calculateFederalEstimatedTax,
   getFederalEstimatedTaxPeriod,
+  previousQuarter,
 } from './filings'
 import type { TaxRates } from './tax'
 import type { Paystub } from './types'
@@ -223,5 +224,17 @@ describe('calculateFederalEstimatedTax — IRS fiscal periods', () => {
     expect(r.futa).toBeCloseTo(2.38, 2)
     // Total: 49.12 + 11.48 + 0 + 2.38 = 62.98
     expect(r.total_due).toBeCloseTo(62.98, 2)
+  })
+})
+
+describe('previousQuarter', () => {
+  it('steps back within the same year', () => {
+    expect(previousQuarter(2026, 3)).toEqual({ year: 2026, quarter: 2 })
+    expect(previousQuarter(2026, 2)).toEqual({ year: 2026, quarter: 1 })
+    expect(previousQuarter(2026, 4)).toEqual({ year: 2026, quarter: 3 })
+  })
+
+  it('wraps Q1 into the prior year Q4', () => {
+    expect(previousQuarter(2027, 1)).toEqual({ year: 2026, quarter: 4 })
   })
 })
