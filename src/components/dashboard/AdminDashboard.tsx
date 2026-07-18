@@ -9,7 +9,7 @@ import { YearEndChecklist } from './YearEndChecklist'
 import { UpcomingDeadlines } from './UpcomingDeadlines'
 import { NextFilingCard } from './NextFilingCard'
 import { formatDateRange, formatCurrency, daysUntil } from '@/lib/dates'
-import { getCurrentQuarter, getQuarterDateRange, getQuarterDueDate } from '@/lib/filings'
+import { getCurrentQuarter, getQuarterDateRange, getQuarterDueDate, previousQuarter } from '@/lib/filings'
 import { PlusCircle, CheckCircle2, AlertCircle, PiggyBank, AlertTriangle, TrendingUp } from 'lucide-react'
 import { computeCoverageWatch } from '@/lib/coverage'
 import type { Paystub, Reminder, OnboardingItem, YearEndItem, Filing, Settings } from '@/lib/types'
@@ -38,6 +38,8 @@ export async function AdminDashboard() {
 
   const { year: currentYear, quarter: currentQuarter } = getCurrentQuarter(now)
   const currentQuarterRange = getQuarterDateRange(currentYear, currentQuarter)
+  const prevQ = previousQuarter(currentYear, currentQuarter)
+  const prevQuarterRange = getQuarterDateRange(prevQ.year, prevQ.quarter)
 
   const [
     { data: ytdStubs },
@@ -46,6 +48,8 @@ export async function AdminDashboard() {
     { data: checklist },
     { data: currentQuarterStubs },
     { data: currentQuarterFiling },
+    { data: prevQuarterStubs },
+    { data: prevQuarterFiling },
     { data: coverageStubs },
     { data: hysaTxAmounts },
     { data: hysaSettings },
@@ -80,6 +84,18 @@ export async function AdminDashboard() {
       .eq('filing_type', 'NYS-45')
       .eq('tax_year', currentYear)
       .eq('quarter', currentQuarter)
+      .maybeSingle<Filing>(),
+    supabase
+      .from('paystubs')
+      .select('gross_pay')
+      .gte('pay_date', prevQuarterRange.start)
+      .lte('pay_date', prevQuarterRange.end),
+    supabase
+      .from('filings')
+      .select('*')
+      .eq('filing_type', 'NYS-45')
+      .eq('tax_year', prevQ.year)
+      .eq('quarter', prevQ.quarter)
       .maybeSingle<Filing>(),
     // Last 52 weeks of stubs for the DBL/PFL coverage threshold watch.
     (() => {
@@ -161,7 +177,31 @@ export async function AdminDashboard() {
   // Treat both Filed and Not Applicable as "handled" — either one means the
   // admin has resolved this quarter and the urgency card should disappear.
   const currentQuarterFiled = !!currentQuarterFiling?.filed_on || !!currentQuarterFiling?.not_applicable
-  const showFilingCard = currentQuarterStubCount > 0 || daysUntil(getQuarterDueDate(currentYear, currentQuarter)) <= 20
+  const prevQuarterStubCount = prevQuarterStubs?.length ?? 0
+  const prevQuarterGross = (prevQuarterStubs ?? []).reduce((sum, s) => sum + Number(s.gross_pay), 0)
+  const prevQuarterHandled = !!prevQuarterFiling?.filed_on || !!prevQuarterFiling?.not_applicable
+  // The previous quarter's NYS-45 is the one actually due during this quarter
+  // (Q2 is due Jul 31, mid-Q3). Keep surfacing it until it's handled; only
+  // then track the quarter currently accruing.
+  const showPrevQuarterCard = !prevQuarterHandled && prevQuarterStubCount > 0
+  const filingCard = showPrevQuarterCard
+    ? {
+        year: prevQ.year,
+        quarter: prevQ.quarter,
+        stubCount: prevQuarterStubCount,
+        grossPay: prevQuarterGross,
+        filed: false,
+      }
+    : {
+        year: currentYear,
+        quarter: currentQuarter,
+        stubCount: currentQuarterStubCount,
+        grossPay: currentQuarterGross,
+        filed: currentQuarterFiled,
+      }
+  const showFilingCard = showPrevQuarterCard
+    || currentQuarterStubCount > 0
+    || daysUntil(getQuarterDueDate(currentYear, currentQuarter)) <= 20
 
   return (
     <div className="px-4 pt-6 pb-4 space-y-8 max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
@@ -232,12 +272,12 @@ export async function AdminDashboard() {
       {/* Next NYS-45 filing card */}
       {showFilingCard && (
         <NextFilingCard
-          year={currentYear}
-          quarter={currentQuarter}
-          dueDate={getQuarterDueDate(currentYear, currentQuarter)}
-          stubCount={currentQuarterStubCount}
-          grossPay={currentQuarterGross}
-          filed={currentQuarterFiled}
+          year={filingCard.year}
+          quarter={filingCard.quarter}
+          dueDate={getQuarterDueDate(filingCard.year, filingCard.quarter)}
+          stubCount={filingCard.stubCount}
+          grossPay={filingCard.grossPay}
+          filed={filingCard.filed}
         />
       )}
 
