@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent } from '@/components/ui/card'
-import { formatCurrency, formatDate, formatDateRange } from '@/lib/dates'
+import { formatCurrency, formatDate, formatDateRange, todayNY } from '@/lib/dates'
 import { AddTransactionDialog } from '@/components/hysa/AddTransactionDialog'
 import { ReconcileForm } from '@/components/hysa/ReconcileForm'
 import { TrendingUp, TrendingDown, PiggyBank } from 'lucide-react'
@@ -81,7 +81,7 @@ export default async function HYSAPage() {
   const expectedBalance = withBalance[withBalance.length - 1]?.runningBalance ?? 0
 
   // YTD stats
-  const currentYear = new Date().getFullYear()
+  const currentYear = Number(todayNY().slice(0, 4))
   const ytdTxs = txs.filter(tx => tx.effective_date.startsWith(String(currentYear)))
   const ytdDeposits = ytdTxs.filter(tx => Number(tx.amount) > 0).reduce((s, tx) => s + Number(tx.amount), 0)
   const ytdWithdrawals = ytdTxs.filter(tx => Number(tx.amount) < 0).reduce((s, tx) => s + Number(tx.amount), 0)
