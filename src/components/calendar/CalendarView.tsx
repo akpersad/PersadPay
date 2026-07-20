@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, PiggyBank } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { formatDateRange, formatCurrency } from '@/lib/dates'
+import { addDays, formatDateRange, formatCurrency } from '@/lib/dates'
 import { cn } from '@/lib/utils'
 
 export interface CalendarStub {
@@ -59,11 +59,11 @@ export function CalendarView({ stubs, year, month }: Props) {
   // Map each calendar date to its stub (for days within a pay period).
   const dateToStub = new Map<string, CalendarStub>()
   for (const stub of stubs) {
-    const cur = new Date(stub.pay_period_start + 'T12:00:00')
-    const end = new Date(stub.pay_period_end + 'T12:00:00')
-    while (cur <= end) {
-      dateToStub.set(cur.toISOString().slice(0, 10), stub)
-      cur.setDate(cur.getDate() + 1)
+    // Iterate on date strings — Date round-trips shift a day in far-east timezones.
+    let cur = stub.pay_period_start
+    while (cur <= stub.pay_period_end) {
+      dateToStub.set(cur, stub)
+      cur = addDays(cur, 1)
     }
   }
 

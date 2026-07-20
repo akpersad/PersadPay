@@ -69,17 +69,28 @@ export function formatCurrency(amount: number): string {
 // Federal holidays observed by IRS / NY DTF / SSA when shifting deadlines.
 // Dates in YYYY-MM-DD form. Federal-observed dates only — both agencies use
 // the federal calendar for filing-deadline next-business-day rules. List
-// covers 2025–2027 to safely cover all paths the user might browse.
+// covers 2025–2028; extend a year ahead each December when verifying tax rates.
+//
+// DC Emancipation Day (April 16, observed per DC rules) is included because
+// IRC § 7503 treats legal holidays in the District of Columbia as holidays
+// for federal filing deadlines — it's what pushes Tax Day past Apr 15 in
+// years like 2028 (Apr 15 Sat → Mon Apr 17 is observed Emancipation Day →
+// deadline Tue Apr 18).
 const FEDERAL_HOLIDAYS = new Set<string>([
   // 2025
-  '2025-01-01', '2025-01-20', '2025-02-17', '2025-05-26', '2025-06-19',
+  '2025-01-01', '2025-01-20', '2025-02-17', '2025-04-16', '2025-05-26', '2025-06-19',
   '2025-07-04', '2025-09-01', '2025-10-13', '2025-11-11', '2025-11-27', '2025-12-25',
   // 2026
-  '2026-01-01', '2026-01-19', '2026-02-16', '2026-05-25', '2026-06-19',
+  '2026-01-01', '2026-01-19', '2026-02-16', '2026-04-16', '2026-05-25', '2026-06-19',
   '2026-07-03', '2026-09-07', '2026-10-12', '2026-11-11', '2026-11-26', '2026-12-25',
   // 2027
-  '2027-01-01', '2027-01-18', '2027-02-15', '2027-05-31', '2027-06-18',
+  '2027-01-01', '2027-01-18', '2027-02-15', '2027-04-16', '2027-05-31', '2027-06-18',
   '2027-07-05', '2027-09-06', '2027-10-11', '2027-11-11', '2027-11-25', '2027-12-24',
+  // 2028 (New Year's Day 2028 falls on Saturday, observed Fri 2027-12-31;
+  // Emancipation Day Apr 16 falls on Sunday, observed Mon Apr 17;
+  // Veterans Day falls on Saturday, observed Fri Nov 10)
+  '2027-12-31', '2028-01-17', '2028-02-21', '2028-04-17', '2028-05-29', '2028-06-19',
+  '2028-07-04', '2028-09-04', '2028-10-09', '2028-11-10', '2028-11-23', '2028-12-25',
 ])
 
 /**

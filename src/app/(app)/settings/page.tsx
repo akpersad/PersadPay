@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { todayNY } from '@/lib/dates'
 import { SettingsForm } from '@/components/settings/SettingsForm'
 import { TaxRatesPanel } from '@/components/settings/TaxRatesPanel'
 import { PushNotificationsToggle } from '@/components/settings/PushNotificationsToggle'
@@ -33,7 +34,7 @@ export default async function SettingsPage() {
     )
   }
 
-  const currentYear = new Date().getFullYear()
+  const currentYear = Number(todayNY().slice(0, 4))
 
   const [{ data: settings }, taxRates, { data: allProfiles }] = await Promise.all([
     supabase.from('settings').select('*').single<Settings>(),

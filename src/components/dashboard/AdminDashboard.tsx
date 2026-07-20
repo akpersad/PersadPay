@@ -8,7 +8,7 @@ import { OnboardingChecklist } from './OnboardingChecklist'
 import { YearEndChecklist } from './YearEndChecklist'
 import { UpcomingDeadlines } from './UpcomingDeadlines'
 import { NextFilingCard } from './NextFilingCard'
-import { formatDateRange, formatCurrency, daysUntil } from '@/lib/dates'
+import { formatDate, formatDateRange, formatCurrency, daysUntil, todayNY, addDays, shiftedDeadline } from '@/lib/dates'
 import { getCurrentQuarter, getQuarterDateRange, getQuarterDueDate, previousQuarter } from '@/lib/filings'
 import { PlusCircle, CheckCircle2, AlertCircle, PiggyBank, AlertTriangle, TrendingUp } from 'lucide-react'
 import { computeCoverageWatch } from '@/lib/coverage'
@@ -16,7 +16,7 @@ import type { Paystub, Reminder, OnboardingItem, YearEndItem, Filing, Settings }
 
 // Fixed items seeded per tax year — label + detail only (id/year added at insert time).
 const YEAR_END_ITEMS = [
-  { label: 'Confirm all pay stubs for the year are generated', detail: 'Ensure every week worked has a stub — no gaps in the stubs list.' },
+  { label: 'Confirm all pay stubs for the year are generated', detail: 'Ensure every week worked has a stub. No gaps in the stubs list.' },
   { label: 'Verify HYSA balance covers all Q4 taxes', detail: 'Check the HYSA ledger against Q4 tax obligations before filing.' },
   { label: 'File NYS-45 Q4 (due Jan 31)', detail: 'File at nystax.gov. Pay UI tax + state withholding. See Reminders.' },
   { label: 'Generate and send W-2 to employee (due Jan 31)', detail: 'Generate from the W-2 tab, then email to employee.' },
@@ -31,12 +31,15 @@ export async function AdminDashboard() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
-  const now = new Date()
-  const yearStart = `${now.getFullYear()}-01-01`
-  const ninetyDaysOut = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000)
-    .toLocaleDateString('en-CA')
+  // All "today"-derived values use the NY calendar date — the UTC clock is
+  // already on tomorrow from ~8 PM NY, which shifted years/quarters early.
+  const today = todayNY()
+  const nyYear = Number(today.slice(0, 4))
+  const yearStart = `${nyYear}-01-01`
+  const yearEnd = `${nyYear}-12-31`
+  const ninetyDaysOut = addDays(today, 90)
 
-  const { year: currentYear, quarter: currentQuarter } = getCurrentQuarter(now)
+  const { year: currentYear, quarter: currentQuarter } = getCurrentQuarter(today)
   const currentQuarterRange = getQuarterDateRange(currentYear, currentQuarter)
   const prevQ = previousQuarter(currentYear, currentQuarter)
   const prevQuarterRange = getQuarterDateRange(prevQ.year, prevQ.quarter)
@@ -53,11 +56,13 @@ export async function AdminDashboard() {
     { data: coverageStubs },
     { data: hysaTxAmounts },
     { data: hysaSettings },
+    { data: nearestReminder },
   ] = await Promise.all([
     supabase
       .from('paystubs')
       .select('gross_pay, employer_fica_ss, employer_fica_medicare, futa, suta')
-      .gte('pay_date', yearStart),
+      .gte('pay_date', yearStart)
+      .lte('pay_date', yearEnd),
     supabase
       .from('paystubs')
       .select('id, stub_number, pay_period_start, pay_period_end, gross_pay, payment_sent, stub_sent, hysa_transferred')
@@ -98,22 +103,27 @@ export async function AdminDashboard() {
       .eq('quarter', prevQ.quarter)
       .maybeSingle<Filing>(),
     // Last 52 weeks of stubs for the DBL/PFL coverage threshold watch.
-    (() => {
-      const cutoff = new Date(now)
-      cutoff.setDate(cutoff.getDate() - 52 * 7)
-      return supabase
-        .from('paystubs')
-        .select('pay_date, hours_worked')
-        .gte('pay_date', cutoff.toISOString().slice(0, 10))
-    })(),
+    supabase
+      .from('paystubs')
+      .select('pay_date, hours_worked')
+      .gte('pay_date', addDays(today, -52 * 7)),
     supabase.from('hysa_transactions').select('amount'),
     supabase.from('settings').select('hysa_actual_balance, hysa_actual_balance_at').single<Pick<Settings, 'hysa_actual_balance' | 'hysa_actual_balance_at'>>(),
+    // Nearest reminder for the Next Due stat card — uncapped, unlike the
+    // 90-day pending-reminders list below it.
+    supabase
+      .from('reminders')
+      .select('due_date')
+      .eq('dismissed', false)
+      .order('due_date', { ascending: true })
+      .limit(1)
+      .maybeSingle<Pick<Reminder, 'due_date'>>(),
   ])
 
   // Year-end checklist: show in December (filing year) and January (prior year).
-  const currentMonth = now.getMonth() // 0-11
-  const isYearEndPeriod = currentMonth === 11 || currentMonth === 0
-  const yearEndTaxYear = currentMonth === 0 ? now.getFullYear() - 1 : now.getFullYear()
+  const currentMonth = Number(today.slice(5, 7)) // 1-12
+  const isYearEndPeriod = currentMonth === 12 || currentMonth === 1
+  const yearEndTaxYear = currentMonth === 1 ? nyYear - 1 : nyYear
 
   let yearEndItems: YearEndItem[] = []
   if (isYearEndPeriod) {
@@ -145,7 +155,7 @@ export async function AdminDashboard() {
 
   const allYearEndDone = yearEndItems.every(i => i.completed)
 
-  const coverage = computeCoverageWatch((coverageStubs ?? []) as Paystub[], now)
+  const coverage = computeCoverageWatch((coverageStubs ?? []) as Paystub[], today)
 
   const ytdGross = (ytdStubs ?? []).reduce((sum, s) => sum + Number(s.gross_pay), 0)
   const ytdEmployerCost = (ytdStubs ?? []).reduce(
@@ -168,7 +178,11 @@ export async function AdminDashboard() {
   const hysaDiscrepancy = hysaActualBalance !== null
     ? Math.round((hysaActualBalance - hysaExpectedBalance) * 100) / 100
     : null
-  const nextReminder = (reminders ?? []).find(r => !r.dismissed)
+  // Weekend/holiday statutory dates shift to the next business day, and a
+  // filing is only overdue the day AFTER the (shifted) deadline.
+  const nextDueDays = nearestReminder
+    ? daysUntil(shiftedDeadline(nearestReminder.due_date).effective)
+    : null
   const checklistItems = (checklist ?? []) as OnboardingItem[]
   const allDone = checklistItems.every(i => i.completed)
 
@@ -250,11 +264,13 @@ export async function AdminDashboard() {
         <Card>
           <CardContent className="pt-4 pb-3 px-3">
             <p className="text-xs text-muted-foreground">Next Due</p>
-            {nextReminder ? (
+            {nextDueDays !== null ? (
               <p className="text-sm font-semibold mt-0.5 leading-tight">
-                {daysUntil(nextReminder.due_date) <= 0
+                {nextDueDays < 0
                   ? 'Overdue'
-                  : `${daysUntil(nextReminder.due_date)}d`}
+                  : nextDueDays === 0
+                    ? 'Today'
+                    : `${nextDueDays}d`}
               </p>
             ) : (
               <p className="text-sm text-muted-foreground mt-0.5">None</p>
@@ -291,7 +307,9 @@ export async function AdminDashboard() {
                 <p className="text-sm font-medium">HYSA Balance</p>
                 {hysaActualBalanceAt && (
                   <p className="text-xs text-muted-foreground">
-                    Reconciled {new Date(hysaActualBalanceAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' })}
+                    {/* Stored as a date the admin picked, not a moment in time —
+                        render the date portion directly (matches /hysa). */}
+                    Reconciled {formatDate(hysaActualBalanceAt.slice(0, 10))}
                   </p>
                 )}
                 {!hysaActualBalanceAt && (

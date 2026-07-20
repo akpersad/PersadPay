@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { todayNY } from '@/lib/dates'
 import { CalendarView } from '@/components/calendar/CalendarView'
 import type { CalendarStub } from '@/components/calendar/CalendarView'
 import type { Profile } from '@/lib/types'
@@ -23,8 +24,7 @@ export default async function CalendarPage({
   if (profile?.role !== 'admin') redirect('/dashboard')
 
   const { month } = await searchParams
-  const now = new Date()
-  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const defaultMonth = todayNY().slice(0, 7)
   const monthParam = month ?? defaultMonth
 
   const parts = monthParam.split('-')

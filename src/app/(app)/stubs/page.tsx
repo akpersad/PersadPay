@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { formatDateRange, formatCurrency } from '@/lib/dates'
+import { formatDateRange, formatCurrency, todayNY } from '@/lib/dates'
 import { CheckCircle2, AlertCircle, PlusCircle, PiggyBank, CalendarDays, FileText } from 'lucide-react'
 import { ExportCsvButton } from '@/components/stubs/ExportCsvButton'
 import { StubYearFilter } from '@/components/stubs/StubYearFilter'
@@ -37,7 +37,7 @@ export default async function StubsPage({ searchParams }: Props) {
 
   const { data: stubs } = await query
 
-  const currentYear = new Date().getFullYear()
+  const currentYear = Number(todayNY().slice(0, 4))
   const selectedYear = year ?? String(currentYear)
 
   // Derive available years from all fetched stubs

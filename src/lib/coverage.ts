@@ -1,4 +1,5 @@
 import type { Paystub } from './types'
+import { addDays, todayNY } from './dates'
 
 // NY DBL + PFL coverage threshold per WCB rule
 // (https://www.wcb.ny.gov/content/main/coverage-requirements-db/household-employers.jsp):
@@ -32,11 +33,9 @@ export interface CoverageWatch {
   message: string
 }
 
-export function computeCoverageWatch(stubs: Paystub[], today: Date = new Date()): CoverageWatch {
+export function computeCoverageWatch(stubs: Paystub[], todayStr: string = todayNY()): CoverageWatch {
   // Window 1: last 26 weeks for hours-per-week average.
-  const week26Cutoff = new Date(today)
-  week26Cutoff.setDate(week26Cutoff.getDate() - 26 * 7)
-  const cutoff26 = week26Cutoff.toISOString().slice(0, 10)
+  const cutoff26 = addDays(todayStr, -26 * 7)
   const last26 = stubs.filter(s => s.pay_date >= cutoff26)
   const totalHrs = last26.reduce((sum, s) => sum + Number(s.hours_worked), 0)
   const avgHrs = last26.length > 0 ? totalHrs / 26 : 0
@@ -46,9 +45,7 @@ export function computeCoverageWatch(stubs: Paystub[], today: Date = new Date())
   // hours. For legacy stubs (daily_hours = null), fall back to counting the
   // stub itself as 1 day worked — conservative undercount that errs on the
   // safe side (if proxy reaches 175 stubs, real days-worked is ≥ 175).
-  const week52Cutoff = new Date(today)
-  week52Cutoff.setDate(week52Cutoff.getDate() - 52 * 7)
-  const cutoff52 = week52Cutoff.toISOString().slice(0, 10)
+  const cutoff52 = addDays(todayStr, -52 * 7)
   const last52WithHours = stubs.filter(s => s.pay_date >= cutoff52 && Number(s.hours_worked) > 0)
   let exactDays = 0
   let proxyDays = 0
