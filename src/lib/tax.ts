@@ -62,13 +62,23 @@ function taxableWagePortion(ytdBefore: number, current: number, cap: number): nu
   return Math.min(current, cap - ytdBefore)
 }
 
-// IEEE-754 safe rounding: adding EPSILON prevents 1.005 → 1.00 (banker's rounding artifact)
-function round(n: number): number {
-  return Math.sign(n) * Math.round(Math.abs(n) * 100 + Number.EPSILON) / 100
+// Round to cents, half-up on exact ties. Scaling by 100 introduces a one-ULP
+// float error (1.005 * 100 === 100.49999999999999), which EPSILON added after
+// scaling could not repair (one ULP there is ~1.4e-14 vs EPSILON 2.2e-16).
+// Snapping the scaled value to 13 significant digits absorbs the ULP without
+// masking real sub-cent differences at payroll magnitudes.
+export function roundToCents(n: number): number {
+  return Math.sign(n) * Math.round(parseFloat((Math.abs(n) * 100).toPrecision(13))) / 100
 }
 
+const round = roundToCents
+
 export function calculateTaxes(inputs: TaxInputs, rates: TaxRates): TaxResult {
-  const { gross, ytdGrossBefore, ytdPflBefore, federalWithholding, stateWithholding, dblCovered, pflCovered, sutaRate } = inputs
+  const { ytdGrossBefore, ytdPflBefore, federalWithholding, stateWithholding, dblCovered, pflCovered, sutaRate } = inputs
+  // Round gross to cents before anything else — hour × rate combinations can
+  // produce half-cent grosses, and storing one breaks gross − deductions =
+  // net by a cent on the rendered stub.
+  const gross = round(inputs.gross)
 
   if (gross === 0) {
     return {
