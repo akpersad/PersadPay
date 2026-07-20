@@ -54,7 +54,29 @@ describe('rollForwardReminder', () => {
     expect(next.email_sent).toBe(false)
   })
 
-  it('carries the description through verbatim', () => {
+  it('carries a year-free description through verbatim', () => {
     expect(roll('NYS-45 Q3 2026', '2026-10-31').description).toBe('desc')
+  })
+
+  it('bumps every year token in the description', () => {
+    const next = rollForwardReminder({
+      title: 'Schedule H 2025',
+      due_date: '2026-04-15',
+      description: 'Covers household employment taxes for wages paid in 2025. File by Apr 15, 2026.',
+    })
+    expect(next.description).toBe(
+      'Covers household employment taxes for wages paid in 2026. File by Apr 15, 2027.'
+    )
+  })
+
+  it('leaves non-year numbers in the description untouched', () => {
+    const next = rollForwardReminder({
+      title: 'W-2 / W-3 to employee + SSA 2026',
+      due_date: '2027-01-31',
+      description: 'File via Business Services Online (https://www.ssa.gov/bso/bsowelcome.htm) by Jan 31, 2027. Late penalty $60 per form.',
+    })
+    expect(next.description).toBe(
+      'File via Business Services Online (https://www.ssa.gov/bso/bsowelcome.htm) by Jan 31, 2028. Late penalty $60 per form.'
+    )
   })
 })
