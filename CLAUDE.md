@@ -104,7 +104,7 @@ Steps 6 and 7 are independent actions. The UI must disable "Email Paystub" until
 | Column | Type | Notes |
 |---|---|---|
 | id | uuid | Primary key |
-| stub_number | integer | Assigned atomically by DB trigger (MAX+1 under exclusive lock). UNIQUE constraint. Never recalculates gaps. |
+| stub_number | integer | Assigned atomically by DB trigger from a forward-only sequence (high-water counter). UNIQUE constraint. Numbers are never reused, even when the newest stub is deleted. |
 | employee_id | uuid | References profiles |
 | pay_period_start | date | |
 | pay_period_end | date | |
@@ -127,7 +127,7 @@ Steps 6 and 7 are independent actions. The UI must disable "Email Paystub" until
 | employer_fica_medicare | numeric | Employer only — 1.45% of gross |
 | futa | numeric | Employer only — 0.6% of gross up to $7,000 annual wage base |
 | suta | numeric | Employer only — suta_rate_at_generation × gross up to $17,600 annual wage base |
-| net_pay | numeric | gross minus all employee-side deductions; always $0.00 on zero-hour stubs |
+| net_pay | numeric | gross minus all employee-side deductions, plus non-taxable reimbursements (accountable plan); always $0.00 on zero-hour stubs with no reimbursements. The stub PDF footer shows a Reimbursements cell whenever they are present so gross − deductions + reimbursements = net reads on its face. |
 | payment_sent | boolean | Default false. True when admin marks payment sent. |
 | zelle_transaction_id | text | Free text. Admin only. Nullable. |
 | stub_sent | boolean | Default false. True when admin clicks Email Paystub. |
@@ -158,7 +158,7 @@ Single-row table. Only one record ever exists.
 | state_withholding_per_period | numeric | Voluntary flat dollar from her IT-2104. Default $0. |
 | dbl_covered | boolean | NY DBL (SDI) coverage. Default false — only true if she works 20+ hrs/wk. |
 | pfl_covered | boolean | NY PFL coverage. Default false — only true if she works 20+ hrs/wk or 175+ days/52 wks. |
-| suta_rate | numeric | From annual NY UI rate notice. Default: 0.041. Update each January. |
+| suta_rate | numeric | Base UI rate from the annual NY UI rate notice, EXCLUDING the 0.075% RSF surcharge (RSF is computed separately from tax_rates.rsf_rate on the NYS-45). Update each January/February when the rate notice arrives. |
 | additional_emails | text[] | Extra stub delivery recipients. Each gets a separate email. |
 | reply_to_emails | text[] | Admin personal email(s) set as reply-to on all outbound emails |
 | reminder_emails | text[] | Recipients for filing reminder emails. Pre-seeded with Persad.household@gmail.com. |
@@ -390,7 +390,7 @@ Mobile-first. Scannable. Primary use case: admin just paid the babysitter and wa
 
 4. **Recent stubs** — last 5 stubs as a list. Each row shows: stub number, pay period, gross pay, and status indicators for payment sent and stub emailed. Tapping a row navigates to `/stubs/[id]`.
 
-5. **Pending reminders** — reminders due within the next 60 days, shown as a card list with title, due date, and days remaining. This surfaces urgency beyond the badge count. Links to `/reminders` for the full list.
+5. **Pending reminders** — reminders due within the next 90 days (deliberately widened from 60 in PR #11), shown as a card list with title, due date, and days remaining. This surfaces urgency beyond the badge count. Links to `/reminders` for the full list. The Next Due stat card fetches the nearest reminder without the 90-day cap.
 
 Nothing else. No charts, no extra widgets.
 
@@ -457,9 +457,9 @@ Dashboard shows badge with pending reminder count.
 
 ## Stub Numbering
 
-`stub_number` is assigned by a Postgres `BEFORE INSERT` trigger (`paystubs_assign_stub_number`) that acquires an exclusive table lock and computes `MAX(stub_number) + 1` atomically. Any value the client sends is overwritten. A `UNIQUE` constraint enforces no duplicates even under concurrent inserts.
+`stub_number` is assigned by a Postgres `BEFORE INSERT` trigger (`paystubs_assign_stub_number`) that pulls from the forward-only sequence `paystubs_stub_number_seq` (migration 0039). The sequence is a high-water counter: deleting the newest stub does not free its number. Any value the client sends is overwritten. A `UNIQUE` constraint enforces no duplicates even under concurrent inserts.
 
-Gaps from deletions are never backfilled. The trigger always increments from the current MAX regardless of gaps.
+Gaps from deletions are never backfilled. The sequence only moves forward, so gaps are permanent regardless of where the deletion happened.
 
 ---
 
