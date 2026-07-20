@@ -111,7 +111,7 @@ export function SettingsForm({ settings: initial }: Props) {
       <Section title="Employee">
         <Field label="Full Name (used on pay stubs)" value={employeeName} onChange={setEmployeeName} onBlur={() => setEmployeeName(employeeName.trim())} />
         <div className="space-y-1.5">
-          <p className="text-xs font-medium">Name for W-2 (Boxes e — first, MI, last)</p>
+          <p className="text-xs font-medium">Name for W-2 (Boxes e: first, MI, last)</p>
           <div className="grid grid-cols-3 gap-2">
             <div className="space-y-1.5">
               <Label className="text-xs">First</Label>
@@ -151,19 +151,19 @@ export function SettingsForm({ settings: initial }: Props) {
             <Label>NY State Withholding per Period ($)</Label>
             <CurrencyInput value={stateWithholding} onChange={setStateWithholding} />
           </div>
-          <p className="text-xs text-muted-foreground">NY state income tax withholding is <strong>voluntary</strong> for household employees. Default $0. Only set a value after she has signed Form IT-2104. (Source: NY DTF — Hiring Household Help)</p>
+          <p className="text-xs text-muted-foreground">NY state income tax withholding is <strong>voluntary</strong> for household employees. Default $0. Only set a value after she has signed Form IT-2104. (Source: NY DTF, Hiring Household Help)</p>
         </div>
         <div className="flex items-center justify-between py-1">
           <div>
             <Label>NY Paid Family Leave (PFL) coverage</Label>
-            <p className="text-xs text-muted-foreground mt-0.5">PFL covers domestic workers at 20+ hrs/wk OR reaching 175 days/52 wks. Default off — turn on only if she crosses either threshold (a separate PFL policy is then also required).</p>
+            <p className="text-xs text-muted-foreground mt-0.5">PFL covers domestic workers at 20+ hrs/wk OR reaching 175 days/52 wks. Default off. Turn on only if she crosses either threshold (a separate PFL policy is then also required).</p>
           </div>
           <Switch checked={pflCovered} onCheckedChange={setPflCovered} />
         </div>
         <div className="flex items-center justify-between py-1">
           <div>
             <Label>NY State Disability (DBL) coverage</Label>
-            <p className="text-xs text-muted-foreground mt-0.5">NY DBL covers domestic workers at 20+ hrs/wk in a private home. Default off — turn on only if she crosses that threshold (a DBL insurance policy is then also required; contact NYSIF or a private carrier).</p>
+            <p className="text-xs text-muted-foreground mt-0.5">NY DBL covers domestic workers at 20+ hrs/wk in a private home. Default off. Turn on only if she crosses that threshold (a DBL insurance policy is then also required; contact NYSIF or a private carrier).</p>
           </div>
           <Switch checked={dblCovered} onCheckedChange={setDblCovered} />
         </div>

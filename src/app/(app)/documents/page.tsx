@@ -33,7 +33,7 @@ const DOCS: DocSpec[] = [
   {
     type: 'i9',
     title: 'USCIS Form I-9 (Employment Eligibility Verification)',
-    description: 'Required for every U.S. employee. Section 1: employee fills on/before first day. Section 2: employer fills within 3 business days after examining ID. Do NOT mail — retain in your files. Keep 3 years from hire or 1 year after termination, whichever is later.',
+    description: 'Required for every U.S. employee. Section 1: employee fills on/before first day. Section 2: employer fills within 3 business days after examining ID. Do NOT mail. Retain in your files. Keep 3 years from hire or 1 year after termination, whichever is later.',
     externalHref: 'https://www.uscis.gov/i-9',
     externalLabel: 'USCIS I-9 page',
   },
@@ -103,13 +103,13 @@ const DOCS: DocSpec[] = [
   {
     type: 'sick_leave_policy',
     title: 'Sick Leave Policy',
-    description: 'Unlimited unpaid sick leave — exceeds NY § 196-b small-employer floor. Print, sign, retain.',
+    description: 'Unlimited unpaid sick leave. Exceeds NY § 196-b small-employer floor. Print, sign, retain.',
     inAppHref: '/documents/sick-leave-policy',
   },
   {
     type: 'sick_leave_summary',
     title: 'Sick Leave Summary',
-    description: 'Generated on-demand when Melina requests it — NY § 196-b(4) requires you to respond within 3 business days. Each upload is kept as a separate record so you have a history of every copy provided.',
+    description: 'Generated on-demand when Melina requests it. NY § 196-b(4) requires you to respond within 3 business days. Each upload is kept as a separate record so you have a history of every copy provided.',
     inAppHref: '/documents/sick-leave-summary',
     requiresSignature: false,
     multi: true,
@@ -179,7 +179,7 @@ export default async function DocumentsPage() {
       <div>
         <h1 className="text-lg font-semibold">Documents</h1>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Reference forms, in-app policies, and signed-copy uploads. Originals belong in your fire-safe — these are a redundancy backup.
+          Reference forms, in-app policies, and signed-copy uploads. Originals belong in your fire-safe. These are a redundancy backup.
         </p>
       </div>
 

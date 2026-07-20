@@ -130,7 +130,7 @@ export default function EnrollMfaPage() {
               {secret && (
                 <div className="space-y-1.5">
                   <CardDescription className="text-xs">
-                    <span className="md:hidden">Setup key — copy into your authenticator app:</span>
+                    <span className="md:hidden">Setup key. Copy it into your authenticator app:</span>
                     <span className="hidden md:inline">Can&apos;t scan? Enter this key manually:</span>
                   </CardDescription>
                   <div className="flex items-center gap-2">

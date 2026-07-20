@@ -54,7 +54,7 @@ async function sendAll(payloads: Parameters<typeof resend.emails.send>[0][]): Pr
     .filter(Boolean) as string[]
 
   if (failedAdditional.length) {
-    console.warn('[resend] partial failure — primary sent but some additional recipients failed:', failedAdditional)
+    console.warn('[resend] partial failure: primary sent but some additional recipients failed:', failedAdditional)
   }
 
   return {

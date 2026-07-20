@@ -163,7 +163,7 @@ function W4Card({ existing, settings, expectedGross, userId }: CardProps) {
 
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1">
-            <Label>Step 2(c) — Multiple jobs</Label>
+            <Label>Step 2(c): Multiple jobs</Label>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               On if she has more than one job AND box 2(c) is checked on her W-4.
             </p>

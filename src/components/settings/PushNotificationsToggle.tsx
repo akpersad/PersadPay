@@ -87,7 +87,7 @@ export function PushNotificationsToggle() {
               <Label className="text-sm">Enable on this device</Label>
               <p className="text-[11px] text-muted-foreground mt-0.5">
                 Stub-ready Friday nudges, payment-not-sent reminders after 24h, and filing
-                deadline alerts. Each device subscribes independently — toggle on every phone
+                deadline alerts. Each device subscribes independently. Toggle on every phone
                 and laptop you want notified.
               </p>
             </div>

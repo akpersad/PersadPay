@@ -29,7 +29,7 @@ export function TaxRatesPanel({ rates, requestedYear }: Props) {
     <Card>
       <CardHeader className="pb-2 pt-4">
         <CardTitle className="text-sm flex items-center justify-between">
-          <span>Tax Rates — {rates.effective_year}</span>
+          <span>Tax Rates: {rates.effective_year}</span>
           {fallback && (
             <span className="text-[10px] uppercase tracking-wide font-normal text-yellow-700">
               Fallback
@@ -44,8 +44,8 @@ export function TaxRatesPanel({ rates, requestedYear }: Props) {
             rates are added.
           </p>
         )}
-        <Row label="FICA — Social Security" value={`${pct(rates.fica_ss_rate)} (employee + employer)`} />
-        <Row label="FICA — Medicare" value={`${pct(rates.fica_medicare_rate)} (employee + employer)`} />
+        <Row label="FICA - Social Security" value={`${pct(rates.fica_ss_rate)} (employee + employer)`} />
+        <Row label="FICA - Medicare" value={`${pct(rates.fica_medicare_rate)} (employee + employer)`} />
         <Row label="SS wage base" value={dollars(rates.ss_wage_base)} />
         <Row label="FUTA rate" value={pct(rates.futa_rate)} />
         <Row label="FUTA wage base" value={dollars(rates.futa_wage_base)} />
@@ -54,8 +54,8 @@ export function TaxRatesPanel({ rates, requestedYear }: Props) {
         <Row label="NY PFL rate" value={`${pct(rates.pfl_rate)} (annual cap ${money(rates.pfl_annual_cap)})`} />
         <Row label="IRS standard mileage" value={`${money(rates.irs_mileage_rate)} / mi`} />
         <p className="text-[11px] text-muted-foreground pt-2 leading-relaxed">
-          Read-only. To change rates, add or update a row in the tax_rates table via migration —
-          never edit values inline. Re-verify each January from primary sources.
+          Read-only. To change rates, add or update a row in the tax_rates table via migration.
+          Never edit values inline. Re-verify each January from primary sources.
         </p>
       </CardContent>
     </Card>
