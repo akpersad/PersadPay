@@ -13,10 +13,13 @@ export async function EmployeeDashboard() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
+  // "Most recent" means latest pay date, not highest stub number — a
+  // backfilled earlier week gets the highest number but isn't the latest pay.
   const { data: latestStub } = await supabase
     .from('paystubs')
     .select('*')
     .eq('employee_id', user.id)
+    .order('pay_date', { ascending: false })
     .order('stub_number', { ascending: false })
     .limit(1)
     .maybeSingle<Paystub>()

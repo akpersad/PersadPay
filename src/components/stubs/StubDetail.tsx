@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
-import { formatDate, formatDateRange, formatCurrency } from '@/lib/dates'
+import { formatDate, formatDateRange, formatCurrency, formatNYDate } from '@/lib/dates'
 import { toast } from 'sonner'
 import { Download, Mail, Trash2, CheckCircle2, Pencil, Copy, PiggyBank } from 'lucide-react'
 import { PdfPreviewDialog } from '@/components/ui/pdf-preview-dialog'
@@ -50,9 +50,9 @@ export function StubDetail({ stub, role, userId, lineItems = [], ytdByLineType =
   const overtimePay = overtimeHours * hourlyRate * 1.5
   const reasonLabels: Record<string, string> = {
     week_off: 'Week off',
-    sick_unpaid: 'Sick — unpaid',
-    vacation_unpaid: 'Vacation — unpaid',
-    holiday_unpaid: 'Holiday — unpaid',
+    sick_unpaid: 'Sick (unpaid)',
+    vacation_unpaid: 'Vacation (unpaid)',
+    holiday_unpaid: 'Holiday (unpaid)',
     other: 'Other',
   }
   const router = useRouter()
@@ -252,7 +252,7 @@ export function StubDetail({ stub, role, userId, lineItems = [], ytdByLineType =
           {stub.hours_worked === 0 && taxableLineItems.length === 0 ? (
             <>
               <div className="grid grid-cols-3 text-sm">
-                <span>No Hours{stub.reason ? ` — ${reasonLabels[stub.reason] ?? stub.reason}` : ''}</span>
+                <span>No Hours{stub.reason ? ` (${reasonLabels[stub.reason] ?? stub.reason})` : ''}</span>
                 <span className="text-right">{formatCurrency(0)}</span>
                 <span className="text-right">{formatCurrency(stub.ytd_gross)}</span>
               </div>
@@ -441,7 +441,10 @@ export function StubDetail({ stub, role, userId, lineItems = [], ytdByLineType =
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-medium flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5" />
-                    Moved {stub.hysa_transferred_at ? `on ${formatDate(stub.hysa_transferred_at.slice(0, 10))}` : ''}
+                    {/* hysa_transferred_at is a real timestamp — convert to NY
+                        rather than slicing the UTC date, which showed evening
+                        transfers a day late */}
+                    Moved {stub.hysa_transferred_at ? `on ${formatNYDate(stub.hysa_transferred_at)}` : ''}
                   </p>
                   <button
                     onClick={() => setUnmarkHysaDialog(true)}
@@ -454,7 +457,7 @@ export function StubDetail({ stub, role, userId, lineItems = [], ytdByLineType =
               </div>
             ) : !stub.stub_sent ? (
               <p className="text-[11px] text-muted-foreground">
-                Email the stub first — the HYSA transfer step unlocks once the babysitter has the paystub.
+                Email the stub first. The HYSA transfer step unlocks once the babysitter has the paystub.
               </p>
             ) : (
               <p className="text-[11px] text-muted-foreground">
@@ -475,7 +478,7 @@ export function StubDetail({ stub, role, userId, lineItems = [], ytdByLineType =
         <div className="flex gap-2">
           <PdfPreviewDialog
             url={`/api/pdf/stub?id=${stub.id}&variant=${isAdmin ? 'admin' : 'employee'}`}
-            title={`Stub #${stub.stub_number} — ${isAdmin ? 'Admin' : 'Employee'} copy`}
+            title={`Stub #${stub.stub_number}: ${isAdmin ? 'Admin' : 'Employee'} copy`}
             className="flex-1"
           />
           <Button variant="outline" className="flex-1" onClick={downloadPDF}>
@@ -549,7 +552,7 @@ export function StubDetail({ stub, role, userId, lineItems = [], ytdByLineType =
                   <Trash2 className="h-3.5 w-3.5" />
                   Cannot delete this stub
                 </p>
-                <p>Payment has been sent. This stub is a legal payroll record and cannot be deleted (NY § 195(3) — 6-year retention).</p>
+                <p>Payment has been sent. This stub is a legal payroll record and cannot be deleted (NY § 195(3), 6-year retention).</p>
               </div>
             ) : (
               <Button
