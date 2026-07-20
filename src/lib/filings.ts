@@ -1,6 +1,7 @@
 import type { Paystub } from './types'
 import type { TaxRates } from './tax'
-import { addDays } from './dates'
+import { roundToCents } from './tax'
+import { addDays, todayNY } from './dates'
 
 export type Quarter = 1 | 2 | 3 | 4
 
@@ -65,10 +66,11 @@ export function getFederalEstimatedTaxPeriodMonths(quarter: Quarter): number {
   return 3
 }
 
-export function getCurrentQuarter(date: Date = new Date()): { year: number; quarter: Quarter } {
-  const year = date.getFullYear()
-  const quarter = Math.ceil((date.getMonth() + 1) / 3) as Quarter
-  return { year, quarter }
+// Takes a YYYY-MM-DD string (NY calendar date) rather than a Date so server
+// code near a day boundary can't drift into UTC's tomorrow.
+export function getCurrentQuarter(dateStr: string = todayNY()): { year: number; quarter: Quarter } {
+  const [year, month] = dateStr.split('-').map(Number)
+  return { year, quarter: Math.ceil(month / 3) as Quarter }
 }
 
 // The quarter before the given one, wrapping Q1 into the prior year's Q4.
@@ -80,9 +82,8 @@ export function previousQuarter(year: number, quarter: Quarter): { year: number;
     : { year, quarter: (quarter - 1) as Quarter }
 }
 
-function round(n: number): number {
-  return Math.round(n * 100) / 100
-}
+// Shared cents rounding — see roundToCents in tax.ts for the tie-handling notes.
+const round = roundToCents
 
 export interface NYS45Data {
   year: number
@@ -274,6 +275,23 @@ export function calculateFederalEstimatedTax(
   }
 }
 
+// True when any calendar quarter's cash wages meet the FUTA quarterly
+// threshold. Run over PRIOR-year stubs to build the priorYearFutaThresholdMet
+// argument of calculateScheduleH — IRS Pub 926 checks current AND prior year,
+// and omitting the prior-year side understates FUTA.
+export function anyQuarterMeetsFutaThreshold(
+  stubs: Pick<Paystub, 'pay_date' | 'gross_pay'>[],
+  futaQuarterlyThreshold: number,
+): boolean {
+  const quarterTotals: Record<Quarter, number> = { 1: 0, 2: 0, 3: 0, 4: 0 }
+  for (const stub of stubs) {
+    const month = parseInt(stub.pay_date.slice(5, 7), 10)
+    const q = Math.ceil(month / 3) as Quarter
+    quarterTotals[q] += Number(stub.gross_pay)
+  }
+  return Object.values(quarterTotals).some(t => t >= futaQuarterlyThreshold)
+}
+
 // priorYearFutaThresholdMet: true if any calendar quarter of the PRIOR year had
 // $1,000+ in cash wages (per IRS Pub 926 — the FUTA $1K threshold checks
 // both the current and prior year). Pass false (default) if no prior-year data.
@@ -294,14 +312,8 @@ export function calculateScheduleH(
 
   // FUTA trigger: $1,000+ in cash wages in any single calendar quarter of the
   // current OR prior year (IRS Pub 926). priorYearFutaThresholdMet covers the
-  // prior-year check; the loop below covers the current year.
-  const quarterTotals: Record<Quarter, number> = { 1: 0, 2: 0, 3: 0, 4: 0 }
-  for (const stub of yearStubs) {
-    const month = parseInt(stub.pay_date.slice(5, 7), 10)
-    const q = Math.ceil(month / 3) as Quarter
-    quarterTotals[q] += Number(stub.gross_pay)
-  }
-  const currentYearFutaThresholdMet = Object.values(quarterTotals).some(t => t >= futaQuarterlyThreshold)
+  // prior-year check; the current year is computed here.
+  const currentYearFutaThresholdMet = anyQuarterMeetsFutaThreshold(yearStubs, futaQuarterlyThreshold)
   const futaThresholdMet = priorYearFutaThresholdMet || currentYearFutaThresholdMet
 
   // SS — capped at the SS wage base; combined rate (employee 6.2% + employer 6.2%)

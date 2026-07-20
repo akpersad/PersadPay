@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ChevronLeft, Download, ExternalLink } from 'lucide-react'
 import { formatDate, formatCurrency, daysUntil, shiftedDeadline, selfImposedDeadline } from '@/lib/dates'
-import { calculateScheduleH, getScheduleHDueDate } from '@/lib/filings'
+import { anyQuarterMeetsFutaThreshold, calculateScheduleH, getScheduleHDueDate } from '@/lib/filings'
 import { getTaxRatesForYear } from '@/lib/tax'
 import type { Profile, Paystub, Filing, W2 } from '@/lib/types'
 
@@ -34,6 +34,7 @@ export default async function YearEndPage({ params }: { params: Promise<Params> 
     { data: yearStubs },
     { data: schedHFiling },
     { data: w2 },
+    { data: priorYearStubs },
   ] = await Promise.all([
     getTaxRatesForYear(supabase, year),
     supabase
@@ -53,6 +54,13 @@ export default async function YearEndPage({ params }: { params: Promise<Params> 
       .select('*')
       .eq('tax_year', year)
       .maybeSingle<W2>(),
+    // Prior-year wages feed the Schedule H FUTA trigger (Pub 926 checks
+    // current AND prior year).
+    supabase
+      .from('paystubs')
+      .select('pay_date, gross_pay')
+      .gte('pay_date', `${year - 1}-01-01`)
+      .lte('pay_date', `${year - 1}-12-31`),
   ])
 
   if (!rates) {
@@ -64,7 +72,11 @@ export default async function YearEndPage({ params }: { params: Promise<Params> 
   }
 
   const stubs = (yearStubs ?? []) as Paystub[]
-  const scheduleHData = calculateScheduleH(stubs, rates, year)
+  const priorYearFutaThresholdMet = anyQuarterMeetsFutaThreshold(
+    (priorYearStubs ?? []) as Pick<Paystub, 'pay_date' | 'gross_pay'>[],
+    Number(rates.futa_quarterly_threshold),
+  )
+  const scheduleHData = calculateScheduleH(stubs, rates, year, priorYearFutaThresholdMet)
   const totalGross = stubs.reduce((sum, s) => sum + Number(s.gross_pay), 0)
   const totalNet = stubs.reduce((sum, s) => sum + Number(s.net_pay), 0)
 
@@ -116,13 +128,13 @@ export default async function YearEndPage({ params }: { params: Promise<Params> 
             <p>
               <span className="font-medium text-foreground">File by</span>{' '}
               <span className="text-foreground">{formatDate(w2FileBy)}</span>
-              <span className="text-muted-foreground"> · {w2FileByDays <= 0 ? 'past your buffer' : `${w2FileByDays} days`}</span>
+              <span className="text-muted-foreground"> · {w2FileByDays < 0 ? 'past your buffer' : w2FileByDays === 0 ? 'today' : `${w2FileByDays} days`}</span>
             </p>
             <p className="text-muted-foreground">
               Due {formatDate(w2Due)}
               {w2Shifted && <span className="text-yellow-700"> (shifted from {formatDate(w2DueRaw)})</span>}
               {' · '}
-              {w2Days <= 0 ? 'overdue' : `${w2Days} days`}
+              {w2Days < 0 ? 'overdue' : w2Days === 0 ? 'due today' : `${w2Days} days`}
             </p>
             <p className="text-muted-foreground">
               Furnish W-2 to babysitter + file W-2 Copy A + W-3 transmittal with SSA.
@@ -185,13 +197,13 @@ export default async function YearEndPage({ params }: { params: Promise<Params> 
               <p>
                 <span className="font-medium text-foreground">File by</span>{' '}
                 <span className="text-foreground">{formatDate(schedHFileBy)}</span>
-                <span className="text-muted-foreground"> · {schedHFileByDays <= 0 ? 'past your buffer' : `${schedHFileByDays} days`}</span>
+                <span className="text-muted-foreground"> · {schedHFileByDays < 0 ? 'past your buffer' : schedHFileByDays === 0 ? 'today' : `${schedHFileByDays} days`}</span>
               </p>
               <p className="text-muted-foreground">
                 Due {formatDate(schedHDue)}
                 {schedHShifted && <span className="text-yellow-700"> (shifted from {formatDate(schedHDueRaw)})</span>}
                 {' · '}
-                {schedHDays <= 0 ? 'overdue' : `${schedHDays} days`}
+                {schedHDays < 0 ? 'overdue' : schedHDays === 0 ? 'due today' : `${schedHDays} days`}
               </p>
               <p className="text-muted-foreground">Files with Form 1040.</p>
             </div>

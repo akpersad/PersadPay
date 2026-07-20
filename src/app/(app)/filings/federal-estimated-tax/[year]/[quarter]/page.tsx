@@ -17,7 +17,8 @@ export default async function FederalEstimatedTaxQuarterPage({ params }: { param
   const { year: yearStr, quarter: quarterStr } = await params
   const year = parseInt(yearStr)
   const quarter = parseInt(quarterStr)
-  if (!year || quarter < 1 || quarter > 4) notFound()
+  // NaN passes < / > comparisons, so guard with Number.isInteger too.
+  if (!year || !Number.isInteger(quarter) || quarter < 1 || quarter > 4) notFound()
   const q = quarter as Quarter
 
   const supabase = await createClient()
@@ -108,13 +109,13 @@ export default async function FederalEstimatedTaxQuarterPage({ params }: { param
             <p>
               <span className="font-medium text-foreground">File by</span>{' '}
               <span className="text-foreground">{formatDate(fileBy)}</span>
-              <span className="text-muted-foreground"> · {daysUntilFileBy <= 0 ? 'past your buffer' : `${daysUntilFileBy} days`}</span>
+              <span className="text-muted-foreground"> · {daysUntilFileBy < 0 ? 'past your buffer' : daysUntilFileBy === 0 ? 'today' : `${daysUntilFileBy} days`}</span>
             </p>
             <p className="text-muted-foreground">
               Due {formatDate(dueDateEffective)}
               {shifted && <span className="text-yellow-700"> (shifted from {formatDate(data.due_date)})</span>}
               {' · '}
-              {daysUntilDue <= 0 ? 'overdue' : `${daysUntilDue} days`}
+              {daysUntilDue < 0 ? 'overdue' : daysUntilDue === 0 ? 'due today' : `${daysUntilDue} days`}
             </p>
           </div>
         )}
@@ -136,10 +137,10 @@ export default async function FederalEstimatedTaxQuarterPage({ params }: { param
               <CardTitle className="text-sm">Send via Form 1040-ES</CardTitle>
             </CardHeader>
             <CardContent className="pb-4 space-y-2">
-              <LineRow label="Social Security tax (12.4% combined)" value={data.ss_combined} hint="Employee 6.2% + employer 6.2% — Schedule H Line 2 slice" />
-              <LineRow label="Medicare tax (2.9% combined)" value={data.medicare_combined} hint="Employee 1.45% + employer 1.45% — Schedule H Line 4 slice" />
+              <LineRow label="Social Security tax (12.4% combined)" value={data.ss_combined} hint="Employee 6.2% + employer 6.2% (Schedule H Line 2 slice)" />
+              <LineRow label="Medicare tax (2.9% combined)" value={data.medicare_combined} hint="Employee 1.45% + employer 1.45% (Schedule H Line 4 slice)" />
               <LineRow label="Federal income tax withheld" value={data.fed_income_tax_withheld} hint="Schedule H Line 7 slice" />
-              <LineRow label="FUTA" value={data.futa} hint="Capped at $7,000 wage base annually — Schedule H Line 16 slice" />
+              <LineRow label="FUTA" value={data.futa} hint="Capped at $7,000 wage base annually (Schedule H Line 16 slice)" />
               <div className="flex items-start gap-3 pt-2 border-t">
                 <span className="text-[10px] uppercase tracking-wide text-muted-foreground pt-1 w-10 flex-shrink-0">Total</span>
                 <div className="flex-1 min-w-0">
@@ -168,14 +169,14 @@ export default async function FederalEstimatedTaxQuarterPage({ params }: { param
                 <LineRow
                   label="Safe harbor per quarter"
                   value={safeHarborPerQuarter}
-                  hint={`100% of ${year - 1} Schedule H total (${formatCurrency(priorYearTotal)}) ÷ 4 — meets underpayment safe harbor`}
+                  hint={`100% of ${year - 1} Schedule H total (${formatCurrency(priorYearTotal)}) ÷ 4, meets underpayment safe harbor`}
                 />
               ) : (
                 <div className="flex items-start gap-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm">Safe harbor per quarter</p>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                      N/A — no prior-year Schedule H filed yet. Mark the {year - 1} Schedule H as filed with the amount paid to enable this.
+                      N/A: no prior-year Schedule H filed yet. Mark the {year - 1} Schedule H as filed with the amount paid to enable this.
                     </p>
                   </div>
                   <span className="font-mono text-sm text-muted-foreground">—</span>
@@ -198,11 +199,11 @@ export default async function FederalEstimatedTaxQuarterPage({ params }: { param
             <CardContent className="pb-4 space-y-2 text-xs text-muted-foreground">
               <p>Two options for sending Form 1040-ES payments to the IRS:</p>
               <ul className="list-disc pl-5 space-y-1">
-                <li><strong>EFTPS</strong> (Electronic Federal Tax Payment System) — free, requires enrollment.</li>
-                <li><strong>IRS Direct Pay</strong> — free, no enrollment, pay directly from a bank account.</li>
+                <li><strong>EFTPS</strong> (Electronic Federal Tax Payment System): free, requires enrollment.</li>
+                <li><strong>IRS Direct Pay</strong>: free, no enrollment, pay directly from a bank account.</li>
               </ul>
               <p className="pt-1">
-                Save your confirmation number — it&apos;s your only audit trail until Schedule H reconciles in April. Then come back and use the form below to mark this quarter paid.
+                Save your confirmation number. It&apos;s your only audit trail until Schedule H reconciles in April. Then come back and use the form below to mark this quarter paid.
               </p>
             </CardContent>
           </Card>

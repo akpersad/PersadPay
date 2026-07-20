@@ -18,7 +18,8 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
   const { year: yearStr, quarter: quarterStr } = await params
   const year = parseInt(yearStr)
   const quarter = parseInt(quarterStr)
-  if (!year || quarter < 1 || quarter > 4) notFound()
+  // NaN passes < / > comparisons, so guard with Number.isInteger too.
+  if (!year || !Number.isInteger(quarter) || quarter < 1 || quarter > 4) notFound()
   const q = quarter as Quarter
 
   const supabase = await createClient()
@@ -107,13 +108,13 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
             <p>
               <span className="font-medium text-foreground">File by</span>{' '}
               <span className="text-foreground">{formatDate(fileBy)}</span>
-              <span className="text-muted-foreground"> · {daysUntilFileBy <= 0 ? 'past your buffer' : `${daysUntilFileBy} days`}</span>
+              <span className="text-muted-foreground"> · {daysUntilFileBy < 0 ? 'past your buffer' : daysUntilFileBy === 0 ? 'today' : `${daysUntilFileBy} days`}</span>
             </p>
             <p className="text-muted-foreground">
               Due {formatDate(dueDateEffective)}
               {shifted && <span className="text-yellow-700"> (shifted from {formatDate(data.due_date)})</span>}
               {' · '}
-              {daysUntilDue <= 0 ? 'overdue' : `${daysUntilDue} days`}
+              {daysUntilDue < 0 ? 'overdue' : daysUntilDue === 0 ? 'due today' : `${daysUntilDue} days`}
             </p>
           </div>
         )}
@@ -123,7 +124,7 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
         <Card>
           <CardContent className="py-4 px-4">
             <p className="text-sm text-muted-foreground">
-              No paystubs in this quarter. NYS-45 still required even with zero wages — file a no-payroll return.
+              No paystubs in this quarter. NYS-45 still required even with zero wages. File a no-payroll return.
             </p>
           </CardContent>
         </Card>
@@ -132,7 +133,7 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
           {/* Part A — UI */}
           <Card>
             <CardHeader className="pb-2 pt-4">
-              <CardTitle className="text-sm">Part A — Unemployment Insurance</CardTitle>
+              <CardTitle className="text-sm">Part A: Unemployment Insurance</CardTitle>
             </CardHeader>
             <CardContent className="pb-4 space-y-2">
               <BoxRow box="2" label="Total UI quarterly remuneration" value={data.ui_gross_wages} />
@@ -162,7 +163,7 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
           {/* Part A — Employee counts */}
           <Card>
             <CardHeader className="pb-2 pt-4">
-              <CardTitle className="text-sm">Part A — Covered Employees (12th of each month)</CardTitle>
+              <CardTitle className="text-sm">Part A: Covered Employees (12th of each month)</CardTitle>
             </CardHeader>
             <CardContent className="pb-4 space-y-2">
               {data.employee_counts_by_month.map((count, i) => {
@@ -172,7 +173,7 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
                   <BoxRow
                     key={i}
                     box=""
-                    label={`${monthName} — employees on the 12th`}
+                    label={`${monthName}: employees on the 12th`}
                     value={count}
                     mono={false}
                   />
@@ -187,11 +188,11 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
           {/* Part B — Withholding */}
           <Card>
             <CardHeader className="pb-2 pt-4">
-              <CardTitle className="text-sm">Part B — Withholding</CardTitle>
+              <CardTitle className="text-sm">Part B: Withholding</CardTitle>
             </CardHeader>
             <CardContent className="pb-4 space-y-2">
               <BoxRow box="12" label="NY State income tax withheld" value={data.ny_state_tax_withheld} />
-              <BoxRow box="13" label="NYC income tax withheld" value={0} hint="Not applicable — Nassau resident" />
+              <BoxRow box="13" label="NYC income tax withheld" value={0} hint="Not applicable (Nassau resident)" />
               <BoxRow box="14" label="Yonkers income tax withheld" value={0} hint="Not applicable" />
               <BoxRow box="15" label="Total income tax withheld" value={data.total_tax_withheld} />
             </CardContent>
@@ -200,7 +201,7 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
           {/* Federal — informational */}
           <Card>
             <CardHeader className="pb-2 pt-4">
-              <CardTitle className="text-sm">Federal — for your records</CardTitle>
+              <CardTitle className="text-sm">Federal: for your records</CardTitle>
             </CardHeader>
             <CardContent className="pb-4 space-y-2">
               <BoxRow
