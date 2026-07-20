@@ -12,9 +12,11 @@ export async function POST(request: Request) {
   const { w2Id } = await request.json()
   if (!w2Id) return NextResponse.json({ error: 'w2Id required' }, { status: 400 })
 
+  // Marking filed also clears any pending W-2c flag — the current numbers
+  // are what the SSA now has.
   const { error } = await supabase
     .from('w2s')
-    .update({ filed_with_ssa: true, filed_with_ssa_at: new Date().toISOString() })
+    .update({ filed_with_ssa: true, filed_with_ssa_at: new Date().toISOString(), needs_w2c: false })
     .eq('id', w2Id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -123,6 +123,7 @@ export interface W2 {
   state_tax_withheld: number
   filed_with_ssa: boolean
   filed_with_ssa_at: string | null
+  needs_w2c: boolean
   generated_at: string
   generated_by: string
 }
