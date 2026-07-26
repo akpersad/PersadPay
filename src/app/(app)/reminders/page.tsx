@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { RemindersView, type ReminderAmount } from '@/components/reminders/RemindersView'
-import { calculateNYS45, calculateFederalEstimatedTax, calculateScheduleH, getFederalEstimatedTaxPeriod, type Quarter } from '@/lib/filings'
+import { anyQuarterMeetsFutaThreshold, calculateNYS45, calculateFederalEstimatedTax, calculateScheduleH, getFederalEstimatedTaxPeriod, type Quarter } from '@/lib/filings'
 import { getTaxRatesForYear } from '@/lib/tax'
 import type { Reminder, Profile, Settings, Paystub } from '@/lib/types'
 
@@ -75,7 +75,12 @@ export default async function RemindersPage() {
       const yearStubs = stubs.filter(s => s.pay_date.startsWith(`${year}-`))
       const rates = await getTaxRatesForYear(supabase, year)
       if (rates) {
-        const data = calculateScheduleH(yearStubs, rates, year)
+        // Pub 926: the FUTA trigger checks prior-year wages too.
+        const priorYearFutaThresholdMet = anyQuarterMeetsFutaThreshold(
+          stubs.filter(s => s.pay_date.startsWith(`${year - 1}-`)),
+          Number(rates.futa_quarterly_threshold),
+        )
+        const data = calculateScheduleH(yearStubs, rates, year, priorYearFutaThresholdMet)
         amounts[r.id] = {
           amount: data.total_household_employment_taxes,
           agency: 'IRS (Form 1040 + Schedule H)',

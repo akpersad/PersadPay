@@ -6,6 +6,11 @@ const ADMIN_ONLY_PATHS = ['/stubs/new', '/reminders', '/filings', '/hysa', '/cal
 // Sub-paths under ADMIN_ONLY_PATHS that employees are permitted to access
 const EMPLOYEE_ACCESSIBLE_PATHS = ['/documents/sick-leave-summary']
 const PUBLIC_PATHS = ['/', '/manifest.webmanifest', '/sw.js', '/auth/reset-password', '/auth/confirm']
+// Vercel Cron calls arrive with `Authorization: Bearer CRON_SECRET` and no
+// user session. They must bypass the login redirect below or they bounce to
+// the login page before reaching the handler. The route enforces its own
+// auth and fails closed: 401 on a wrong/missing secret, 500 when unset.
+const CRON_PATHS = ['/api/reminders/send-emails']
 // MFA pages need authenticated session but are accessible before AAL2 is satisfied
 const MFA_PATHS = ['/auth/enroll-mfa', '/auth/verify-mfa', '/auth/set-password']
 
@@ -36,7 +41,7 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
-  if (!user && !PUBLIC_PATHS.includes(pathname)) {
+  if (!user && !PUBLIC_PATHS.includes(pathname) && !CRON_PATHS.includes(pathname)) {
     const loginUrl = new URL('/', request.url)
     loginUrl.searchParams.set('returnTo', pathname)
     return NextResponse.redirect(loginUrl)

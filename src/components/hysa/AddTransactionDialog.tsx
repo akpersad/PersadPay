@@ -13,6 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
+import { todayNY } from '@/lib/dates'
 import { Plus } from 'lucide-react'
 import { CurrencyInput } from '@/components/ui/currency-input'
 
@@ -31,15 +32,19 @@ export function AddTransactionDialog({ userId }: { userId: string }) {
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayNY()
   const [txType, setTxType] = useState<TxType>('deposit_manual')
   const [amount, setAmount] = useState(0)
+  // Corrections can go either way; CurrencyInput is digits-only, so the sign
+  // is a separate toggle (only shown for balance_correction).
+  const [correctionSign, setCorrectionSign] = useState<'add' | 'subtract'>('add')
   const [effectiveDate, setEffectiveDate] = useState(today)
   const [notes, setNotes] = useState('')
 
   function reset() {
     setTxType('deposit_manual')
     setAmount(0)
+    setCorrectionSign('add')
     setEffectiveDate(today)
     setNotes('')
   }
@@ -56,8 +61,7 @@ export function AddTransactionDialog({ userId }: { userId: string }) {
 
     let signed = amount
     if (txType === 'withdrawal_manual') signed = -amount
-    // balance_correction can be negative — user enters a signed amount via the
-    // notes hint; we keep it as-is for corrections only
+    if (txType === 'balance_correction' && correctionSign === 'subtract') signed = -amount
     // deposit_manual and deposit_interest are always positive (enforced by DB)
 
     setSaving(true)
@@ -116,6 +120,32 @@ export function AddTransactionDialog({ userId }: { userId: string }) {
               <Label htmlFor="tx-amount">Amount</Label>
               <CurrencyInput id="tx-amount" value={amount} onChange={setAmount} />
             </div>
+
+            {txType === 'balance_correction' && (
+              <div className="space-y-1.5">
+                <Label>Correction direction</Label>
+                <div className="flex gap-2" role="radiogroup" aria-label="Correction direction">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={correctionSign === 'add' ? 'default' : 'outline'}
+                    className="flex-1"
+                    onClick={() => setCorrectionSign('add')}
+                  >
+                    Add to balance
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={correctionSign === 'subtract' ? 'default' : 'outline'}
+                    className="flex-1"
+                    onClick={() => setCorrectionSign('subtract')}
+                  >
+                    Subtract from balance
+                  </Button>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label htmlFor="tx-date">Effective date</Label>

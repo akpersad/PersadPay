@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft } from 'lucide-react'
 import { PrintButton } from './PrintButton'
-import { formatDate } from '@/lib/dates'
+import { formatDate, todayNY } from '@/lib/dates'
 import type { Profile, Settings } from '@/lib/types'
 
 export default async function SexualHarassmentPolicyPage() {
@@ -22,7 +22,7 @@ export default async function SexualHarassmentPolicyPage() {
 
   const { data: settings } = await supabase.from('settings').select('*').single<Settings>()
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayNY()
   const employer = settings?.employer_name ?? 'Employer'
   const employerAddress = settings?.employer_address ?? ''
   const employerPhone = settings?.employer_phone ?? ''
@@ -108,14 +108,14 @@ export default async function SexualHarassmentPolicyPage() {
             {employee} may report the conduct directly to either employer at the address or phone number
             listed on this policy. Reports may be made verbally or in writing.
           </p>
-          <p className="text-sm font-medium mt-1">External report — NYS Division of Human Rights (NYSDHR):</p>
+          <p className="text-sm font-medium mt-1">External report to the NYS Division of Human Rights (NYSDHR):</p>
           <p className="text-sm">
             {employee} may file a complaint with the NYSDHR at any time, regardless of whether an internal
             report is made first. Complaints must generally be filed within three years of the last act of
             harassment. NYSDHR can be reached at <strong>1-888-392-3644</strong> or at{' '}
             <strong>dhr.ny.gov</strong>.
           </p>
-          <p className="text-sm font-medium mt-1">External report — U.S. Equal Employment Opportunity Commission (EEOC):</p>
+          <p className="text-sm font-medium mt-1">External report to the U.S. Equal Employment Opportunity Commission (EEOC):</p>
           <p className="text-sm">
             {employee} may also file a charge with the EEOC within 300 days of the last act of harassment.
             The EEOC can be reached at <strong>1-800-669-4000</strong> or at <strong>eeoc.gov</strong>.

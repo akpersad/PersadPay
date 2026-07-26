@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { hysaAmountForStub } from './tax'
+import { todayNY } from './dates'
 import type { Paystub } from './types'
 
 export async function insertHysaDeposit(
@@ -12,7 +13,7 @@ export async function insertHysaDeposit(
     transaction_type: 'deposit_paystub',
     amount: total,
     paystub_id: stub.id,
-    effective_date: new Date().toISOString().slice(0, 10),
+    effective_date: todayNY(),
     actor_id: actorId,
   })
 }

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { ChevronLeft } from 'lucide-react'
 import { PrintButton } from '../sick-leave-policy/PrintButton'
 import { YearPicker } from './YearPicker'
-import { formatDate, formatDateRange } from '@/lib/dates'
+import { formatDate, formatDateRange, todayNY } from '@/lib/dates'
 import type { Profile, Settings, Paystub } from '@/lib/types'
 
 interface SearchParams { year?: string }
@@ -28,8 +28,8 @@ export default async function SickLeaveSummaryPage({
   const isEmployee = profile?.role === 'employee'
 
   const params = await searchParams
-  const today = new Date()
-  const currentYear = today.getFullYear()
+  const today = todayNY()
+  const currentYear = Number(today.slice(0, 4))
   const year = parseInt(params.year ?? String(currentYear)) || currentYear
 
   // Employees see only their own stubs (enforced by RLS + explicit filter).
@@ -90,10 +90,10 @@ export default async function SickLeaveSummaryPage({
       {/* Document body */}
       <article className="bg-white text-black space-y-5 print:text-[11pt] leading-relaxed">
         <header className="text-center space-y-1 border-b pb-4">
-          <h1 className="text-xl font-bold uppercase tracking-wide">Sick Leave Summary — {year}</h1>
+          <h1 className="text-xl font-bold uppercase tracking-wide">Sick Leave Summary: {year}</h1>
           <p className="text-sm">{employer}</p>
           {employerAddress && <p className="text-xs text-muted-foreground">{employerAddress}</p>}
-          <p className="text-xs text-muted-foreground pt-1">Generated {formatDate(today.toISOString().slice(0, 10))}</p>
+          <p className="text-xs text-muted-foreground pt-1">Generated {formatDate(today)}</p>
         </header>
 
         <section className="space-y-2">

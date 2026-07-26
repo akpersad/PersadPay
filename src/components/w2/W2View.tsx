@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { formatCurrency } from '@/lib/dates'
+import { formatCurrency, todayNY } from '@/lib/dates'
 import { toast } from 'sonner'
 import { Download, Mail, Lock, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { PdfPreviewDialog } from '@/components/ui/pdf-preview-dialog'
@@ -29,7 +29,7 @@ export function W2View({ w2s, role, userId, availableStubYears }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const isAdmin = role === 'admin'
-  const CURRENT_YEAR = new Date().getFullYear()
+  const CURRENT_YEAR = Number(todayNY().slice(0, 4))
   const allTaxYears = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - 1 - i)
   const TAX_YEARS = availableStubYears && availableStubYears.length > 0
     ? allTaxYears.filter(y => availableStubYears.includes(y))
@@ -129,7 +129,7 @@ export function W2View({ w2s, role, userId, availableStubYears }: Props) {
         body: JSON.stringify({ w2Id }),
       })
       if (!emailRes.ok) {
-        toast.error('W-2 saved but email failed. Use the retry button on the record.')
+        toast.error('W-2 saved but email failed. Use the Email W-2 button on the record to retry.')
       } else {
         toast.success('W-2 saved and emailed.')
       }
@@ -165,11 +165,17 @@ export function W2View({ w2s, role, userId, availableStubYears }: Props) {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">W-2 — Tax Year {w2.tax_year}</p>
+                      <p className="text-sm font-medium">W-2 for Tax Year {w2.tax_year}</p>
                       {w2.filed_with_ssa && (
                         <Badge variant="default" className="bg-green-600 hover:bg-green-600 text-xs">
                           <CheckCircle2 className="h-3 w-3 mr-1" />
                           Filed with SSA
+                        </Badge>
+                      )}
+                      {w2.needs_w2c && (
+                        <Badge variant="destructive" className="text-xs">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          W-2c required
                         </Badge>
                       )}
                     </div>
@@ -178,7 +184,7 @@ export function W2View({ w2s, role, userId, availableStubYears }: Props) {
                   <div className="flex gap-1.5">
                     <PdfPreviewDialog
                       url={`/api/pdf/w2?id=${w2.id}`}
-                      title={`W-2 — Tax Year ${w2.tax_year}`}
+                      title={`W-2 for Tax Year ${w2.tax_year}`}
                       size="sm"
                     />
                     <Button
@@ -199,9 +205,19 @@ export function W2View({ w2s, role, userId, availableStubYears }: Props) {
                 </div>
                 {isAdmin && (
                   <div className="flex gap-1.5 flex-wrap">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      disabled={emailPending}
+                      onClick={() => setSsnAlert({ action: 'email', w2Id: w2.id })}
+                    >
+                      <Mail className="h-4 w-4 mr-1" />
+                      Email W-2
+                    </Button>
                     <PdfPreviewDialog
                       url={`/api/pdf/w3?id=${w2.id}`}
-                      title={`W-3 Transmittal — Tax Year ${w2.tax_year}`}
+                      title={`W-3 Transmittal for Tax Year ${w2.tax_year}`}
                       buttonLabel="Preview W-3"
                       className="flex-1"
                       size="sm"
@@ -215,7 +231,7 @@ export function W2View({ w2s, role, userId, availableStubYears }: Props) {
                       <Download className="h-4 w-4 mr-1" />
                       W-3 (SSA)
                     </Button>
-                    {!w2.filed_with_ssa && (
+                    {(!w2.filed_with_ssa || w2.needs_w2c) && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -223,13 +239,13 @@ export function W2View({ w2s, role, userId, availableStubYears }: Props) {
                         onClick={() => setSsaFilingId(w2.id)}
                       >
                         <CheckCircle2 className="h-4 w-4 mr-1" />
-                        Mark Filed w/ SSA
+                        {w2.needs_w2c ? 'Mark W-2c Filed' : 'Mark Filed w/ SSA'}
                       </Button>
                     )}
-                    {w2.filed_with_ssa && (
+                    {w2.filed_with_ssa && !w2.needs_w2c && (
                       <div className="flex items-center gap-1.5 flex-1 px-3 py-1.5 rounded-md bg-green-50 border border-green-200">
                         <Lock className="h-3.5 w-3.5 text-green-700 flex-shrink-0" />
-                        <span className="text-xs text-green-700">Locked — filed with SSA. Regenerating will replace the saved record.</span>
+                        <span className="text-xs text-green-700">Locked: filed with SSA. Regenerating will replace the saved record.</span>
                       </div>
                     )}
                   </div>
@@ -277,15 +293,15 @@ export function W2View({ w2s, role, userId, availableStubYears }: Props) {
       {preview && isAdmin && (
         <Card>
           <CardContent className="py-4 space-y-2">
-            <p className="text-sm font-semibold">W-2 Preview — {preview.tax_year}</p>
-            <W2Row label="Box 1 — Wages, Tips" value={preview.wages_tips} />
-            <W2Row label="Box 2 — Federal Tax Withheld" value={preview.federal_tax_withheld} />
-            <W2Row label="Box 3 — SS Wages" value={preview.ss_wages} />
-            <W2Row label="Box 4 — SS Tax Withheld" value={preview.ss_tax_withheld} />
-            <W2Row label="Box 5 — Medicare Wages" value={preview.medicare_wages} />
-            <W2Row label="Box 6 — Medicare Tax Withheld" value={preview.medicare_tax_withheld} />
-            <W2Row label="Box 16 — State Wages" value={preview.state_wages} />
-            <W2Row label="Box 17 — State Tax Withheld" value={preview.state_tax_withheld} />
+            <p className="text-sm font-semibold">W-2 Preview: {preview.tax_year}</p>
+            <W2Row label="Box 1: Wages, Tips" value={preview.wages_tips} />
+            <W2Row label="Box 2: Federal Tax Withheld" value={preview.federal_tax_withheld} />
+            <W2Row label="Box 3: SS Wages" value={preview.ss_wages} />
+            <W2Row label="Box 4: SS Tax Withheld" value={preview.ss_tax_withheld} />
+            <W2Row label="Box 5: Medicare Wages" value={preview.medicare_wages} />
+            <W2Row label="Box 6: Medicare Tax Withheld" value={preview.medicare_tax_withheld} />
+            <W2Row label="Box 16: State Wages" value={preview.state_wages} />
+            <W2Row label="Box 17: State Tax Withheld" value={preview.state_tax_withheld} />
             <Alert className="border-amber-300 bg-amber-50">
               <AlertTriangle className="h-4 w-4 text-amber-600" />
               <AlertDescription className="text-xs text-amber-800">{SSN_WARNING}</AlertDescription>
@@ -327,7 +343,7 @@ export function W2View({ w2s, role, userId, availableStubYears }: Props) {
             <DialogTitle>W-2 {ssaWarning?.tax_year} already filed with SSA</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground py-2">
-            This W-2 has been marked as filed with the SSA. Regenerating will replace the saved record — you would need to file a corrected W-2c with the SSA if the numbers change. Are you sure you want to regenerate?
+            This W-2 has been marked as filed with the SSA. Regenerating will replace the saved record. You would need to file a corrected W-2c with the SSA if the numbers change. Are you sure you want to regenerate?
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSsaWarning(null)}>Cancel</Button>
@@ -340,7 +356,7 @@ export function W2View({ w2s, role, userId, availableStubYears }: Props) {
       <Dialog open={!!ssnAlert} onOpenChange={(open) => {
         if (!open) {
           if (!ssnAlertConfirmed.current && ssnAlert?.action === 'email') {
-            toast.info('W-2 saved. Email was not sent — use the Email button on the W-2 record to send it.')
+            toast.info('W-2 saved. Email was not sent. Use the Email W-2 button on the record to send it.')
           }
           ssnAlertConfirmed.current = false
           setSsnAlert(null)
@@ -357,7 +373,7 @@ export function W2View({ w2s, role, userId, availableStubYears }: Props) {
           <DialogFooter className="mt-2">
             <Button variant="outline" onClick={() => setSsnAlert(null)}>Cancel</Button>
             <Button onClick={proceedAfterSsnAlert}>
-              {ssnAlert?.action === 'email' ? 'Understood — Send Email' : 'Understood — Download'}
+              {ssnAlert?.action === 'email' ? 'Understood, Send Email' : 'Understood, Download'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -370,7 +386,7 @@ export function W2View({ w2s, role, userId, availableStubYears }: Props) {
             <DialogTitle>Mark W-2 as filed with SSA?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground py-2">
-            Once marked as filed, the app will warn before allowing regeneration. You can still regenerate if needed — a W-2c would then be required with the SSA.
+            Once marked as filed, the app will warn before allowing regeneration. You can still regenerate if needed. A W-2c would then be required with the SSA.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSsaFilingId(null)}>Cancel</Button>

@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft } from 'lucide-react'
 import { PrintButton } from './PrintButton'
-import { formatDate } from '@/lib/dates'
+import { formatDate, todayNY } from '@/lib/dates'
 import type { Profile, Settings } from '@/lib/types'
 
 export default async function SickLeavePolicyPage() {
@@ -22,7 +22,7 @@ export default async function SickLeavePolicyPage() {
 
   const { data: settings } = await supabase.from('settings').select('*').single<Settings>()
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayNY()
   const employer = settings?.employer_name ?? 'Employer'
   const employee = settings?.employee_name ?? 'Employee'
   const employerAddress = settings?.employer_address ?? ''
@@ -83,7 +83,7 @@ export default async function SickLeavePolicyPage() {
           <ul className="text-sm list-disc pl-6 space-y-1">
             <li>The employee&apos;s own mental or physical illness, injury, or health condition, including diagnosis, care, or treatment.</li>
             <li>The mental or physical illness, injury, or health condition of a covered family member, including diagnosis, care, or treatment.</li>
-            <li>Absence from work when the employee or a family member has been the victim of domestic violence, family offense, sexual offense, stalking, or human trafficking — for purposes including legal proceedings, safety planning, and counseling.</li>
+            <li>Absence from work when the employee or a family member has been the victim of domestic violence, family offense, sexual offense, stalking, or human trafficking, for purposes including legal proceedings, safety planning, and counseling.</li>
           </ul>
         </section>
 

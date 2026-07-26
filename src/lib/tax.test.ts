@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calculateTaxes } from './tax'
+import { calculateTaxes, roundToCents } from './tax'
 import type { TaxRates, TaxInputs } from './tax'
 
 // 2026 rates — must match the tax_rates DB row for effective_year = 2026
@@ -217,5 +217,39 @@ describe('IEEE-754 rounding (round function)', () => {
     const r = calculateTaxes(inputs({ gross: 167.5, ytdGrossBefore: 0 }), rates2026)
     // 167.5 × 0.006 = 1.005 → should round to 1.01
     expect(r.futa).toBe(1.01)
+  })
+
+  it('rounds literal .xx5 ties half-up regardless of float representation', () => {
+    // These literals sit just below their decimal value in IEEE-754
+    // (1.005 is stored as 1.00499999999999989...), so a naive
+    // Math.round(n * 100) rounds them down.
+    expect(roundToCents(1.005)).toBe(1.01)
+    expect(roundToCents(2.675)).toBe(2.68)
+    expect(roundToCents(8.575)).toBe(8.58)
+    expect(roundToCents(1234.565)).toBe(1234.57)
+    expect(roundToCents(0.005)).toBe(0.01)
+  })
+
+  it('rounds negative ties away from zero (half-up on the magnitude)', () => {
+    expect(roundToCents(-1.005)).toBe(-1.01)
+    expect(roundToCents(-2.675)).toBe(-2.68)
+  })
+
+  it('leaves exact cents untouched', () => {
+    expect(roundToCents(19.73)).toBe(19.73)
+    expect(roundToCents(0)).toBe(0)
+    expect(roundToCents(-52.76)).toBe(-52.76)
+  })
+})
+
+describe('calculateTaxes — gross rounded to cents before storage', () => {
+  it('rounds a half-cent gross so gross − deductions = net holds', () => {
+    // 33.25 hrs × $22.33 = $742.4725 — a half-cent gross that used to be
+    // stored raw and break the stub identity by $0.01.
+    const r = calculateTaxes(inputs({ gross: 33.25 * 22.33, ytdGrossBefore: 0 }), rates2026)
+    expect(r.gross_pay).toBe(742.47)
+    const deductions = r.federal_withholding + r.fica_social_security + r.fica_medicare
+      + r.state_withholding + r.sdi + r.pfl
+    expect(roundToCents(r.gross_pay - deductions)).toBe(r.net_pay)
   })
 })

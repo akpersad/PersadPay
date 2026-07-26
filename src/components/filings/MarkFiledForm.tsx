@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { CheckCircle2, MinusCircle, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatDate } from '@/lib/dates'
+import { formatDate, todayNY } from '@/lib/dates'
 import { upsertHysaWithdrawalForFiling, deleteHysaWithdrawalForFiling } from '@/lib/hysa'
 import type { Filing } from '@/lib/types'
 
@@ -31,7 +31,7 @@ export function MarkFiledForm({ existing, filingType, taxYear, quarter, createdB
   const router = useRouter()
   const [, startTransition] = useTransition()
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayNY()
   // Initial mode: display if the row already has a resolved status (filed or N/A),
   // otherwise edit so the admin can pick one.
   const hasResolvedStatus = !!(existing?.filed_on || existing?.not_applicable)

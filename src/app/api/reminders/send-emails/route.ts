@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { sendReminderEmail } from '@/lib/email'
 import { sendPushToRoles } from '@/lib/push-server'
-import { REMINDER_LEAD_DAYS, REMINDER_FOLLOWUP_DAYS, daysUntil, formatDate, todayNY } from '@/lib/dates'
+import { REMINDER_LEAD_DAYS, REMINDER_FOLLOWUP_DAYS, addDays, daysUntil, formatDate, todayNY } from '@/lib/dates'
 import type { Reminder, Settings, Paystub } from '@/lib/types'
 
 // Called daily by Vercel Cron. Can also be triggered manually via GET for testing.
@@ -43,33 +43,37 @@ export async function GET(request: Request) {
   for (const reminder of reminders as Reminder[]) {
     const days = daysUntil(reminder.due_date)
 
-    // First notice: ±1 day window around 20 days out, only if not already sent.
-    // Window prevents a skipped cron run from permanently missing the trigger.
-    if (days >= REMINDER_LEAD_DAYS - 1 && days <= REMINDER_LEAD_DAYS + 1 && !reminder.email_sent) {
+    // First notice: fires the first successful run at or inside the lead window,
+    // only if not already sent. Self-healing — a cron outage during the window
+    // can't permanently skip the notice; the flag flips only on send success.
+    let firstNoticeSentThisRun = false
+    if (days <= REMINDER_LEAD_DAYS && !reminder.email_sent) {
       const result = await sendReminderEmail(settings, reminder)
       if (result.success) {
         await supabase.from('reminders').update({ email_sent: true }).eq('id', reminder.id)
+        firstNoticeSentThisRun = true
       }
       results.push({ title: reminder.title, trigger: '20-day', ...result })
       // Filing reminders are admin-only — employees don't file taxes.
       await sendPushToRoles(supabase, ['admin'], {
         title: `${reminder.title}`,
-        body: `Due ${formatDate(reminder.due_date)} — ${reminder.description.slice(0, 80)}`,
+        body: `Due ${formatDate(reminder.due_date)}. ${reminder.description.slice(0, 80)}`,
         url: '/reminders',
         tag: `reminder-${reminder.id}-20`,
       })
     }
 
-    // Follow-up: ±1 day window around 10 days out, only if not already sent.
-    // followup_email_sent guards against repeat sends within the window.
-    if (days >= REMINDER_FOLLOWUP_DAYS - 1 && days <= REMINDER_FOLLOWUP_DAYS + 1 && !reminder.followup_email_sent) {
+    // Follow-up: same self-healing shape at the 10-day mark. Skipped on the run
+    // that just sent the first notice so a fully missed window doesn't produce
+    // two emails at once — the follow-up then goes out on the next run.
+    if (days <= REMINDER_FOLLOWUP_DAYS && !reminder.followup_email_sent && !firstNoticeSentThisRun) {
       const result = await sendReminderEmail(settings, reminder)
       if (result.success) {
         await supabase.from('reminders').update({ followup_email_sent: true }).eq('id', reminder.id)
       }
       results.push({ title: reminder.title, trigger: '10-day', ...result })
       await sendPushToRoles(supabase, ['admin'], {
-        title: `${reminder.title} — 10 days`,
+        title: `${reminder.title}: 10 days left`,
         body: `Due ${formatDate(reminder.due_date)}`,
         url: '/reminders',
         tag: `reminder-${reminder.id}-10`,
@@ -78,15 +82,16 @@ export async function GET(request: Request) {
   }
 
   // ── Daily push-only triggers (no email counterpart) ─────────────────────
-  const today = new Date()
-  const isFriday = today.getDay() === 5
+  // Weekday and week boundaries follow the NY calendar, not the UTC clock.
+  const todayStr = todayNY()
+  const [ty, tm, td] = todayStr.split('-').map(Number)
+  const nyWeekday = new Date(Date.UTC(ty, tm - 1, td)).getUTCDay()
+  const isFriday = nyWeekday === 5
 
   // (1) Friday morning admin nudge — "It's Friday, generate this week's stub"
   // unless one's already been generated covering today's week.
   if (isFriday) {
-    const weekStart = new Date(today)
-    weekStart.setDate(today.getDate() - today.getDay()) // back to Sunday
-    const weekStartIso = weekStart.toISOString().slice(0, 10)
+    const weekStartIso = addDays(todayStr, -nyWeekday) // back to Sunday
     const { data: stubsThisWeek } = await supabase
       .from('paystubs')
       .select('id')
@@ -95,7 +100,7 @@ export async function GET(request: Request) {
 
     if (!stubsThisWeek?.length) {
       await sendPushToRoles(supabase, ['admin'], {
-        title: "It's Friday — time for this week's stub",
+        title: "It's Friday. Time for this week's stub",
         body: 'Generate the babysitter\'s paystub for the week so you can run payroll.',
         url: '/stubs/new',
         tag: 'friday-nudge',
@@ -104,7 +109,7 @@ export async function GET(request: Request) {
   }
 
   // (2) Stubs created > 24h ago that haven't been marked payment_sent.
-  const cutoff = new Date(today.getTime() - 24 * 60 * 60 * 1000).toISOString()
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   const { data: stalePending } = await supabase
     .from('paystubs')
     .select('id, stub_number, gross_pay, created_at')
@@ -114,7 +119,7 @@ export async function GET(request: Request) {
 
   for (const stub of (stalePending ?? []) as Pick<Paystub, 'id' | 'stub_number' | 'gross_pay' | 'created_at'>[]) {
     await sendPushToRoles(supabase, ['admin'], {
-      title: `Stub #${stub.stub_number} — payment not marked sent`,
+      title: `Stub #${stub.stub_number}: payment not marked sent`,
       body: 'It\'s been more than 24 hours since you generated this stub. Mark payment sent once you\'ve Zelled her.',
       url: `/stubs/${stub.id}`,
       tag: `payment-nag-${stub.id}`,

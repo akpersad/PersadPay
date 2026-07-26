@@ -47,7 +47,7 @@ export const LINE_TYPES: LineTypeDef[] = [
     defaultItemLabel: 'Bonus',
     taxable_fed: true, taxable_fica: true, taxable_ny: true, w2_box1: true,
     informational_only: false,
-    hint: 'Cash bonus or thank-you (holiday, discretionary). All cash bonuses are wages — fully taxable. (Pub 926)',
+    hint: 'Cash bonus or thank-you (holiday, discretionary). All cash bonuses are wages, fully taxable. (Pub 926)',
   },
   {
     value: 'holiday_pay',
@@ -63,7 +63,7 @@ export const LINE_TYPES: LineTypeDef[] = [
     defaultItemLabel: 'Sick / PTO pay',
     taxable_fed: true, taxable_fica: true, taxable_ny: true, w2_box1: true,
     informational_only: false,
-    hint: 'Paid sick or PTO time. Note: the family\'s policy is unpaid sick leave — only set this if you elect to pay anyway.',
+    hint: 'Paid sick or PTO time. Note: the family\'s policy is unpaid sick leave. Only set this if you elect to pay anyway.',
   },
   {
     value: 'mileage_irs_rate',
@@ -106,7 +106,7 @@ export const LINE_TYPES: LineTypeDef[] = [
     defaultItemLabel: 'Cash gift',
     taxable_fed: true, taxable_fica: true, taxable_ny: true, w2_box1: true,
     informational_only: false,
-    hint: 'Cash from employer to employee is never de minimis — always taxable. (Pub 15-B)',
+    hint: 'Cash from employer to employee is never de minimis. Always taxable. (Pub 15-B)',
   },
   {
     value: 'gift_card',
@@ -114,7 +114,7 @@ export const LINE_TYPES: LineTypeDef[] = [
     defaultItemLabel: 'Gift card',
     taxable_fed: true, taxable_fica: true, taxable_ny: true, w2_box1: true,
     informational_only: false,
-    hint: 'Gift cards are cash-equivalent — always taxable, regardless of amount. (Pub 15-B)',
+    hint: 'Gift cards are cash-equivalent: always taxable, regardless of amount. (Pub 15-B)',
     defaultGivenSeparately: true,
   },
   {
@@ -132,7 +132,7 @@ export const LINE_TYPES: LineTypeDef[] = [
     defaultItemLabel: 'Third-party tip',
     taxable_fed: false, taxable_fica: false, taxable_ny: false, w2_box1: false,
     informational_only: true,
-    hint: 'Informational only — not employer wages and not on this employer\'s W-2.',
+    hint: 'Informational only. Not employer wages and not on this employer\'s W-2.',
   },
 ]
 

@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent } from '@/components/ui/card'
 import { ChevronLeft } from 'lucide-react'
-import { formatDate } from '@/lib/dates'
+import { formatDate, formatNYDate } from '@/lib/dates'
 import type { Profile, AuditLogEntry } from '@/lib/types'
 
 const HIDDEN_FIELDS = new Set(['updated_at', 'id'])
@@ -123,8 +123,10 @@ function computeDiff(
 }
 
 function formatTimestamp(iso: string): string {
+  // Date and time must come from the same timezone — slicing the UTC date
+  // next to a NY time rendered timestamps that never occurred.
   const d = new Date(iso)
-  const datePart = formatDate(d.toISOString().slice(0, 10))
+  const datePart = formatNYDate(d)
   const time = d.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',

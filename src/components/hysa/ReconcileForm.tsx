@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { formatCurrency, formatDate } from '@/lib/dates'
+import { formatCurrency, formatDate, todayNY } from '@/lib/dates'
 import { toast } from 'sonner'
 import { Scale, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react'
 import { CurrencyInput } from '@/components/ui/currency-input'
@@ -29,7 +29,7 @@ export function ReconcileForm({ expectedBalance, actualBalance, actualBalanceAt,
   const [saving, setSaving] = useState(false)
   const [correcting, setCorrecting] = useState(false)
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayNY()
   const [inputBalance, setInputBalance] = useState(actualBalance ?? 0)
   const [inputDate, setInputDate] = useState(actualBalanceAt ? actualBalanceAt.slice(0, 10) : today)
 
@@ -64,7 +64,7 @@ export function ReconcileForm({ expectedBalance, actualBalance, actualBalanceAt,
       transaction_type: 'balance_correction',
       amount: discrepancy,
       effective_date: actualBalanceAt ? actualBalanceAt.slice(0, 10) : today,
-      notes: `Reconciliation correction — actual balance ${formatCurrency(actualBalance!)} vs expected ${formatCurrency(expectedBalance)}`,
+      notes: `Reconciliation correction: actual balance ${formatCurrency(actualBalance!)} vs expected ${formatCurrency(expectedBalance)}`,
       actor_id: userId,
     })
     if (error) {
@@ -110,7 +110,7 @@ export function ReconcileForm({ expectedBalance, actualBalance, actualBalanceAt,
               }
               <div>
                 {discrepancy === 0 ? (
-                  <p className="font-medium">Balanced — actual matches expected</p>
+                  <p className="font-medium">Balanced: actual matches expected</p>
                 ) : (
                   <>
                     <p className="font-medium">

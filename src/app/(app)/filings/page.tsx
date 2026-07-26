@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ChevronRight, CheckCircle2, MinusCircle } from 'lucide-react'
-import { formatDate, formatDateRange, formatCurrency, daysUntil } from '@/lib/dates'
+import { formatDate, formatDateRange, formatCurrency, daysUntil, shiftedDeadline } from '@/lib/dates'
 import {
   getCurrentQuarter,
   getQuarterDateRange,
@@ -205,7 +205,7 @@ function FilingRow({
   threshold: number
   className?: string
 }) {
-  const days = daysUntil(dueDate)
+  const days = daysUntil(shiftedDeadline(dueDate).effective)
   return (
     <Link href={href}>
       <Card className={`hover:bg-muted/50 transition-colors cursor-pointer${className ? ` ${className}` : ''}`}>
@@ -227,11 +227,13 @@ function FilingRow({
                       Filed {formatDate(filed.filed_on)}
                     </Badge>
                   )
-                  : days <= 0
+                  : days < 0
                     ? <Badge variant="destructive">Overdue</Badge>
-                    : days <= threshold
-                      ? <Badge variant="secondary">Due in {days}d</Badge>
-                      : null
+                    : days === 0
+                      ? <Badge variant="destructive">Due today</Badge>
+                      : days <= threshold
+                        ? <Badge variant="secondary">Due in {days}d</Badge>
+                        : null
               }
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -248,7 +250,7 @@ function FilingRow({
 
 function ScheduleHRow({ year, filing }: { year: number; filing: Filing | null }) {
   const due = getScheduleHDueDate(year)
-  const days = daysUntil(due)
+  const days = daysUntil(shiftedDeadline(due).effective)
   return (
     <Link href={`/filings/schedule-h/${year}`}>
       <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
@@ -270,11 +272,13 @@ function ScheduleHRow({ year, filing }: { year: number; filing: Filing | null })
                       Filed
                     </Badge>
                   )
-                  : days <= 0
+                  : days < 0
                     ? <Badge variant="destructive">Overdue</Badge>
-                    : days <= 30
-                      ? <Badge variant="secondary">Due in {days}d</Badge>
-                      : null
+                    : days === 0
+                      ? <Badge variant="destructive">Due today</Badge>
+                      : days <= 30
+                        ? <Badge variant="secondary">Due in {days}d</Badge>
+                        : null
               }
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">

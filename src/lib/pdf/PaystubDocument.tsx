@@ -70,9 +70,9 @@ export function PaystubDocument({ stub, settings, variant, lineItems = [], ytdBy
   const overtimePay = overtimeHours * hourlyRate * 1.5
   const reasonLabels: Record<string, string> = {
     week_off: 'Week off',
-    sick_unpaid: 'Sick — unpaid',
-    vacation_unpaid: 'Vacation — unpaid',
-    holiday_unpaid: 'Holiday — unpaid',
+    sick_unpaid: 'Sick (unpaid)',
+    vacation_unpaid: 'Vacation (unpaid)',
+    holiday_unpaid: 'Holiday (unpaid)',
     other: 'Other',
   }
   const reasonText = stub.reason ? (reasonLabels[stub.reason] ?? stub.reason) : null
@@ -134,7 +134,7 @@ export function PaystubDocument({ stub, settings, variant, lineItems = [], ytdBy
           </View>
           {stub.hours_worked === 0 && taxableLineItems.length === 0 ? (
             <View style={styles.tableRow}>
-              <Text style={styles.col1}>{reasonText ? `No Hours — ${reasonText}` : 'No Hours — Week Off'}</Text>
+              <Text style={styles.col1}>{reasonText ? `No Hours (${reasonText})` : 'No Hours (Week Off)'}</Text>
               <Text style={styles.col2}>—</Text>
               <Text style={styles.col2}>0</Text>
               <Text style={styles.col2}>{formatCurrency(0)}</Text>
@@ -191,8 +191,8 @@ export function PaystubDocument({ stub, settings, variant, lineItems = [], ytdBy
             <Text style={[styles.col3, styles.colHdr]}>YTD</Text>
           </View>
           <TaxRow label="Federal Income Tax Withheld" current={stub.federal_withholding} ytd={stub.ytd_federal_withholding} alt />
-          <TaxRow label="FICA — Social Security" current={stub.fica_social_security} ytd={stub.ytd_fica_social_security} />
-          <TaxRow label="FICA — Medicare" current={stub.fica_medicare} ytd={stub.ytd_fica_medicare} alt />
+          <TaxRow label="FICA - Social Security" current={stub.fica_social_security} ytd={stub.ytd_fica_social_security} />
+          <TaxRow label="FICA - Medicare" current={stub.fica_medicare} ytd={stub.ytd_fica_medicare} alt />
           <TaxRow label="NY State Income Tax Withheld" current={stub.state_withholding} ytd={stub.ytd_state_withholding} />
           {dblCovered && <TaxRow label="NY SDI" current={stub.sdi} ytd={stub.ytd_sdi} alt />}
           {pflCovered && <TaxRow label="NY PFL" current={stub.pfl} ytd={stub.ytd_pfl} />}
@@ -281,8 +281,8 @@ export function PaystubDocument({ stub, settings, variant, lineItems = [], ytdBy
                 <Text style={[styles.col2, styles.colHdr]}>Current</Text>
                 <Text style={[styles.col3, styles.colHdr]}>YTD</Text>
               </View>
-              <TaxRow label="Employer FICA — Social Security" current={stub.employer_fica_ss} ytd={stub.ytd_employer_fica_ss} alt />
-              <TaxRow label="Employer FICA — Medicare" current={stub.employer_fica_medicare} ytd={stub.ytd_employer_fica_medicare} />
+              <TaxRow label="Employer FICA - Social Security" current={stub.employer_fica_ss} ytd={stub.ytd_employer_fica_ss} alt />
+              <TaxRow label="Employer FICA - Medicare" current={stub.employer_fica_medicare} ytd={stub.ytd_employer_fica_medicare} />
               <TaxRow label="FUTA" current={stub.futa} ytd={stub.ytd_futa} alt />
               <TaxRow label="SUTA (NY)" current={stub.suta} ytd={stub.ytd_suta} />
             </View>
@@ -332,6 +332,15 @@ export function PaystubDocument({ stub, settings, variant, lineItems = [], ytdBy
             <Text style={styles.footerLabel}>Deductions</Text>
             <Text style={styles.footerValue}>{formatCurrency(stub.total_employee_taxes)}</Text>
           </View>
+          {/* Net pay includes non-taxable reimbursements (accountable plan),
+              so the footer shows them whenever present — otherwise
+              gross − deductions wouldn't reconcile to net on its face. */}
+          {reimbursementsTotal > 0 && (
+            <View style={styles.footerItem}>
+              <Text style={styles.footerLabel}>Reimbursements</Text>
+              <Text style={styles.footerValue}>{formatCurrency(reimbursementsTotal)}</Text>
+            </View>
+          )}
           <View style={styles.footerItem}>
             <Text style={styles.footerLabel}>Net Pay</Text>
             <Text style={[styles.footerValue, { fontSize: 12 }]}>{formatCurrency(Number(stub.net_pay))}</Text>

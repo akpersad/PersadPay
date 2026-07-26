@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateYearEndPacketPDF } from '@/lib/pdf'
-import { calculateScheduleH } from '@/lib/filings'
+import { anyQuarterMeetsFutaThreshold, calculateScheduleH } from '@/lib/filings'
 import { getTaxRatesForYear } from '@/lib/tax'
 import type { Paystub, Settings, W2, Profile } from '@/lib/types'
 
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
 
   const yearInt = parseInt(year)
 
-  const [{ data: settings }, { data: stubs }, { data: w2 }, rates] = await Promise.all([
+  const [{ data: settings }, { data: stubs }, { data: w2 }, rates, { data: priorYearStubs }] = await Promise.all([
     supabase.from('settings').select('*').single<Settings>(),
     supabase
       .from('paystubs')
@@ -42,13 +42,24 @@ export async function GET(request: Request) {
       .eq('tax_year', yearInt)
       .maybeSingle<W2>(),
     getTaxRatesForYear(supabase, yearInt),
+    // Prior-year wages feed the Schedule H FUTA trigger (Pub 926 checks
+    // current AND prior year).
+    supabase
+      .from('paystubs')
+      .select('pay_date, gross_pay')
+      .gte('pay_date', `${yearInt - 1}-01-01`)
+      .lte('pay_date', `${yearInt - 1}-12-31`),
   ])
 
   if (!settings) return NextResponse.json({ error: 'Settings not configured' }, { status: 500 })
   if (!rates) return NextResponse.json({ error: `No tax rates seeded for ${year}` }, { status: 500 })
 
   const stubRows = (stubs ?? []) as Paystub[]
-  const sh = calculateScheduleH(stubRows, rates, yearInt)
+  const priorYearFutaThresholdMet = anyQuarterMeetsFutaThreshold(
+    (priorYearStubs ?? []) as Pick<Paystub, 'pay_date' | 'gross_pay'>[],
+    Number(rates.futa_quarterly_threshold),
+  )
+  const sh = calculateScheduleH(stubRows, rates, yearInt, priorYearFutaThresholdMet)
 
   const pdfBuffer = await generateYearEndPacketPDF({
     year: yearInt,

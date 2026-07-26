@@ -27,9 +27,9 @@ import {
 
 const REASON_OPTIONS: { value: StubReason; label: string }[] = [
   { value: 'week_off', label: 'Week off' },
-  { value: 'sick_unpaid', label: 'Sick — unpaid' },
-  { value: 'vacation_unpaid', label: 'Vacation — unpaid' },
-  { value: 'holiday_unpaid', label: 'Holiday — unpaid' },
+  { value: 'sick_unpaid', label: 'Sick (unpaid)' },
+  { value: 'vacation_unpaid', label: 'Vacation (unpaid)' },
+  { value: 'holiday_unpaid', label: 'Holiday (unpaid)' },
   { value: 'other', label: 'Other' },
 ]
 
@@ -68,12 +68,13 @@ interface Props {
 const DAY_ABBRS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 function getDatesInRange(start: string, end: string): string[] {
+  // Iterate on date strings — round-tripping through Date + toISOString()
+  // shifts the key a day back in UTC+13/+14 browsers.
   const dates: string[] = []
-  const cur = new Date(start + 'T12:00:00')
-  const last = new Date(end + 'T12:00:00')
-  while (cur <= last) {
-    dates.push(cur.toISOString().slice(0, 10))
-    cur.setDate(cur.getDate() + 1)
+  let cur = start
+  while (cur <= end) {
+    dates.push(cur)
+    cur = addDays(cur, 1)
   }
   return dates
 }
@@ -201,12 +202,22 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
   const rateNum = rate
 
   // Auto-suggest OT split when total > 40. Admin can override via the OT
-  // input below. Empty override = use the suggestion.
+  // input below. Empty override = use the suggestion. The override is ignored
+  // once total drops to ≤ 40 — the OT input is hidden then, and a stale value
+  // must not silently pay OT on a no-overtime week.
   const suggestedOvertimeHours = Math.max(0, totalHoursNum - OT_THRESHOLD)
-  const overtimeHoursNum = overtimeHoursOverride === ''
+  const overtimeHoursNum = overtimeHoursOverride === '' || totalHoursNum <= OT_THRESHOLD
     ? suggestedOvertimeHours
     : Math.max(0, Math.min(parseFloat(overtimeHoursOverride || '0'), totalHoursNum))
   const regularHoursNum = Math.max(0, totalHoursNum - overtimeHoursNum)
+
+  // Drop the stashed override entirely once hours fall to ≤ 40 so it can't
+  // resurface if the admin later raises hours above 40 again.
+  useEffect(() => {
+    if (totalHoursNum <= OT_THRESHOLD && overtimeHoursOverride !== '') {
+      setOvertimeHoursOverride('')
+    }
+  }, [totalHoursNum, overtimeHoursOverride])
 
   const regularPay = regularHoursNum * rateNum
   const overtimePay = overtimeHoursNum * rateNum * 1.5
@@ -384,7 +395,10 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
       pay_date: payDate,
       hours_worked: totalHoursNum,
       overtime_hours: overtimeHoursNum,
-      sick_hours: parseFloat(sickHours || '0'),
+      // Sick hours only apply to a zero-hour sick week — the input is hidden
+      // for any other reason, so a stale value must not save with the stub
+      // (it would inflate the NY § 196-b summary).
+      sick_hours: totalHoursNum === 0 && reason === 'sick_unpaid' ? parseFloat(sickHours || '0') : 0,
       reason: totalHoursNum === 0 ? (reason || null) : null,
       // Persist per-day breakdown only when admin used daily-entry mode.
       // In total-hours mode, set null so legacy stubs remain distinguishable.
@@ -703,14 +717,14 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
           <Card ref={previewRef}>
             <CardHeader className="pb-2 pt-4">
               <CardTitle className="text-sm">
-                {isEdit ? `Stub #${stubNumber} Updated` : 'Stub #TBD — Preview'}
+                {isEdit ? `Stub #${stubNumber} Updated` : 'Stub #TBD (Preview)'}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 pb-4">
               <p className="text-xs text-muted-foreground font-medium">Earnings</p>
               {totalHoursNum === 0 ? (
                 <div className="flex justify-between text-sm">
-                  <span>No Hours{reason ? ` — ${REASON_OPTIONS.find(o => o.value === reason)?.label ?? reason}` : ''}</span>
+                  <span>No Hours{reason ? ` (${REASON_OPTIONS.find(o => o.value === reason)?.label ?? reason})` : ''}</span>
                   <span>{formatCurrency(0)}</span>
                 </div>
               ) : (

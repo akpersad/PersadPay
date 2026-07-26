@@ -94,7 +94,7 @@ export function AdditionalPaySection({ items, onChange, irsMileageRate }: Props)
     const item = items.find(i => i.id === id)
     const def = item ? getLineTypeDef(item.line_type) : null
     const label = def
-      ? `${def.defaultItemLabel} — ${miles} mi @ ${(irsMileageRate * 100).toFixed(1)}¢/mi`
+      ? `${def.defaultItemLabel}: ${miles} mi @ ${(irsMileageRate * 100).toFixed(1)}¢/mi`
       : `${miles} mi`
     updateItem(id, { miles, amount, label })
   }
@@ -107,7 +107,7 @@ export function AdditionalPaySection({ items, onChange, irsMileageRate }: Props)
       <CardContent className="space-y-3 pb-4">
         {items.length === 0 && (
           <p className="text-xs text-muted-foreground">
-            Bonuses, reimbursements, holiday pay — leave empty if none.
+            Bonuses, reimbursements, holiday pay. Leave empty if none.
           </p>
         )}
 

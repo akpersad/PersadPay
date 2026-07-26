@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { NewStubForm } from '@/components/stubs/NewStubForm'
 import { getTaxRatesForYear } from '@/lib/tax'
-import { addDays } from '@/lib/dates'
+import { addDays, todayNY } from '@/lib/dates'
 import type { Settings, Paystub, Profile, PaystubLineItem } from '@/lib/types'
 
 interface SearchParams { duplicate?: string }
@@ -74,7 +74,7 @@ export default async function NewStubPage({
   // year's YTD and tax rates.
   const suggestedPayDate = lastStub?.pay_period_end
     ? addDays(lastStub.pay_period_end, 7)
-    : new Date().toISOString().slice(0, 10)
+    : todayNY()
   const currentYear = parseInt(suggestedPayDate.substring(0, 4))
 
   const [

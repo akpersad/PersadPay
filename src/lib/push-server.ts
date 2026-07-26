@@ -12,7 +12,7 @@ function ensureVapid(): boolean {
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
   const privateKey = process.env.VAPID_PRIVATE_KEY
   if (!subject || !publicKey || !privateKey) {
-    console.warn('[push] VAPID env vars not set — pushes are disabled')
+    console.warn('[push] VAPID env vars not set, pushes are disabled')
     return false
   }
   webpush.setVapidDetails(subject, publicKey, privateKey)

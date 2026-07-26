@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ChevronRight, FileText } from 'lucide-react'
-import { formatDate, formatCurrency, daysUntil } from '@/lib/dates'
+import { formatDate, formatCurrency, daysUntil, shiftedDeadline } from '@/lib/dates'
 
 interface Props {
   year: number
@@ -18,8 +18,10 @@ interface Props {
 export function NextFilingCard({ year, quarter, dueDate, stubCount, grossPay, filed }: Props) {
   if (filed) return null
 
-  const days = daysUntil(dueDate)
-  const overdue = days <= 0
+  // Weekend/holiday deadlines shift to the next business day, and a filing
+  // is only overdue the day AFTER the (shifted) deadline.
+  const days = daysUntil(shiftedDeadline(dueDate).effective)
+  const overdue = days < 0
   const ready = stubCount > 0
 
   return (
@@ -32,9 +34,11 @@ export function NextFilingCard({ year, quarter, dueDate, stubCount, grossPay, fi
               <p className="text-sm font-medium">Q{quarter} {year} NYS-45</p>
               {overdue
                 ? <Badge variant="destructive">Overdue</Badge>
-                : days <= 20
-                  ? <Badge variant="secondary">{days}d</Badge>
-                  : null
+                : days === 0
+                  ? <Badge variant="destructive">Due today</Badge>
+                  : days <= 20
+                    ? <Badge variant="secondary">{days}d</Badge>
+                    : null
               }
               {ready && !overdue && days > 20 && (
                 <Badge variant="outline">Data ready</Badge>

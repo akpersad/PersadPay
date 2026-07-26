@@ -109,13 +109,13 @@ export function RemindersView({
                           <p>
                             <span className="font-medium text-foreground">File by</span>{' '}
                             <span className="text-foreground">{formatDate(fileBy)}</span>
-                            <span className="text-muted-foreground"> · {daysUntilFileBy <= 0 ? 'past your buffer' : `${daysUntilFileBy} days`}</span>
+                            <span className="text-muted-foreground"> · {daysUntilFileBy < 0 ? 'past your buffer' : daysUntilFileBy === 0 ? 'today' : `${daysUntilFileBy} days`}</span>
                           </p>
                           <p className="text-muted-foreground">
                             Due {formatDate(effectiveDue)}
                             {shifted && <span className="text-yellow-700"> (shifted from {formatDate(r.due_date)})</span>}
                             {' · '}
-                            {daysUntilDue <= 0 ? 'overdue' : `${daysUntilDue} days`}
+                            {daysUntilDue < 0 ? 'overdue' : daysUntilDue === 0 ? 'due today' : `${daysUntilDue} days`}
                           </p>
                         </div>
                       ) : (
@@ -123,12 +123,12 @@ export function RemindersView({
                           Due {formatDate(effectiveDue)}
                           {shifted && <span className="text-yellow-700"> (shifted from {formatDate(r.due_date)})</span>}
                           {' · '}
-                          {daysUntilDue <= 0 ? 'overdue' : `${daysUntilDue} days`}
+                          {daysUntilDue < 0 ? 'overdue' : daysUntilDue === 0 ? 'due today' : `${daysUntilDue} days`}
                         </p>
                       )}
                     </div>
-                    <Badge variant={daysUntilDue <= 0 ? 'destructive' : daysUntilDue <= 10 ? 'destructive' : daysUntilDue <= 20 ? 'secondary' : 'outline'}>
-                      {daysUntilDue <= 0 ? 'Overdue' : `${daysUntilDue}d`}
+                    <Badge variant={daysUntilDue <= 10 ? 'destructive' : daysUntilDue <= 20 ? 'secondary' : 'outline'}>
+                      {daysUntilDue < 0 ? 'Overdue' : daysUntilDue === 0 ? 'Today' : `${daysUntilDue}d`}
                     </Badge>
                   </div>
                   {liveAmount && (
