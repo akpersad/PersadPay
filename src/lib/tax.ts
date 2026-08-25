@@ -54,6 +54,10 @@ export interface TaxResult {
   employer_fica_medicare: number
   futa: number
   suta: number
+  // NY Re-employment Service Fund — employer-side, same taxable base as SUTA.
+  // NYS-45 Part A line 5. Never withheld from the employee, so it does not
+  // enter net_pay; it exists so the tax reserve covers the full NY liability.
+  rsf: number
   net_pay: number
 }
 
@@ -93,6 +97,7 @@ export function calculateTaxes(inputs: TaxInputs, rates: TaxRates): TaxResult {
       employer_fica_medicare: 0,
       futa: 0,
       suta: 0,
+      rsf: 0,
       net_pay: 0,
     }
   }
@@ -133,6 +138,10 @@ export function calculateTaxes(inputs: TaxInputs, rates: TaxRates): TaxResult {
 
   const futa = round(futaTaxable * Number(rates.futa_rate))
   const suta = round(sutaTaxable * sutaRate)
+  // RSF rides on the same taxable base as SUTA but at the statutory rate from
+  // tax_rates, NOT settings.suta_rate — settings.suta_rate is the UI-only rate
+  // with RSF deliberately excluded, so adding it here is not double-counting.
+  const rsf = round(sutaTaxable * Number(rates.rsf_rate ?? 0.00075))
 
   const totalDeductions = federalWithholding + fica_ss + fica_med + stateWithholding + sdi + pfl
   const net_pay = round(gross - totalDeductions)
@@ -149,6 +158,7 @@ export function calculateTaxes(inputs: TaxInputs, rates: TaxRates): TaxResult {
     employer_fica_medicare,
     futa,
     suta,
+    rsf,
     net_pay,
   }
 }
@@ -158,7 +168,7 @@ export function calculateTaxes(inputs: TaxInputs, rates: TaxRates): TaxResult {
 //   employee-side withholdings (federal, FICA SS, FICA Medicare, NY state,
 //                               NY SDI, NY PFL)
 //   employer-side taxes        (employer FICA SS, employer FICA Medicare,
-//                               FUTA, NY SUTA)
+//                               FUTA, NY SUTA, NY RSF)
 // All values come straight off the paystub row (computed at generation time
 // and stored). Returning the breakdown alongside the total so the UI can
 // show the split.
@@ -179,6 +189,9 @@ export function hysaAmountForStub(stub: {
   employer_fica_medicare: number | string
   futa: number | string
   suta: number | string
+  // Nullable so stubs written before migration 0045 (which added and backfilled
+  // the column) still total correctly rather than producing NaN.
+  rsf?: number | string | null
 }): HysaBreakdown {
   const employee =
     Number(stub.federal_withholding) +
@@ -191,12 +204,35 @@ export function hysaAmountForStub(stub: {
     Number(stub.employer_fica_ss) +
     Number(stub.employer_fica_medicare) +
     Number(stub.futa) +
-    Number(stub.suta)
+    Number(stub.suta) +
+    Number(stub.rsf ?? 0)
+  // roundToCents, not Math.round(x*100)/100. Every summand is numeric(10,2) so
+  // an exact half-cent tie cannot occur today, but that guarantee lives in the
+  // schema and is not asserted anywhere in code.
   return {
-    employee_withholdings_total: Math.round(employee * 100) / 100,
-    employer_taxes_total: Math.round(employer * 100) / 100,
-    total: Math.round((employee + employer) * 100) / 100,
+    employee_withholdings_total: round(employee),
+    employer_taxes_total: round(employer),
+    total: round(employee + employer),
   }
+}
+
+// Loads the IRS standard mileage rate in effect on a given date (YYYY-MM-DD).
+// Kept separate from tax_rates because the rate can change mid-year — the IRS
+// raised it from 72.5c to 76c effective 2026-07-01 (Announcement 2026-11).
+// Returns null only if the table has no row on or before the date.
+export async function getMileageRateForDate(
+  supabase: SupabaseClient,
+  dateStr: string,
+): Promise<number | null> {
+  const { data } = await supabase
+    .from('irs_mileage_rates')
+    .select('rate')
+    .lte('effective_from', dateStr)
+    .order('effective_from', { ascending: false })
+    .limit(1)
+    .maybeSingle<{ rate: number }>()
+
+  return data ? Number(data.rate) : null
 }
 
 // Loads the tax_rates row that applies to a given year. If no exact match

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calculateTaxes, roundToCents } from './tax'
+import { calculateTaxes, roundToCents, hysaAmountForStub } from './tax'
 import type { TaxRates, TaxInputs } from './tax'
 
 // 2026 rates — must match the tax_rates DB row for effective_year = 2026
@@ -251,5 +251,83 @@ describe('calculateTaxes — gross rounded to cents before storage', () => {
     const deductions = r.federal_withholding + r.fica_social_security + r.fica_medicare
       + r.state_withholding + r.sdi + r.pfl
     expect(roundToCents(r.gross_pay - deductions)).toBe(r.net_pay)
+  })
+})
+
+describe('calculateTaxes — NY Re-employment Service Fund (RSF)', () => {
+  it('accrues RSF on the same taxable base as SUTA', () => {
+    // Live case: $198 gross x 0.075% = 0.1485 -> 0.15, alongside SUTA at the
+    // live UI-only rate of 4.025% (198 x 0.04025 = 7.9695 -> 7.97).
+    const r = calculateTaxes(
+      inputs({ gross: 198, ytdGrossBefore: 0, sutaRate: 0.04025 }),
+      rates2026,
+    )
+    expect(r.rsf).toBe(0.15)
+    expect(r.suta).toBe(7.97)
+  })
+
+  it('does not withhold RSF from the employee', () => {
+    const r = calculateTaxes(inputs({ gross: 198, ytdGrossBefore: 0 }), rates2026)
+    const employeeDeductions = r.federal_withholding + r.fica_social_security
+      + r.fica_medicare + r.state_withholding + r.sdi + r.pfl
+    expect(roundToCents(r.gross_pay - employeeDeductions)).toBe(r.net_pay)
+    // RSF is employer-side, so net pay is untouched by it.
+    expect(r.net_pay).toBe(182.85)
+  })
+
+  it('stops RSF at the SUTA wage base', () => {
+    // YTD already at the base: no room left, so both SUTA and RSF are zero.
+    const r = calculateTaxes(inputs({ gross: 198, ytdGrossBefore: 17600 }), rates2026)
+    expect(r.suta).toBe(0)
+    expect(r.rsf).toBe(0)
+  })
+
+  it('is zero on a zero-hour stub', () => {
+    const r = calculateTaxes(inputs({ gross: 0, ytdGrossBefore: 1000 }), rates2026)
+    expect(r.rsf).toBe(0)
+  })
+})
+
+describe('hysaAmountForStub — reserve covers the full NY liability', () => {
+  const liveStub = {
+    federal_withholding: 0, fica_social_security: 12.28, fica_medicare: 2.87,
+    state_withholding: 0, sdi: 0, pfl: 0,
+    employer_fica_ss: 12.28, employer_fica_medicare: 2.87,
+    futa: 1.19, suta: 7.97, rsf: 0.15,
+  }
+
+  it('includes RSF in the employer total', () => {
+    const b = hysaAmountForStub(liveStub)
+    // 12.28 + 2.87 + 1.19 + 7.97 + 0.15
+    expect(b.employer_taxes_total).toBe(24.46)
+    expect(b.employee_withholdings_total).toBe(15.15)
+    expect(b.total).toBe(39.61)
+  })
+
+  it('treats a pre-migration stub with no rsf as zero rather than NaN', () => {
+    const legacy: Omit<typeof liveStub, 'rsf'> & { rsf?: number } = { ...liveStub }
+    delete legacy.rsf
+    const b = hysaAmountForStub(legacy)
+    expect(b.total).toBe(39.46)
+    expect(Number.isNaN(b.total)).toBe(false)
+  })
+})
+
+describe('roundToCents — mileage reimbursement half-cent cases', () => {
+  // The naive Math.round(x*100)/100 rounds these a cent low because scaling by
+  // 100 lands one ULP under the .5 boundary.
+  it.each([
+    [3, 2.18],
+    [13, 9.43],
+    [47, 34.08],
+    [53, 38.43],
+  ])('%i miles at 72.5c rounds half-up to %d', (miles, expected) => {
+    expect(roundToCents(miles * 0.725)).toBe(expected)
+  })
+
+  it('agrees with the naive form where there is no tie', () => {
+    for (const miles of [1, 5, 7, 10, 100]) {
+      expect(roundToCents(miles * 0.725)).toBe(Math.round(miles * 0.725 * 100) / 100)
+    }
   })
 })

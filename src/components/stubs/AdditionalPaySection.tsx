@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Plus, X } from 'lucide-react'
 import { CurrencyInput } from '@/components/ui/currency-input'
+import { roundToCents } from '@/lib/tax'
 import {
   LINE_TYPES,
   getLineTypeDef,
@@ -90,7 +91,10 @@ export function AdditionalPaySection({ items, onChange, irsMileageRate }: Props)
   }
 
   function setMiles(id: string, miles: number) {
-    const amount = Math.round(miles * irsMileageRate * 100) / 100
+    // roundToCents, not Math.round(x*100)/100 — the naive form rounds a cent
+    // low on any product that lands on an exact half cent (e.g. 3 mi at
+    // 72.5c = $2.175 -> $2.17 instead of $2.18). See roundToCents in lib/tax.
+    const amount = roundToCents(miles * irsMileageRate)
     const item = items.find(i => i.id === id)
     const def = item ? getLineTypeDef(item.line_type) : null
     const label = def

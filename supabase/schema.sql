@@ -68,7 +68,10 @@ create table public.settings (
   pfl_covered                     boolean not null default false,
   -- numeric(7,5): NY UI rates carry 3 decimal places as a percentage,
   -- i.e. 5 as a fraction (migration 0034 widened from numeric(6,4))
-  suta_rate                       numeric(7,5) not null default 0.041,
+  -- UI-only rate, EXCLUDING the 0.075% RSF surcharge (RSF is computed
+  -- separately from tax_rates.rsf_rate). 0.04025 is the NY 2026 new-employer
+  -- UI rate; 0.04025 + 0.00075 = the 4.1% combined rate on the rate notice.
+  suta_rate                       numeric(7,5) not null default 0.04025,
   additional_emails               text[] not null default '{}',
   reply_to_emails                 text[] not null default '{}',
   reminder_emails                 text[] not null default '{"Persad.household@gmail.com"}',
