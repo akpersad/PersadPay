@@ -52,7 +52,9 @@ export default async function RemindersPage() {
         .reduce((sum, s) => sum + Number(s.gross_pay), 0)
       const rates = await getTaxRatesForYear(supabase, year)
       if (rates) {
-        const data = calculateNYS45(inQuarter, ytdGrossBefore, rates, sutaRate, year, q)
+        // Pass yearStubs so employee_counts_by_month sees pay periods that
+        // straddle a quarter boundary, matching the /filings/nys-45 page.
+        const data = calculateNYS45(inQuarter, ytdGrossBefore, rates, sutaRate, year, q, yearStubs)
         amounts[r.id] = {
           amount: data.total_ui_due + data.total_tax_withheld,
           agency: 'NY State Tax & Finance',
