@@ -43,7 +43,7 @@ export default async function SickLeavePolicyPage() {
       {/* Policy document — print-friendly */}
       <article className="bg-white text-black space-y-5 print:text-[11pt] leading-relaxed">
         <header className="text-center space-y-1 border-b pb-4">
-          <h1 className="text-xl font-bold uppercase tracking-wide">Sick Leave Policy</h1>
+          <h1 className="text-xl font-bold uppercase tracking-wide">Sick Leave and Paid Prenatal Leave Policy</h1>
           <p className="text-sm">{employer}</p>
           {employerAddress && <p className="text-xs text-muted-foreground">{employerAddress}</p>}
           <p className="text-xs text-muted-foreground pt-1">Effective {formatDate(today)}</p>
@@ -53,8 +53,8 @@ export default async function SickLeavePolicyPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wide">1. Scope</h2>
           <p className="text-sm">
             This policy applies to <strong>{employee}</strong> in her capacity as a domestic employee of {employer}.
-            It is offered in compliance with the New York State Sick Leave Law (NY Labor Law § 196-b)
-            and supersedes any prior practice on this subject.
+            It is offered in compliance with the New York State Sick Leave Law and the Paid Prenatal
+            Leave Law (both NY Labor Law § 196-b) and supersedes any prior practice on these subjects.
           </p>
         </section>
 
@@ -100,21 +100,58 @@ export default async function SickLeavePolicyPage() {
         <section className="space-y-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide">6. Records and Summaries</h2>
           <p className="text-sm">
-            {employer} will maintain records of sick leave used. Pursuant to § 196-b(4), the employee may request a
-            summary of the amount of sick leave used in the current calendar year and the prior calendar year, and
-            {' '}{employer} will provide the summary in writing within three business days.
+            {employer} will maintain records of sick leave used, retained for six years per Labor Law § 195(4).
+            Pursuant to § 196-b(11), the employee may request a summary of the sick leave accrued and used in the
+            current calendar year and any previous calendar year, and {employer} will provide that summary within
+            three business days of an oral or written request.
           </p>
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide">7. No Retaliation</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide">7. Paid Prenatal Leave</h2>
+          <p className="text-sm">
+            Separately from the sick leave above, and in addition to it, the employee is entitled under
+            NY Labor Law § 196-b(4-a) to <strong>20 hours of paid prenatal leave</strong> for
+            pregnancy-related health care. This entitlement applies regardless of how many hours per week
+            the employee works, and is available in full from the first day of employment with no
+            accrual or waiting period.
+          </p>
+          <ul className="text-sm space-y-1 list-disc pl-5">
+            <li>Paid at the employee&apos;s regular rate of pay.</li>
+            <li>
+              May be taken in hourly increments. If only one hour is needed for an appointment, the
+              employee may use one hour and work the rest of the day.
+            </li>
+            <li>
+              Covers physical examinations, medical procedures, monitoring, testing, discussions with a
+              health care provider, end-of-pregnancy care, and fertility treatment. It does not cover
+              health care after the pregnancy ends.
+            </li>
+            <li>
+              Available only to the pregnant employee receiving care, not to a spouse, partner, or other
+              support person attending an appointment.
+            </li>
+            <li>
+              The 20 hours run for a 52-week period beginning when the employee first uses this leave,
+              not by calendar year. Unused hours do not carry over, and unused hours are not paid out on
+              separation.
+            </li>
+            <li>
+              {employer} will not request personal health details or medical records as a condition of
+              using this leave.
+            </li>
+          </ul>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide">8. No Retaliation</h2>
           <p className="text-sm">
             {employer} will not retaliate against the employee for requesting or using sick leave under this policy.
           </p>
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide">8. Amendments</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide">9. Amendments</h2>
           <p className="text-sm">
             {employer} may amend this policy in writing. Any amendment will not reduce the statutory minimum
             entitlement set by § 196-b.

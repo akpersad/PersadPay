@@ -4,6 +4,7 @@ import {
 } from '@react-pdf/renderer'
 import { BRAND_COLOR, BRAND_COLOR_LIGHT } from './constants'
 import { formatDate, formatDateRange, formatCurrency } from '@/lib/dates'
+import { roundToCents } from '@/lib/tax'
 import type { PaystubWithYTD, Settings, PaystubLineItem } from '@/lib/types'
 
 const styles = StyleSheet.create({
@@ -61,11 +62,16 @@ export function PaystubDocument({ stub, settings, variant, lineItems = [], ytdBy
   const reimbursementsTotal = reimbursementLineItems.reduce((sum, i) => sum + Number(i.amount), 0)
   const givenSeparatelyItems = lineItems.filter(i => !i.informational_only && i.given_separately)
   const givenSeparatelyTotal = givenSeparatelyItems.reduce((sum, i) => sum + Number(i.amount), 0)
-  const cashToZelle = Math.round((Number(stub.net_pay) - givenSeparatelyTotal) * 100) / 100
+  const cashToZelle = roundToCents(Number(stub.net_pay) - givenSeparatelyTotal)
 
   const overtimeHours = Number(stub.overtime_hours ?? 0)
   const regularHours = Math.max(0, Number(stub.hours_worked) - overtimeHours)
   const hourlyRate = Number(stub.hourly_rate)
+  // NY Paid Prenatal Leave is paid at the regular rate and is part of gross
+  // wages, so it earns its own earnings row rather than hiding inside regular
+  // hours. It is not "hours worked", so it is excluded from regularHours.
+  const prenatalHours = Number(stub.prenatal_leave_hours ?? 0)
+  const prenatalPay = prenatalHours * hourlyRate
   const regularPay = regularHours * hourlyRate
   const overtimePay = overtimeHours * hourlyRate * 1.5
   const reasonLabels: Record<string, string> = {
@@ -158,6 +164,15 @@ export function PaystubDocument({ stub, settings, variant, lineItems = [], ytdBy
                   <Text style={styles.col2}>{overtimeHours}</Text>
                   <Text style={styles.col2}>{formatCurrency(overtimePay)}</Text>
                   <Text style={styles.col3}>{formatCurrency(stub.ytd_overtime_wages)}</Text>
+                </View>
+              )}
+              {prenatalHours > 0 && (
+                <View style={overtimeHours > 0 ? styles.tableRow : styles.tableRowAlt}>
+                  <Text style={styles.col1}>Paid Prenatal Leave</Text>
+                  <Text style={styles.col2}>{formatCurrency(hourlyRate)}</Text>
+                  <Text style={styles.col2}>{prenatalHours}</Text>
+                  <Text style={styles.col2}>{formatCurrency(prenatalPay)}</Text>
+                  <Text style={styles.col3}>{formatCurrency(stub.ytd_prenatal_leave_wages ?? prenatalPay)}</Text>
                 </View>
               )}
               {taxableLineItems.map((item, idx) => (
@@ -285,6 +300,7 @@ export function PaystubDocument({ stub, settings, variant, lineItems = [], ytdBy
               <TaxRow label="Employer FICA - Medicare" current={stub.employer_fica_medicare} ytd={stub.ytd_employer_fica_medicare} />
               <TaxRow label="FUTA" current={stub.futa} ytd={stub.ytd_futa} alt />
               <TaxRow label="SUTA (NY)" current={stub.suta} ytd={stub.ytd_suta} />
+              <TaxRow label="RSF (NY re-employment service fund)" current={stub.rsf ?? 0} ytd={stub.ytd_rsf ?? 0} />
             </View>
           </>
         )}
