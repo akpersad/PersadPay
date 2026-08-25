@@ -112,6 +112,7 @@ Steps 6 and 7 are independent actions. The UI must disable "Email Paystub" until
 | hours_worked | numeric | Can be 0 (zero-hour week still generates a stub) |
 | overtime_hours | numeric | Hours above 40/week; triggers OT row on stub at 1.5× rate |
 | sick_hours | numeric | Sick hours used this period — informational only; sick leave is unpaid and unlimited |
+| prenatal_leave_hours | numeric | NY Paid Prenatal Leave hours taken (§ 196-b(4-a)). **PAID** at hourly_rate and included in gross_pay, unlike unpaid sick_hours. NOT "hours worked": excluded from the 40-hr OT threshold and from the DBL/PFL coverage test. Entitlement is 20 hrs per rolling 52-week period from FIRST USE (not calendar year), no carryover — see `src/lib/prenatal.ts`. Applies regardless of hours worked per week (NY DOL P695: no minimum work requirement). |
 | hourly_rate | numeric | Copied from settings at generation time |
 | gross_pay | numeric | hours_worked × hourly_rate + overtime_hours × hourly_rate × 1.5 (sick leave is unpaid; sick_hours does not contribute to gross) |
 | federal_withholding | numeric | Flat dollar snapshot from settings; $0.00 if hours_worked = 0 |
@@ -127,6 +128,7 @@ Steps 6 and 7 are independent actions. The UI must disable "Email Paystub" until
 | employer_fica_medicare | numeric | Employer only — 1.45% of gross |
 | futa | numeric | Employer only — 0.6% of gross up to $7,000 annual wage base |
 | suta | numeric | Employer only — suta_rate_at_generation × gross up to $17,600 annual wage base |
+| rsf | numeric | Employer only — NY Re-employment Service Fund, rsf_rate × the same taxable base as SUTA. NYS-45 Part A line 5. Never withheld from the employee, so it is excluded from net_pay but included in the HYSA tax reserve. |
 | net_pay | numeric | gross minus all employee-side deductions, plus non-taxable reimbursements (accountable plan); always $0.00 on zero-hour stubs with no reimbursements. The stub PDF footer shows a Reimbursements cell whenever they are present so gross − deductions + reimbursements = net reads on its face. |
 | payment_sent | boolean | Default false. True when admin marks payment sent. |
 | zelle_transaction_id | text | Free text. Admin only. Nullable. |
@@ -158,7 +160,7 @@ Single-row table. Only one record ever exists.
 | state_withholding_per_period | numeric | Voluntary flat dollar from her IT-2104. Default $0. |
 | dbl_covered | boolean | NY DBL (SDI) coverage. Default false — only true if she works 20+ hrs/wk. |
 | pfl_covered | boolean | NY PFL coverage. Default false — only true if she works 20+ hrs/wk or 175+ days/52 wks. |
-| suta_rate | numeric | Base UI rate from the annual NY UI rate notice, EXCLUDING the 0.075% RSF surcharge (RSF is computed separately from tax_rates.rsf_rate on the NYS-45). Update each January/February when the rate notice arrives. |
+| suta_rate | numeric | Base UI rate from the annual NY UI rate notice, EXCLUDING the 0.075% RSF surcharge (RSF is computed separately from tax_rates.rsf_rate on the NYS-45). Update each year when the rate notice arrives (NY DOL mails these in **March**). |
 | additional_emails | text[] | Extra stub delivery recipients. Each gets a separate email. |
 | reply_to_emails | text[] | Admin personal email(s) set as reply-to on all outbound emails |
 | reminder_emails | text[] | Recipients for filing reminder emails. Pre-seeded with Persad.household@gmail.com. |
@@ -221,7 +223,7 @@ Current 2026 values (verified 2026-05-05 — source URLs in `/docs/COMPLIANCE_RE
 | `sdi_weekly_cap` | 0.60 | $0.60/week hard cap |
 | `pfl_rate` | 0.00432 | 0.432% NY PFL — only applies when `pfl_covered = true` |
 | `pfl_annual_cap` | 411.91 | NY 2026 annual max employee PFL contribution |
-| `irs_mileage_rate` | 0.725 | 72.5¢/mi (non-taxable mileage reimbursement) |
+| `irs_mileage_rate` | 0.725 | January-effective rate only. **The live rate lives in the `irs_mileage_rates` table**, keyed on `effective_from`, because the IRS can change it mid-year: 72.5¢ from 2026-01-01 (Notice 2026-10), then 76¢ from 2026-07-01 (Announcement 2026-11). Read it with `getMileageRateForDate()`, never off `tax_rates`. |
 | `fica_household_threshold` | 3000 | IRS Pub 926 — FICA applies only if annual cash wages ≥ this amount |
 | `futa_quarterly_threshold` | 1000 | FUTA applies only if any single quarter's cash wages ≥ this amount |
 
@@ -403,7 +405,7 @@ Minimal. One job: answer "was I paid and for how much?"
 1. **Most recent pay stub card** — shows pay period, pay date, gross pay, and net pay. Tapping navigates to `/stubs/[id]`.
 2. **"View All Pay Stubs"** button — links to `/stubs`.
 3. **"View W-2s"** button — links to `/w2`.
-4. **"View Sick Leave Summary"** button — links to `/documents/sick-leave-summary` (employee sees only her own data per NY § 196-b(4)).
+4. **"View Sick Leave Summary"** button — links to `/documents/sick-leave-summary` (employee sees only her own data; the summary itself is required by NY § 196-b(11)).
 
 No stats, no actions, nothing admin-facing. Account management (2FA, password, push notifications) lives in the employee's Settings tab, not here.
 
