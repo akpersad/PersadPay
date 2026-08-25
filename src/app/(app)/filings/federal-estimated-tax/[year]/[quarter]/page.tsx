@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { ChevronLeft, ExternalLink } from 'lucide-react'
 import { formatDate, formatCurrency, daysUntil, shiftedDeadline, selfImposedDeadline } from '@/lib/dates'
 import { calculateFederalEstimatedTax, getFederalEstimatedTaxPeriod, type Quarter } from '@/lib/filings'
+import { getTaxRatesForYear } from '@/lib/tax'
 import { CopyValue } from '@/components/filings/CopyValue'
 import { MarkFiledForm } from '@/components/filings/MarkFiledForm'
 import type { Profile, Paystub, Filing } from '@/lib/types'
@@ -43,6 +44,7 @@ export default async function FederalEstimatedTaxQuarterPage({ params }: { param
     { data: yearFilings },
     // Prior-year Schedule H filing for safe-harbor calculation
     { data: priorYearScheduleH },
+    rates,
   ] = await Promise.all([
     supabase
       .from('paystubs')
@@ -70,9 +72,11 @@ export default async function FederalEstimatedTaxQuarterPage({ params }: { param
       .eq('tax_year', year - 1)
       .not('amount_paid', 'is', null)
       .maybeSingle(),
+    // Needed only to cap the annualized FUTA projection at the wage base.
+    getTaxRatesForYear(supabase, year),
   ])
 
-  const data = calculateFederalEstimatedTax((stubsInPeriod ?? []) as Paystub[], year, q)
+  const data = calculateFederalEstimatedTax((stubsInPeriod ?? []) as Paystub[], year, q, rates ?? undefined)
   const { effective: dueDateEffective, shifted } = shiftedDeadline(data.due_date)
   const fileBy = selfImposedDeadline(dueDateEffective)
   const daysUntilDue = daysUntil(dueDateEffective)
@@ -125,7 +129,9 @@ export default async function FederalEstimatedTaxQuarterPage({ params }: { param
         <Card>
           <CardContent className="py-4 px-4">
             <p className="text-sm text-muted-foreground">
-              No paystubs in this quarter. No federal estimated tax payment needed for Q{q}.
+              No paystubs paid in this period, so no household employment tax is owed for it.
+              Form 1040-ES covers your whole 1040 liability though, so you may still owe an
+              estimated payment from other income.
             </p>
           </CardContent>
         </Card>
@@ -160,11 +166,24 @@ export default async function FederalEstimatedTaxQuarterPage({ params }: { param
               <CardTitle className="text-sm">Projections</CardTitle>
             </CardHeader>
             <CardContent className="pb-4 space-y-2">
-              <LineRow
-                label="Annualized projection"
-                value={data.annualized_projection}
-                hint={`Q${q} total annualized over 12 months based on this period's pace`}
-              />
+              {data.annualized_projection !== null ? (
+                <LineRow
+                  label="Annualized projection"
+                  value={data.annualized_projection}
+                  hint={`Q${q} total annualized over 12 months based on this period's pace. FUTA capped at the annual wage base.`}
+                />
+              ) : (
+                <div className="flex items-start gap-3">
+                  <span className="w-10 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm">Annualized projection</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Available once this period closes on {formatDate(data.date_range.end)}. Scaling a
+                      partial period would under-project the full year.
+                    </p>
+                  </div>
+                </div>
+              )}
               {safeHarborPerQuarter !== null ? (
                 <LineRow
                   label="Safe harbor per quarter"

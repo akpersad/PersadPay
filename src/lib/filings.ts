@@ -73,6 +73,24 @@ export function getCurrentQuarter(dateStr: string = todayNY()): { year: number; 
   return { year, quarter: Math.ceil(month / 3) as Quarter }
 }
 
+export type QuarterStatus = 'not_started' | 'in_progress' | 'complete'
+
+// Whether a calendar quarter has finished accruing wages yet. A quarter's
+// figures are only final once its last day has passed — filing an NYS-45 for a
+// quarter still in progress understates remuneration and requires an amended
+// return plus 12%/yr interest from the due date (NYS-45-I). Callers use this to
+// gate the "ready to file" affordances, never to change a computed amount.
+export function getQuarterStatus(
+  year: number,
+  quarter: Quarter,
+  todayStr: string = todayNY(),
+): QuarterStatus {
+  const { start, end } = getQuarterDateRange(year, quarter)
+  if (todayStr < start) return 'not_started'
+  if (todayStr <= end) return 'in_progress'
+  return 'complete'
+}
+
 // The quarter before the given one, wrapping Q1 into the prior year's Q4.
 // A quarter's NYS-45 is due during the FOLLOWING quarter, so "what's due
 // right now" is usually the previous quarter, not the one accruing.
@@ -91,22 +109,26 @@ export interface NYS45Data {
   date_range: { start: string; end: string }
   due_date: string
   stub_count: number
-  // Part A (UI)
-  ui_gross_wages: number       // Line 2 — total quarterly remuneration
-  ui_excess_wages: number      // Line 3 — amount over the UI wage base
-  ui_taxable_wages: number     // Line 4 — subject to UI tax
-  ui_tax_due: number           // Line 5 — UI contribution (taxable × UI rate)
-  rsf: number                  // Line 6 — Re-employment Service Fund (taxable × rsf_rate)
-  // Line 5 + Line 6 totaled from the unrounded amounts with fractional cents
-  // truncated, matching how NY DOL's online filing assesses the total (can
-  // differ by a penny from adding the rounded lines).
+  // Part A (UI) — line numbers per Form NYS-45-I (1/26). The pre-2026 form
+  // numbered these 2-6; do not renumber without re-reading the current
+  // instructions, since this page is transcribed line-by-line into Web File.
+  ui_gross_wages: number       // Line 1 — total remuneration paid this quarter
+  ui_excess_wages: number      // Line 2 — amount over the UI wage base
+  ui_taxable_wages: number     // Line 3 — line 1 − line 2, subject to UI tax
+  ui_tax_due: number           // Line 4 — UI contribution (taxable × UI rate)
+  rsf: number                  // Line 5 — Re-employment Service Fund (line 3 × rsf_rate)
+  // Line 6 — "Add lines 4 and 5". Totaled from the unrounded amounts with
+  // fractional cents truncated, matching how NY DOL's online filing assesses
+  // the total (can differ by a penny from adding the rounded lines).
   total_ui_due: number
-  // Part A employee-count boxes (NYS-45 Part A, boxes 10a/10b/10c)
+  // Part A employee-count boxes (NYS-45 Part A, lines 10a/10b/10c).
   // Count of covered employees employed on the 12th of each month in the quarter.
   employee_counts_by_month: [number, number, number]
-  // Part B (Withholding)
-  ny_state_tax_withheld: number // Box 12
-  total_tax_withheld: number    // Box 15 — same as Box 12 in Nassau (no NYC/Yonkers)
+  // Part B (Withholding). The current form has ONE combined line here; the
+  // separate NYS / NYC / Yonkers lines (12/13/14/15) are from the pre-2026 form.
+  ny_state_tax_withheld: number // NY State portion of line 13
+  total_tax_withheld: number    // Line 13 — combined NYS + NYC + Yonkers; equals
+                                // the NY State portion in Nassau (no NYC/Yonkers)
   // Useful but not on NYS-45 itself — for federal Form 941 / quarterly estimates
   fed_income_tax_withheld: number
 }
@@ -233,8 +255,15 @@ export interface FederalEstimatedTaxData {
   fed_income_tax_withheld: number  // Line 7 slice
   futa: number                 // Line 16 slice
   total_due: number            // sum — what to send via Form 1040-ES this quarter
-  // Annualized projection: total_due / period_months × 12
-  annualized_projection: number
+  // Annualized projection of the full-year Schedule H liability implied by this
+  // period's run rate. Null while the period is still accruing: scaling a
+  // partial period by 12/period_months under-projects (the numerator is short
+  // but the denominator assumes a full period), and a wrong number next to a
+  // copy-to-clipboard payment amount is worse than no number.
+  annualized_projection: number | null
+  // True when the period has not finished, i.e. annualized_projection is null
+  // and total_due is a running subtotal rather than the amount to send.
+  period_in_progress: boolean
 }
 
 // Computes the per-period Schedule H slice paid via Form 1040-ES. Uses IRS
@@ -247,6 +276,8 @@ export function calculateFederalEstimatedTax(
   stubsInPeriod: Paystub[],
   year: number,
   quarter: Quarter,
+  rates?: TaxRates,
+  todayStr: string = todayNY(),
 ): FederalEstimatedTaxData {
   const sum = (key: keyof Paystub) =>
     stubsInPeriod.reduce((acc, s) => acc + Number(s[key] ?? 0), 0)
@@ -257,13 +288,30 @@ export function calculateFederalEstimatedTax(
   const futa = round(sum('futa'))
   const total_due = round(ss_combined + medicare_combined + fed_income_tax_withheld + futa)
 
-  const periodMonths = getFederalEstimatedTaxPeriodMonths(quarter)
-  const annualized_projection = total_due > 0 ? round(total_due / periodMonths * 12) : 0
+  const period = getFederalEstimatedTaxPeriod(year, quarter)
+  const period_in_progress = todayStr <= period.end
+
+  // Suppressed while the period is open — see the field comment.
+  let annualized_projection: number | null = null
+  if (!period_in_progress && total_due > 0) {
+    const periodMonths = getFederalEstimatedTaxPeriodMonths(quarter)
+    const scale = 12 / periodMonths
+    // FUTA must NOT be scaled linearly: it stops at futa_wage_base for the
+    // year, so a naive ×4 on a Q3 slice overstates it. Cap the annualized FUTA
+    // at the annual maximum the wage base allows. Same reasoning would apply to
+    // FICA SS above ss_wage_base, which these wage levels never approach.
+    const annualizedNonFuta = (ss_combined + medicare_combined + fed_income_tax_withheld) * scale
+    const futaCeiling = rates
+      ? Number(rates.futa_wage_base) * Number(rates.futa_rate)
+      : Infinity
+    const annualizedFuta = Math.min(futa * scale, futaCeiling)
+    annualized_projection = round(annualizedNonFuta + annualizedFuta)
+  }
 
   return {
     year,
     quarter,
-    date_range: getFederalEstimatedTaxPeriod(year, quarter),
+    date_range: period,
     due_date: getFederalEstimatedTaxDueDate(year, quarter),
     stub_count: stubsInPeriod.length,
     ss_combined,
@@ -272,6 +320,7 @@ export function calculateFederalEstimatedTax(
     futa,
     total_due,
     annualized_projection,
+    period_in_progress,
   }
 }
 

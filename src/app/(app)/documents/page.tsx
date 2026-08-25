@@ -102,14 +102,14 @@ const DOCS: DocSpec[] = [
   },
   {
     type: 'sick_leave_policy',
-    title: 'Sick Leave Policy',
-    description: 'Unlimited unpaid sick leave. Exceeds NY § 196-b small-employer floor. Print, sign, retain.',
+    title: 'Sick Leave and Paid Prenatal Leave Policy',
+    description: 'Unlimited unpaid sick leave, which exceeds the NY § 196-b small-employer floor, plus the 20 hours of paid prenatal leave required by § 196-b(4-a). Print, sign, retain for 6 years.',
     inAppHref: '/documents/sick-leave-policy',
   },
   {
     type: 'sick_leave_summary',
     title: 'Sick Leave Summary',
-    description: 'Generated on-demand when Melina requests it. NY § 196-b(4) requires you to respond within 3 business days. Each upload is kept as a separate record so you have a history of every copy provided.',
+    description: 'Generated on-demand when Melina requests it. NY § 196-b(11) requires you to respond within 3 business days of an oral or written request. Retain for 6 years per Labor Law § 195(4). Each upload is kept as a separate record so you have a history of every copy provided.',
     inAppHref: '/documents/sick-leave-summary',
     requiresSignature: false,
     multi: true,

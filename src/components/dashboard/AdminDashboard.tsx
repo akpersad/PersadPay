@@ -11,7 +11,7 @@ import { NextFilingCard } from './NextFilingCard'
 import { formatDate, formatDateRange, formatCurrency, daysUntil, todayNY, addDays, shiftedDeadline } from '@/lib/dates'
 import { getCurrentQuarter, getQuarterDateRange, getQuarterDueDate, previousQuarter } from '@/lib/filings'
 import { PlusCircle, CheckCircle2, AlertCircle, PiggyBank, AlertTriangle, TrendingUp } from 'lucide-react'
-import { computeCoverageWatch } from '@/lib/coverage'
+import { computeCoverageWatch, type CoverageStub } from '@/lib/coverage'
 import type { Paystub, Reminder, OnboardingItem, YearEndItem, Filing, Settings } from '@/lib/types'
 
 // Fixed items seeded per tax year — label + detail only (id/year added at insert time).
@@ -103,9 +103,11 @@ export async function AdminDashboard() {
       .eq('quarter', prevQ.quarter)
       .maybeSingle<Filing>(),
     // Last 52 weeks of stubs for the DBL/PFL coverage threshold watch.
+    // daily_hours is required: computeCoverageWatch counts distinct days worked
+    // from it and silently falls back to a one-day-per-stub proxy without it.
     supabase
       .from('paystubs')
-      .select('pay_date, hours_worked')
+      .select('pay_date, hours_worked, daily_hours')
       .gte('pay_date', addDays(today, -52 * 7)),
     supabase.from('hysa_transactions').select('amount'),
     supabase.from('settings').select('hysa_actual_balance, hysa_actual_balance_at').single<Pick<Settings, 'hysa_actual_balance' | 'hysa_actual_balance_at'>>(),
@@ -155,7 +157,7 @@ export async function AdminDashboard() {
 
   const allYearEndDone = yearEndItems.every(i => i.completed)
 
-  const coverage = computeCoverageWatch((coverageStubs ?? []) as Paystub[], today)
+  const coverage = computeCoverageWatch((coverageStubs ?? []) as CoverageStub[], today)
 
   const ytdGross = (ytdStubs ?? []).reduce((sum, s) => sum + Number(s.gross_pay), 0)
   const ytdEmployerCost = (ytdStubs ?? []).reduce(

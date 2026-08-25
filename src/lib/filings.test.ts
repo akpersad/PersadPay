@@ -4,6 +4,7 @@ import {
   calculateNYS45,
   calculateFederalEstimatedTax,
   getFederalEstimatedTaxPeriod,
+  getQuarterStatus,
   previousQuarter,
 } from './filings'
 import type { TaxRates } from './tax'
@@ -16,7 +17,7 @@ const rates2026: TaxRates = {
   ss_wage_base: 184500,
   futa_rate: 0.006,
   futa_wage_base: 7000,
-  suta_wage_base: 13000,
+  suta_wage_base: 17600,
   sdi_rate: 0.005,
   sdi_weekly_cap: 0.60,
   pfl_rate: 0.00432,
@@ -38,6 +39,7 @@ function makeStub(overrides: Partial<Paystub> = {}): Paystub {
     hours_worked: 9,
     overtime_hours: 0,
     sick_hours: 0,
+    prenatal_leave_hours: 0,
     reason: null,
     daily_hours: null,
     hourly_rate: 22,
@@ -52,6 +54,7 @@ function makeStub(overrides: Partial<Paystub> = {}): Paystub {
     employer_fica_medicare: 2.87,
     futa: 1.19,
     suta: 8.12,
+    rsf: 0.15,
     net_pay: 182.85,
     payment_sent: true,
     zelle_transaction_id: null,
@@ -101,26 +104,26 @@ describe('calculateScheduleH — FICA threshold', () => {
 })
 
 describe('calculateNYS45 — SUTA wage base cap', () => {
-  it('excess wages accrue correctly across stubs when YTD approaches $13,000', () => {
-    // Q1: two stubs bringing YTD from $12,600 to $12,996 (still under cap)
+  it('excess wages accrue correctly across stubs when YTD approaches the wage base', () => {
+    // Two stubs bringing YTD from $17,200 to $17,596 (still under the $17,600 cap)
     const stub1 = makeStub({ gross_pay: 198, pay_date: '2026-01-12' })
     const stub2 = makeStub({ gross_pay: 198, pay_date: '2026-01-19' })
-    const ytdBefore = 12600
+    const ytdBefore = 17200
 
-    const r = calculateNYS45([stub1, stub2], ytdBefore, rates2026, 0.041, 2026, 1)
+    const r = calculateNYS45([stub1, stub2], ytdBefore, rates2026, 0.04025, 2026, 1)
 
-    // Both stubs fit under the cap: 12600 + 198 + 198 = 12,996 < 13,000
+    // Both stubs fit under the cap: 17200 + 198 + 198 = 17,596 < 17,600
     expect(r.ui_taxable_wages).toBe(396)
     expect(r.ui_excess_wages).toBe(0)
   })
 
-  it('caps taxable wages at $13,000 when YTD crosses the wage base', () => {
-    // YTD before = $12,900, two stubs of $198 → first stub: $100 taxable, second: $0
+  it('caps taxable wages at the $17,600 wage base when YTD crosses it', () => {
+    // YTD before = $17,500, two stubs of $198: first $100 taxable, second $0
     const stub1 = makeStub({ gross_pay: 198, pay_date: '2026-01-12' })
     const stub2 = makeStub({ gross_pay: 198, pay_date: '2026-01-19' })
-    const ytdBefore = 12900
+    const ytdBefore = 17500
 
-    const r = calculateNYS45([stub1, stub2], ytdBefore, rates2026, 0.041, 2026, 1)
+    const r = calculateNYS45([stub1, stub2], ytdBefore, rates2026, 0.04025, 2026, 1)
 
     expect(r.ui_taxable_wages).toBe(100)
     expect(r.ui_excess_wages).toBeCloseTo(296, 2)
@@ -216,9 +219,10 @@ describe('calculateFederalEstimatedTax — IRS fiscal periods', () => {
       makeStub({ fica_social_security: 12.28, employer_fica_ss: 12.28, fica_medicare: 2.87, employer_fica_medicare: 2.87, federal_withholding: 0, futa: 1.19, pay_date: '2026-01-19' }),
     ]
     const r = calculateFederalEstimatedTax(stubs, 2026, 1)
-    // SS combined: (12.28 + 12.28) × 2 = 49.12
+    // SS combined: employee + employer, summed over both stubs:
+    // (12.28 + 12.28) + (12.28 + 12.28) = 49.12
     expect(r.ss_combined).toBeCloseTo(49.12, 2)
-    // Medicare combined: (2.87 + 2.87) × 2 = 11.48
+    // Medicare combined: (2.87 + 2.87) + (2.87 + 2.87) = 11.48
     expect(r.medicare_combined).toBeCloseTo(11.48, 2)
     // FUTA: 1.19 + 1.19 = 2.38
     expect(r.futa).toBeCloseTo(2.38, 2)
@@ -236,5 +240,61 @@ describe('previousQuarter', () => {
 
   it('wraps Q1 into the prior year Q4', () => {
     expect(previousQuarter(2027, 1)).toEqual({ year: 2026, quarter: 4 })
+  })
+})
+
+describe('getQuarterStatus', () => {
+  it('reports a quarter still accruing as in_progress', () => {
+    // 2026-08-24 sits inside Q3 (Jul 1 - Sep 30), which is exactly the case
+    // that let "Data ready" show next to a Mark Filed button.
+    expect(getQuarterStatus(2026, 3, '2026-08-24')).toBe('in_progress')
+  })
+
+  it('treats the final day of the quarter as still in progress', () => {
+    expect(getQuarterStatus(2026, 3, '2026-09-30')).toBe('in_progress')
+    expect(getQuarterStatus(2026, 3, '2026-10-01')).toBe('complete')
+  })
+
+  it('reports an elapsed quarter as complete and a future one as not_started', () => {
+    expect(getQuarterStatus(2026, 2, '2026-08-24')).toBe('complete')
+    expect(getQuarterStatus(2026, 4, '2026-08-24')).toBe('not_started')
+  })
+
+  it('handles the year boundary', () => {
+    expect(getQuarterStatus(2026, 4, '2026-12-31')).toBe('in_progress')
+    expect(getQuarterStatus(2026, 4, '2027-01-01')).toBe('complete')
+  })
+})
+
+describe('calculateFederalEstimatedTax — annualized projection', () => {
+  const bigStub = (payDate: string) => makeStub({
+    pay_date: payDate,
+    fica_social_security: 100, employer_fica_ss: 100,
+    fica_medicare: 25, employer_fica_medicare: 25,
+    federal_withholding: 0, futa: 20,
+  })
+
+  it('suppresses the projection while the period is still open', () => {
+    // Q3 runs Jun 1 - Aug 31; on Aug 24 the period has payrolls left to come,
+    // so scaling by 12/3 would under-project the full year.
+    const r = calculateFederalEstimatedTax([bigStub('2026-08-19')], 2026, 3, rates2026, '2026-08-24')
+    expect(r.period_in_progress).toBe(true)
+    expect(r.annualized_projection).toBeNull()
+  })
+
+  it('projects once the period has closed', () => {
+    const r = calculateFederalEstimatedTax([bigStub('2026-08-19')], 2026, 3, rates2026, '2026-09-15')
+    expect(r.period_in_progress).toBe(false)
+    // (200 + 50 + 0) x 4 = 1000, plus FUTA capped below.
+    expect(r.annualized_projection).not.toBeNull()
+    expect(r.annualized_projection!).toBeGreaterThan(1000)
+  })
+
+  it('caps annualized FUTA at the wage base rather than scaling it linearly', () => {
+    // FUTA of 20 x (12/3) = 80 naively, but the annual ceiling is
+    // futa_wage_base 7000 x futa_rate 0.006 = 42.
+    const r = calculateFederalEstimatedTax([bigStub('2026-08-19')], 2026, 3, rates2026, '2026-09-15')
+    const nonFuta = (100 + 100 + 25 + 25) * 4
+    expect(r.annualized_projection!).toBe(nonFuta + 42)
   })
 })

@@ -69,12 +69,21 @@ export default async function StubDetailPage({ params }: Props) {
     (acc, s) => acc + Number(s.overtime_hours ?? 0) * Number(s.hourly_rate) * 1.5,
     0,
   )
+  // Paid prenatal leave is paid at the regular rate but is not hours worked, so
+  // it is tracked as its own YTD wage bucket rather than folded into regular.
+  const prenatalWagesThisStub =
+    Number(stub.prenatal_leave_hours ?? 0) * Number(stub.hourly_rate)
+  const prenatalWagesPrior = prior.reduce(
+    (acc, s) => acc + Number(s.prenatal_leave_hours ?? 0) * Number(s.hourly_rate),
+    0,
+  )
 
   const stubWithYTD: PaystubWithYTD = {
     ...stub,
     ytd_gross: sum('gross_pay') + Number(stub.gross_pay),
     ytd_regular_wages: regularWagesPrior + regularWagesThisStub,
     ytd_overtime_wages: overtimeWagesPrior + overtimeWagesThisStub,
+    ytd_prenatal_leave_wages: prenatalWagesPrior + prenatalWagesThisStub,
     ytd_federal_withholding: sum('federal_withholding') + Number(stub.federal_withholding),
     ytd_fica_social_security: sum('fica_social_security') + Number(stub.fica_social_security),
     ytd_fica_medicare: sum('fica_medicare') + Number(stub.fica_medicare),
@@ -85,6 +94,7 @@ export default async function StubDetailPage({ params }: Props) {
     ytd_employer_fica_medicare: sum('employer_fica_medicare') + Number(stub.employer_fica_medicare),
     ytd_futa: sum('futa') + Number(stub.futa),
     ytd_suta: sum('suta') + Number(stub.suta),
+    ytd_rsf: sum('rsf') + Number(stub.rsf ?? 0),
     ytd_net_pay: sum('net_pay') + Number(stub.net_pay),
     ytd_total_employee_taxes: ytd_total_employee_taxes + totalEmployeeTaxes,
     total_employee_taxes: totalEmployeeTaxes,
@@ -126,6 +136,8 @@ export default async function StubDetailPage({ params }: Props) {
     ytd_employer_fica_medicare: 0,
     ytd_futa: 0,
     ytd_suta: 0,
+    ytd_rsf: 0,
+    ytd_prenatal_leave_wages: 0,
     zelle_transaction_id: null,
   } : stubWithYTD
 

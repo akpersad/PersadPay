@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ChevronRight, FileText } from 'lucide-react'
 import { formatDate, formatCurrency, daysUntil, shiftedDeadline } from '@/lib/dates'
+import { getQuarterStatus, type Quarter } from '@/lib/filings'
 
 interface Props {
   year: number
@@ -22,7 +23,11 @@ export function NextFilingCard({ year, quarter, dueDate, stubCount, grossPay, fi
   // is only overdue the day AFTER the (shifted) deadline.
   const days = daysUntil(shiftedDeadline(dueDate).effective)
   const overdue = days < 0
-  const ready = stubCount > 0
+  // "Data ready" must mean the quarter has closed, not merely that some stubs
+  // exist — an accruing quarter still has payrolls to come.
+  const quarterStatus = getQuarterStatus(year, quarter as Quarter)
+  const accruing = quarterStatus !== 'complete'
+  const ready = stubCount > 0 && !accruing
 
   return (
     <Link href={`/filings/nys-45/${year}/${quarter}`} className="block">
@@ -42,6 +47,9 @@ export function NextFilingCard({ year, quarter, dueDate, stubCount, grossPay, fi
               }
               {ready && !overdue && days > 20 && (
                 <Badge variant="outline">Data ready</Badge>
+              )}
+              {accruing && !overdue && (
+                <Badge variant="outline" className="text-muted-foreground">In progress</Badge>
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">

@@ -48,6 +48,9 @@ export interface Paystub {
   hours_worked: number
   overtime_hours: number
   sick_hours: number
+  // NY Paid Prenatal Leave hours taken (migration 0047). PAID at the regular
+  // rate and included in gross_pay, unlike the unpaid sick_hours.
+  prenatal_leave_hours: number
   reason: StubReason | null
   // Per-day hours breakdown keyed by YYYY-MM-DD. Only present on stubs
   // created with daily-entry mode; null for total-hours stubs.
@@ -67,6 +70,8 @@ export interface Paystub {
   employer_fica_medicare: number
   futa: number
   suta: number
+  // NY Re-employment Service Fund, employer-side (migration 0045). NYS-45 line 5.
+  rsf: number
   net_pay: number
   payment_sent: boolean
   zelle_transaction_id: string | null
@@ -133,6 +138,7 @@ export interface PaystubWithYTD extends Paystub {
   ytd_gross: number
   // Regular wages YTD = sum((hours_worked - overtime_hours) × hourly_rate).
   ytd_regular_wages: number
+  ytd_prenatal_leave_wages: number
   // Overtime wages YTD = sum(overtime_hours × hourly_rate × 1.5).
   ytd_overtime_wages: number
   ytd_federal_withholding: number
@@ -145,6 +151,7 @@ export interface PaystubWithYTD extends Paystub {
   ytd_employer_fica_medicare: number
   ytd_futa: number
   ytd_suta: number
+  ytd_rsf: number
   ytd_net_pay: number
   ytd_total_employee_taxes: number
   total_employee_taxes: number

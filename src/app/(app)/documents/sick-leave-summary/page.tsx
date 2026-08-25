@@ -147,11 +147,13 @@ export default async function SickLeaveSummaryPage({
         <section className="space-y-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide">Statutory Note</h2>
           <p className="text-sm">
-            Provided pursuant to NY Labor Law § 196-b(4), which requires employers to furnish, in
-            writing within three business days of an employee request, a summary of sick leave used
-            in the current and prior calendar years. {employer} maintains an unlimited unpaid sick
-            leave policy that exceeds the 40-hour statutory floor for small employers (1–4
-            employees, ≤$1M net income).
+            Provided pursuant to NY Labor Law § 196-b(11), which requires employers to furnish,
+            within three business days of an employee&apos;s oral or written request, a summary of the
+            sick leave accrued and used in the current calendar year and any previous calendar year.
+            {' '}{employer} maintains an unlimited unpaid sick leave policy that exceeds the 40-hour
+            statutory floor for small employers (1 to 4 employees, $1M or less net income), so the
+            amount available is not capped. Records are retained for six years per Labor Law
+            § 195(4).
           </p>
         </section>
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { computeW2Boxes, w2ErrorResponse } from '@/lib/w2'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -15,7 +16,22 @@ export async function POST(request: Request) {
   if (profile?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await request.json()
-  const { generated_by, ...w2Data } = body
+  const { generated_by, tax_year } = body
+
+  const yearInt = parseInt(String(tax_year))
+  if (!Number.isInteger(yearInt)) {
+    return NextResponse.json({ error: 'tax_year must be an integer' }, { status: 400 })
+  }
+
+  // Box values are re-derived here rather than taken from the request body.
+  // This is a filed IRS document, so a stale or tampered client payload must
+  // not be persisted verbatim; the client's numbers are only a preview.
+  const result = await computeW2Boxes(supabase, createAdminClient(), yearInt)
+  if (!result.ok) {
+    const { error, status } = w2ErrorResponse(result.error)
+    return NextResponse.json({ error }, { status })
+  }
+  const w2Data = result.boxes
 
   // Regenerating over a W-2 already filed with the SSA must not keep showing
   // "Filed with SSA" on numbers the SSA never received. If any box value

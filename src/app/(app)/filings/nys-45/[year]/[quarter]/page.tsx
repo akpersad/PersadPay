@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ChevronLeft, ExternalLink } from 'lucide-react'
 import { formatDate, formatCurrency, daysUntil, shiftedDeadline, selfImposedDeadline } from '@/lib/dates'
-import { calculateNYS45, type Quarter } from '@/lib/filings'
+import { calculateNYS45, getQuarterStatus, getQuarterDateRange, type Quarter } from '@/lib/filings'
 import { getTaxRatesForYear } from '@/lib/tax'
 import { CopyValue } from '@/components/filings/CopyValue'
 import { MarkFiledForm } from '@/components/filings/MarkFiledForm'
@@ -86,6 +86,11 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
   const daysUntilFileBy = daysUntil(fileBy)
   const isFiled = !!filing?.filed_on
   const isNotApplicable = !!filing?.not_applicable
+  // Wages are still accruing until the quarter's last day passes. The figures
+  // below are correct for the stubs that exist, but they are not the final
+  // return yet, so the mark-filed affordance is withheld.
+  const quarterStatus = getQuarterStatus(year, q)
+  const quarterIncomplete = quarterStatus !== 'complete'
 
   return (
     <div className="px-4 pt-4 pb-4 max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto space-y-4">
@@ -120,11 +125,30 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
         )}
       </div>
 
+      {quarterIncomplete && !isFiled && !isNotApplicable && (
+        <Card className="border-yellow-600/50 bg-yellow-50/50">
+          <CardContent className="py-3 px-4">
+            <p className="text-sm font-medium text-yellow-900">
+              {quarterStatus === 'not_started'
+                ? 'This quarter has not started yet.'
+                : 'This quarter is still in progress.'}
+            </p>
+            <p className="text-xs text-yellow-800 mt-1">
+              {quarterStatus === 'not_started'
+                ? `Q${q} runs ${formatDate(getQuarterDateRange(year, q).start)} to ${formatDate(getQuarterDateRange(year, q).end)}. No wages have been paid in it yet.`
+                : `Wages are still accruing through ${formatDate(getQuarterDateRange(year, q).end)}. The amounts below are correct for the ${data.stub_count} ${data.stub_count === 1 ? 'stub' : 'stubs'} paid so far, but they are not the final return. Filing now would understate remuneration and require an amended NYS-45 plus interest at 12% per year from the due date.`}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {!data.stub_count ? (
         <Card>
           <CardContent className="py-4 px-4">
             <p className="text-sm text-muted-foreground">
-              No paystubs in this quarter. NYS-45 still required even with zero wages. File a no-payroll return.
+              {quarterIncomplete
+                ? 'No paystubs paid in this quarter yet.'
+                : 'No paystubs in this quarter. NYS-45 still required even with zero wages. File a no-payroll return, and enter 0 in Part C, line 24.'}
             </p>
           </CardContent>
         </Card>
@@ -136,26 +160,26 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
               <CardTitle className="text-sm">Part A: Unemployment Insurance</CardTitle>
             </CardHeader>
             <CardContent className="pb-4 space-y-2">
-              <BoxRow box="2" label="Total UI quarterly remuneration" value={data.ui_gross_wages} />
-              <BoxRow box="3" label="Quarterly remuneration in excess of UI wage base" value={data.ui_excess_wages} />
-              <BoxRow box="4" label="UI taxable wages" value={data.ui_taxable_wages} />
+              <BoxRow box="1" label="Total remuneration paid this quarter" value={data.ui_gross_wages} />
+              <BoxRow box="2" label="Remuneration paid in excess of the UI wage base" value={data.ui_excess_wages} />
+              <BoxRow box="3" label="UI taxable wages (line 1 − line 2)" value={data.ui_taxable_wages} />
               <BoxRow
-                box="5"
+                box="4"
                 label="UI contributions due"
                 value={data.ui_tax_due}
                 hint={`Wage base $${Number(rates.suta_wage_base).toLocaleString()} · rate ${parseFloat((sutaRate * 100).toFixed(3))}%`}
               />
               <BoxRow
-                box="6"
+                box="5"
                 label="Re-employment Service Fund (RSF) contribution"
                 value={data.rsf}
-                hint={`Box 4 × ${(Number(rates.rsf_rate ?? 0.00075) * 100).toFixed(3)}%`}
+                hint={`Line 3 × ${(Number(rates.rsf_rate ?? 0.00075) * 100).toFixed(3)}%`}
               />
               <BoxRow
-                box=""
-                label="Total UI amount due"
+                box="6"
+                label="Total UI amount due (line 4 + line 5)"
                 value={data.total_ui_due}
-                hint="Boxes 5 + 6, rounded on the sum to match NY DOL's online total. Can differ by a penny from adding the rounded boxes."
+                hint="Rounded on the unrounded sum to match NY DOL's assessed total. Can differ by a penny from adding the two rounded lines above."
               />
             </CardContent>
           </Card>
@@ -191,10 +215,12 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
               <CardTitle className="text-sm">Part B: Withholding</CardTitle>
             </CardHeader>
             <CardContent className="pb-4 space-y-2">
-              <BoxRow box="12" label="NY State income tax withheld" value={data.ny_state_tax_withheld} />
-              <BoxRow box="13" label="NYC income tax withheld" value={0} hint="Not applicable (Nassau resident)" />
-              <BoxRow box="14" label="Yonkers income tax withheld" value={0} hint="Not applicable" />
-              <BoxRow box="15" label="Total income tax withheld" value={data.total_tax_withheld} />
+              <BoxRow
+                box="13"
+                label="Total NY State, NYC and Yonkers tax withheld"
+                value={data.total_tax_withheld}
+                hint="One combined line on the current form. NYC and Yonkers are $0 (Nassau resident), so this equals NY State withholding."
+              />
             </CardContent>
           </Card>
 
@@ -216,14 +242,18 @@ export default async function NYS45QuarterPage({ params }: { params: Promise<Par
         </>
       )}
 
-      <MarkFiledForm
-        existing={filing ?? null}
-        filingType="NYS-45"
-        taxYear={year}
-        quarter={q}
-        createdBy={user.id}
-        computedAmount={data.total_ui_due + data.total_tax_withheld}
-      />
+      {/* Withheld while the quarter is still accruing — see getQuarterStatus.
+          Always shown once filed / marked N/A so the record stays editable. */}
+      {(!quarterIncomplete || isFiled || isNotApplicable) && (
+        <MarkFiledForm
+          existing={filing ?? null}
+          filingType="NYS-45"
+          taxYear={year}
+          quarter={q}
+          createdBy={user.id}
+          computedAmount={data.total_ui_due + data.total_tax_withheld}
+        />
+      )}
 
       <a
         href="https://www.tax.ny.gov/bus/ads/efile_addnys45.htm"
@@ -255,8 +285,8 @@ function BoxRow({
 }) {
   return (
     <div className="flex items-start gap-3">
-      {box && <span className="text-[10px] uppercase tracking-wide text-muted-foreground pt-1 w-8 flex-shrink-0">Box {box}</span>}
-      {!box && <span className="w-8 flex-shrink-0" />}
+      {box && <span className="text-[10px] uppercase tracking-wide text-muted-foreground pt-1 w-10 flex-shrink-0">Line {box}</span>}
+      {!box && <span className="w-10 flex-shrink-0" />}
       <div className="flex-1 min-w-0">
         <p className="text-sm">{label}</p>
         {hint && <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>}

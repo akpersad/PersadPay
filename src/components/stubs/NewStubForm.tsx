@@ -8,8 +8,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { calculateTaxes, getTaxRatesForYear } from '@/lib/tax'
+import { calculateTaxes, getTaxRatesForYear, getMileageRateForDate, roundToCents } from '@/lib/tax'
 import { addDays, formatCurrency } from '@/lib/dates'
+import {
+  computePrenatalLeaveBalance,
+  availableExcluding,
+  PRENATAL_LEAVE_HOURS_PER_PERIOD,
+} from '@/lib/prenatal'
 import type { Settings, Paystub, PaystubLineItem, StubReason } from '@/lib/types'
 import type { TaxResult, TaxRates } from '@/lib/tax'
 import { toast } from 'sonner'
@@ -130,6 +135,14 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
   const [sickHours, setSickHours] = useState<string>(
     initialStub ? String(initialStub.sick_hours) : '',
   )
+  const [prenatalHours, setPrenatalHours] = useState<string>(
+    initialStub && Number(initialStub.prenatal_leave_hours) > 0
+      ? String(initialStub.prenatal_leave_hours)
+      : '',
+  )
+  // Remaining entitlement in the rolling 52-week period, loaded from history.
+  // null until fetched so the field can stay quiet rather than flash "20".
+  const [prenatalAvailable, setPrenatalAvailable] = useState<number | null>(null)
   const [lineItems, setLineItems] = useState<LineItemDraft[]>(() => {
     const source = initialLineItems ?? prefillFromStub?.lineItems
     if (!source || source.length === 0) return []
@@ -149,6 +162,48 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
   // the pay date (including across a year boundary), so generatePreview()
   // re-derives both for the entered date before calculating.
   const [previewContext, setPreviewContext] = useState({ ytdGrossBefore, ytdPflBefore, taxRates })
+
+  // The IRS mileage rate can change mid-year (72.5c -> 76c on 2026-07-01), so
+  // it is resolved from the entered pay date rather than the tax year. Seeded
+  // from tax_rates (the January-effective rate) and refreshed whenever the
+  // admin edits the pay date, so a trip paid in H2 reimburses at the H2 rate.
+  const [mileageRate, setMileageRate] = useState(Number(taxRates.irs_mileage_rate))
+
+  useEffect(() => {
+    if (!payDate) return
+    let cancelled = false
+    getMileageRateForDate(createClient(), payDate).then(rate => {
+      if (!cancelled && rate !== null) setMileageRate(rate)
+    })
+    return () => { cancelled = true }
+  }, [payDate])
+
+  // Prenatal-leave entitlement is 20 hours per rolling 52-week period measured
+  // from first use, so the remaining balance depends on the whole history, not
+  // just this year. Editing a stub excludes its own hours from the tally.
+  useEffect(() => {
+    if (!employeeId || !payDate) return
+    let cancelled = false
+    const supabase = createClient()
+    supabase
+      .from('paystubs')
+      .select('pay_date, prenatal_leave_hours')
+      .eq('employee_id', employeeId)
+      .gt('prenatal_leave_hours', 0)
+      .then(({ data }) => {
+        if (cancelled) return
+        const uses = (data ?? []).map(r => ({
+          date: r.pay_date as string,
+          hours: Number(r.prenatal_leave_hours),
+        }))
+        setPrenatalAvailable(
+          isEdit && initialStub
+            ? availableExcluding(uses, initialStub.pay_date, payDate)
+            : computePrenatalLeaveBalance(uses, payDate).hours_available,
+        )
+      })
+    return () => { cancelled = true }
+  }, [employeeId, payDate, isEdit, initialStub])
   const [previewing, setPreviewing] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -219,9 +274,19 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
     }
   }, [totalHoursNum, overtimeHoursOverride])
 
+  // NY Paid Prenatal Leave (§ 196-b(4-a)) is PAID at the regular rate, so it
+  // adds to the wage base. It is deliberately NOT part of totalHoursNum: paid
+  // leave is not "hours worked", so it must not push the week past the 40-hour
+  // overtime threshold or count toward the DBL/PFL coverage test.
+  const prenatalHoursNum = Math.max(0, parseFloat(prenatalHours || '0') || 0)
+  const prenatalPay = prenatalHoursNum * rateNum
+  // Warn rather than block: exceeding 20 hours is not illegal, it just isn't
+  // required, so the admin stays free to be more generous than the statute.
+  const prenatalOverCap = prenatalAvailable !== null && prenatalHoursNum > prenatalAvailable
+
   const regularPay = regularHoursNum * rateNum
   const overtimePay = overtimeHoursNum * rateNum * 1.5
-  const baseWages = regularPay + overtimePay
+  const baseWages = regularPay + overtimePay + prenatalPay
 
   // Line items partition: taxable additions roll into the wage base; non-
   // taxable reimbursements skip taxes but still go into the employee's hand;
@@ -387,7 +452,7 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
     setSaving(true)
 
     const supabase = createClient()
-    const finalNetPay = Math.round((preview.net_pay + nonTaxableAdditionsTotal) * 100) / 100
+    const finalNetPay = roundToCents(preview.net_pay + nonTaxableAdditionsTotal)
 
     const stubFields = {
       pay_period_start: periodStart,
@@ -399,6 +464,7 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
       // for any other reason, so a stale value must not save with the stub
       // (it would inflate the NY § 196-b summary).
       sick_hours: totalHoursNum === 0 && reason === 'sick_unpaid' ? parseFloat(sickHours || '0') : 0,
+      prenatal_leave_hours: prenatalHoursNum,
       reason: totalHoursNum === 0 ? (reason || null) : null,
       // Persist per-day breakdown only when admin used daily-entry mode.
       // In total-hours mode, set null so legacy stubs remain distinguishable.
@@ -420,6 +486,7 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
       employer_fica_medicare: preview.employer_fica_medicare,
       futa: preview.futa,
       suta: preview.suta,
+      rsf: preview.rsf,
       net_pay: finalNetPay,
     }
 
@@ -643,6 +710,38 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
             </div>
           )}
 
+          {/* NY Paid Prenatal Leave (§ 196-b(4-a)). Always available, not gated
+              on a zero-hour week: it is taken in hourly increments and can sit
+              alongside hours actually worked in the same period. */}
+          <div className="space-y-1.5">
+            <Label htmlFor="prenatal-hours">Paid prenatal leave hours (optional)</Label>
+            <Input
+              id="prenatal-hours"
+              type="number"
+              min="0"
+              step="0.25"
+              value={prenatalHours}
+              onChange={e => { setPrenatalHours(e.target.value); setPreview(null) }}
+              placeholder="0"
+            />
+            {prenatalOverCap ? (
+              <p className="text-[11px] text-destructive">
+                Over the entitlement. Only {prenatalAvailable} of the 20 hours remain in the
+                current 52-week period. Anything beyond that is not required by law, so pay it
+                only if you choose to.
+              </p>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                Paid at her regular rate and taxed as wages. Leave blank unless she took prenatal
+                leave this period.
+                {prenatalAvailable !== null && (
+                  <> {prenatalAvailable} of {PRENATAL_LEAVE_HOURS_PER_PERIOD} hours remain in the
+                  current 52-week period.</>
+                )}
+              </p>
+            )}
+          </div>
+
           {/* Dates */}
           <div className="space-y-1.5">
             <Label htmlFor="period-start">Pay Period Start</Label>
@@ -680,7 +779,7 @@ export function NewStubForm({ settings, employeeId, lastPayPeriodEnd, nextStubNu
       <AdditionalPaySection
         items={lineItems}
         onChange={updateLineItems}
-        irsMileageRate={Number(taxRates.irs_mileage_rate)}
+        irsMileageRate={mileageRate}
       />
 
       <Button
