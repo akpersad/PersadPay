@@ -161,12 +161,15 @@ export function calculateNYS45(
   const uiGross = sorted.reduce((sum, s) => sum + Number(s.gross_pay), 0)
   const uiExcess = uiGross - uiTaxable
   const rsfRate = Number(rates.rsf_rate ?? 0.00075)
-  const uiTaxDue = round(uiTaxable * sutaRate)
+  // NY DOL truncates fractional cents rather than rounding (observed Q3 2026:
+  // 2,079 × 4.025% = 83.67975 shown as 83.67). Round to 1e-6 first to
+  // strip float noise without pushing a real fraction over a cent boundary.
+  const truncCents = (n: number) => Math.floor(Math.round(n * 1e6) / 1e4) / 100
+  const uiTaxDue = truncCents(uiTaxable * sutaRate)
   const rsf = round(uiTaxable * rsfRate)
   // NY DOL's e-file totals the unrounded UI + RSF and truncates fractional
-  // cents (observed: 51.80175 + 0.96525 = 52.767 assessed as 52.76). Compute
-  // in tenths of cents to avoid float noise before truncating.
-  const totalUiDue = Math.floor(Math.round((uiTaxable * sutaRate + uiTaxable * rsfRate) * 1000) / 10) / 100
+  // cents (observed: 51.80175 + 0.96525 = 52.767 assessed as 52.76).
+  const totalUiDue = truncCents(uiTaxable * sutaRate + uiTaxable * rsfRate)
 
   const nyWithheld = sorted.reduce((sum, s) => sum + Number(s.state_withholding), 0)
   const fedWithheld = sorted.reduce((sum, s) => sum + Number(s.federal_withholding), 0)
