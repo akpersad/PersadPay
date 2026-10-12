@@ -141,6 +141,14 @@ describe('calculateNYS45 — total UI due rounding', () => {
     expect(r.rsf).toBe(0.97)
     expect(r.total_ui_due).toBe(52.76)
   })
+
+  it('truncates the UI contribution line instead of rounding, matching NY DOL', () => {
+    // Real Q3 2026 case: 2,079 × 4.025% = 83.67975, shown by NY as 83.67.
+    const stubs = [makeStub({ gross_pay: 2079, pay_date: '2026-08-12' })]
+    const r = calculateNYS45(stubs, 0, rates2026, 0.04025, 2026, 3)
+    expect(r.ui_tax_due).toBe(83.67)
+    expect(r.total_ui_due).toBe(85.23)
+  })
 })
 
 describe('calculateNYS45 — covered employees by 12th of month', () => {
